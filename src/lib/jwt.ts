@@ -1,7 +1,7 @@
 // lib/jwt.ts
 
 import jwt from "jsonwebtoken";
-import { JwtAccessTokenPayload, JwtRefreshTokenPayload, JwtValidatorTokenPayload } from "@/types/auth";
+import { JwtAccessTokenPayload, JwtRefreshTokenPayload, JwtValidatorTokenPayload } from "./types/auth";
 import { randomUUID } from "crypto";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -58,7 +58,7 @@ export function signResetToken(user: { id: string; email: string; }) {
     type: "access",
   };
 
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "1h" }); // "1h" is correct
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7m" });
 }
 
 export function verifyResetToken(token: string): JwtAccessTokenPayload {

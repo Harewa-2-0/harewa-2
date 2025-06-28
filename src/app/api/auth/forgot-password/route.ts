@@ -4,8 +4,6 @@ import { User } from "@/lib/models/User";
 import dbConnect from "@/lib/db";
 import { sendResetEmail } from "@/lib/mailer";
 
-
-
 export async function POST(req: NextRequest) {
     await dbConnect();
     const body = await req.json();
@@ -19,14 +17,11 @@ export async function POST(req: NextRequest) {
             { status: 404 }
         );
     }
-
-
     const urlToken = signResetToken({
         id: user._id.toString(),
         email: user.email,
     });
-
-
+    await sendResetEmail(user.email, `${process.env.NEXTAUTH_URL}/forgot-password?token=${urlToken}`);
 
     const response = new NextResponse(JSON.stringify({ success: true }), {
         status: 200,
@@ -34,8 +29,6 @@ export async function POST(req: NextRequest) {
             "Content-Type": "application/json",
         },
     });
-
-    sendResetEmail(user.email, `${process.env.NEXTAUTH_URL}/forgot-password?token=${urlToken}`);
 
     return response;
 }
