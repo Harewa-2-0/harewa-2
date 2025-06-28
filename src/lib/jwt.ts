@@ -51,23 +51,20 @@ export function verifyRefreshToken(token: string): JwtRefreshTokenPayload {
 }
 
 
-export function signValidatorToken(id: string) {
+export function signResetToken(user: { id: string; email: string; }) {
   const payload: JwtValidatorTokenPayload = {
-    sub: id,
+    sub: user.id,
+    email: user.email,
     type: "access",
   };
 
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "1h" }); // "1h" is correct
 }
 
-export function verifyValidatorToken(token: string): JwtAccessTokenPayload {
-  let decoded;
+export function verifyResetToken(token: string): JwtAccessTokenPayload {
 
-  try {
-    decoded = jwt.verify(token, JWT_SECRET);
-  } catch (err) {
-    throw new Error("Token verification failed " + err);
-  }
+
+  const decoded = jwt.verify(token, JWT_SECRET);
 
   if (typeof decoded !== "object" || !decoded || decoded.type !== "access") {
     throw new Error("Invalid access token");
