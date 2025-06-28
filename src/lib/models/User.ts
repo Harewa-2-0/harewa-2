@@ -6,9 +6,12 @@ const UserSchema = new mongoose.Schema({
   username: { type: String, unique: true },
   phoneNumber: { type: String, unique: true },
   isVerified: { type: Boolean, default: false },
+  accountDeleted: { type: Boolean, default: false },
   verificationCode: { type: String },
   refreshTokenJTI: { type: String, default: null },
-  role: { type: String, enum: ["admin", "client"], default: "admin" },
+  role: {
+    type: String, enum: ["admin", "seller", "client"], default: "client"
+  },
   joinedAt: { type: Date, default: Date.now },
 });
 
