@@ -40,5 +40,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-client_secret_799542381907-t7usjoahf008d1k3fmdtkq6viq28c5au.apps.googleusercontent.com
-*.com
+client_secret_*.json
