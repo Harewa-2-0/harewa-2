@@ -40,4 +40,5 @@ export interface JwtValidatorTokenPayload {
   type: "access";
   iat?: number;
   exp?: number;
+  email?: string;
 }
