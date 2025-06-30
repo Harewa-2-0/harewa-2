@@ -1,6 +1,6 @@
 // lib/mailer.ts
 import nodemailer from "nodemailer";
-import { Attachment } from "nodemailer/lib/mailer";
+// import { Attachment } from "nodemailer/lib/mailer";
 
 const teamTransporter = nodemailer.createTransport({
   service: process.env.TEAM_SMTP_SERVICE,
@@ -98,6 +98,30 @@ export async function resendOtpEmail(to: string, otp: string): Promise<void> {
   await notificationTransporter.sendMail(mailOptions);
 }
 
+export async function sendResetEmail(to: string, url: string): Promise<void> {
+  const mailOptions = {
+    from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
+    to,
+    subject: "Password Reset",
+    html: `
+      <div style="font-family: sans-serif; padding: 1rem;">
+        <h2>🔐Reset your password</h2> 
+        <p>You have requested to change your password, Use the link bellow to reset it</p>
+           <div style="text-align: center; margin: 20px 0;">
+          <a href=${url}>
+    <Button style="display:inline-block; padding: 6px 12px; background-color: #1e40af; color: #fff; font-size: 12px; letter-spacing: 4px; border-radius: 6px;" >
+      Reset Password
+        </Button>
+        </a>
+        </div>
+        <p> ${url} <p>
+          <p style="letter-spacing: 2px;" > This link will expire shortly.If you did not request this, please ignore.</p>
+            </div>
+              `,
+  };
+
+  await notificationTransporter.sendMail(mailOptions);
+}
 
 
 export const sendFailureMail = async ({
@@ -111,7 +135,7 @@ export const sendFailureMail = async ({
 }) => {
   try {
     const info = await notificationTransporter.sendMail({
-      from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
+      from: `"Harewa" < ${process.env.NOTIFICATION_EMAIL_USER}> `,
       to,
       subject,
       html,
