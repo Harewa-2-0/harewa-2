@@ -3,6 +3,8 @@ import { signAccessToken, signRefreshToken } from "@/lib/jwt";
 import bcrypt from "bcryptjs";
 import { User } from "@/lib/models/User";
 import dbConnect from "@/lib/db";
+import { sendVerificationEmail } from "@/lib/mailer";
+import { generateVerificationCode } from "@/lib/utils";
 
 async function verifyPassword(input: string, hashed: string) {
   return bcrypt.compare(input, hashed);
@@ -21,10 +23,34 @@ export async function POST(req: NextRequest) {
       { status: 404 }
     );
   }
-  if (!(await verifyPassword(password, user.password))) {
+  if (user.googleId && !user.password) {
     return NextResponse.json(
-      { message: "Wrong Password. Reset it if you forgot it." },
+      { message: "Google account, password login not supported." },
+      { status: 403 }
+    );
+  }
+
+  if (!(await verifyPassword(password, user.password))) {
+
+    return NextResponse.json(
+      { message: "Wrong Password. password or email not correct." },
       { status: 401 }
+    );
+  }
+  if (user.accountDeleted) {
+    return NextResponse.json(
+      { message: "User Account deleted" },
+      { status: 403 }
+    );
+  }
+  if (user.isVerified === false) {
+    const verificationCode = generateVerificationCode();
+    user.verificationCode = verificationCode;
+    await user.save();
+    await sendVerificationEmail(email, verificationCode);
+    return NextResponse.json(
+      { message: "User is not verified, verify your acount." },
+      { status: 403 }
     );
   }
 
@@ -41,13 +67,11 @@ export async function POST(req: NextRequest) {
   user.refreshTokenJTI = newJTI;
   await user.save();
 
-  const accessCookie = `access-token=${accessToken}; HttpOnly; Path=/; Max-Age=${
-    60 * 60 * 24 * 7
-  }; ${process.env.NODE_ENV === "production" ? "Secure; SameSite=Lax;" : ""}`;
+  const accessCookie = `access-token=${accessToken}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7
+    }; ${process.env.NODE_ENV === "production" ? "Secure; SameSite=Lax;" : ""}`;
 
-  const refreshCookie = `refresh-token=${refreshToken}; HttpOnly; Path=/; Max-Age=${
-    60 * 60 * 24 * 7
-  }; ${process.env.NODE_ENV === "production" ? "Secure; SameSite=Lax;" : ""}`;
+  const refreshCookie = `refresh-token=${refreshToken}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7
+    }; ${process.env.NODE_ENV === "production" ? "Secure; SameSite=Lax;" : ""}`;
 
   const response = new NextResponse(JSON.stringify({ success: true }), {
     status: 200,
