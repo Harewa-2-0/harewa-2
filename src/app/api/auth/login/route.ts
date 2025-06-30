@@ -23,9 +23,17 @@ export async function POST(req: NextRequest) {
       { status: 404 }
     );
   }
-  if (!(await verifyPassword(password, user.password))) {
+  if (user.googleId && !user.password) {
     return NextResponse.json(
-      { message: "Wrong Password. Reset it if you forgot it." },
+      { message: "Google account, password login not supported." },
+      { status: 403 }
+    );
+  }
+
+  if (!(await verifyPassword(password, user.password))) {
+
+    return NextResponse.json(
+      { message: "Wrong Password. password or email not correct." },
       { status: 401 }
     );
   }

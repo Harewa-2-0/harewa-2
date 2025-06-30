@@ -9,6 +9,7 @@ const UserSchema = new mongoose.Schema({
   accountDeleted: { type: Boolean, default: false },
   verificationCode: { type: String },
   refreshTokenJTI: { type: String, default: null },
+  googleId: { type: String, unique: true, sparse: true },
   role: {
     type: String, enum: ["admin", "seller", "client"], default: "client"
   },
