@@ -4,6 +4,11 @@ import { User } from "./models/User";
 
 import crypto from "crypto";
 import PDFDocument from "pdfkit";
+import moment from "moment-timezone";
+
+export async function currentTime(date: number) {
+  moment(date).tz("America/New_York").format();
+};
 
 export async function splitFullName(fullName: string): Promise<{ firstName: string; lastName: string }> {
   const names = fullName.trim().split(/\s+/);
