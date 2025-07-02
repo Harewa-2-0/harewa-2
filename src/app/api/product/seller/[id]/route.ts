@@ -3,33 +3,38 @@ import { Product } from "@/lib/models/Product";
 import connectDB from "@/lib/db";
 import { ok, notFound } from "@/lib/response";
 
-// GET /api/product/[id]
+// GET /api/product/seller/[id]
+// Get all products for a specific seller
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
-    const product = await Product.findById(params.id).lean();
-    if (!product) {
-        return notFound("Product not found");
+    const products = await Product.find({ seller: params.id }).lean();
+    if (!products || products.length === 0) {
+        return notFound("No products found for this seller");
     }
-    return ok(product);
+    return ok(products);
 }
 
-// PUT /api/product/[id]
+// PUT /api/product/seller/[id]
+// Update all products for a specific seller
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
     const body = await request.json();
-    const product = await Product.findByIdAndUpdate(params.id, body, { new: true, lean: true });
-    if (!product) {
-        return notFound("Product not found");
+    const result = await Product.updateMany({ seller: params.id }, body, { new: true });
+    if (result.matchedCount === 0) {
+        return notFound("No products found for this seller");
     }
-    return ok(product);
+    // Optionally, return updated products
+    const updatedProducts = await Product.find({ seller: params.id }).lean();
+    return ok(updatedProducts);
 }
 
-// DELETE /api/product/[id]
+// Delete all products for a specific seller
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+
     await connectDB();
-    const product = await Product.findByIdAndDelete(params.id).lean();
-    if (!product) {
-        return notFound("Product not found");
+    const result = await Product.deleteMany({ seller: params.id });
+    if (result.deletedCount === 0) {
+        return notFound("No products found for this seller");
     }
-    return ok(product);
+    return ok({ deletedCount: result.deletedCount });
 }
