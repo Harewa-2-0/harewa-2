@@ -3,36 +3,40 @@ import { Product } from "@/lib/models/Product";
 import connectDB from "@/lib/db";
 import { ok, notFound } from "@/lib/response";
 
-
-// GET /api/product/[id]
+// GET /api/product/shop/[id]
+// Get all products where shop matches id
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
-    const product = await Product.findById(params.id).lean();
-    if (!product) {
-        return notFound("Product not found");
+    const products = await Product.find({ shop: params.id }).lean();
+    if (!products || products.length === 0) {
+        return notFound("No products found for this shop");
     }
-    return ok(product);
+    return ok(products);
 }
 
-
-// PUT /api/product/[id]
+// PUT /api/product/shop/[id]
+// Update all products where shop matches id
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
     const body = await request.json();
-    const product = await Product.findByIdAndUpdate(params.id, body, { new: true, lean: true });
-    if (!product) {
-        return notFound("Product not found");
+    const result = await Product.updateMany({ shop: params.id }, body, { lean: true });
+    if (result.matchedCount === 0) {
+        return notFound("No products found for this shop");
     }
-    return ok(product);
+    // Optionally, return updated products
+    const updatedProducts = await Product.find({ shop: params.id }).lean();
+    return ok(updatedProducts);
 }
 
-
-
+// DELETE /api/product/shop/[id]
+// Delete all products where shop matches id
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
-    const product = await Product.findByIdAndDelete(params.id).lean();
-    if (!product) {
-        return notFound("Product not found");
+    const result = await Product.deleteMany({ shop: params.id });
+    if (result.deletedCount === 0) {
+        return notFound("No products found for this shop");
     }
-    return ok(product);
+    return ok({ deletedCount: result.deletedCount });
+
+
 }
