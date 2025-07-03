@@ -4,7 +4,7 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String },
   username: { type: String, unique: true },
-  phoneNumber: { type: String, unique: true },
+  phoneNumber: { type: String, },
   isVerified: { type: Boolean, default: false },
   accountDeleted: { type: Boolean, default: false },
   verificationCode: { type: String },
@@ -16,4 +16,4 @@ const UserSchema = new mongoose.Schema({
   joinedAt: { type: Date, default: Date.now },
 });
 
-export const User = mongoose.models.User || mongoose.model("User", UserSchema);
+export const User = mongoose.models.Users || mongoose.model("Users", UserSchema);
