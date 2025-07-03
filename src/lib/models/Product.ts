@@ -20,7 +20,7 @@ const productSchema = new mongoose.Schema({
   },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductCategory', required: true },
   fabricType: { type: mongoose.Schema.Types.ObjectId, ref: 'Fabric', required: true },
-  seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   shop: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true }
 
 }, { timestamps: true });
