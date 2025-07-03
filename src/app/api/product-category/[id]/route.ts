@@ -25,11 +25,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     try {
         const updatedCategory = await ProductCategory.findByIdAndUpdate(params.id, body, { new: true }).lean();
         if (!updatedCategory) {
-            return notFound("Product category not found"); return notFound("Shop not found");
+            return notFound("Product category not found");
         }
         return ok(updatedCategory);
     } catch (error) {
-        return badRequest("Invalid product category data: " + error); return badRequest("Invalid shop data: " + error);
+        return badRequest("Invalid product category data: " + error);
     }
 }
 
