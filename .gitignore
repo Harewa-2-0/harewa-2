@@ -42,3 +42,6 @@ next-env.d.ts
 
 client_secret_*.json
 .env.local
+
+# Ignore all env files
+.env*
