@@ -8,9 +8,9 @@ export function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
 }
 
-export async function verifyOtpAndGenerateToken(otp: string) {
+export async function verifyOtpAndGenerateToken(otp: string, email: string) {
   await dbConnect();
-  const user = await User.findOne({ verificationCode: otp });
+  const user = await User.findOne({ verificationCode: otp, email });
 
 
   if (!user) throw new Error("Invalid or expired OTP");
