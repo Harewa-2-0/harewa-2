@@ -11,8 +11,8 @@ export interface ProductCategory {
 
 
 export const ProductCategorySchema = new Schema<ProductCategory>({
-    id: { type: String, required: true, unique: true },
-    name: { type: String, required: true },
+    id: { type: String, },
+    name: { type: String, unique: true, required: true },
     description: { type: String },
     createdAt: { type: Date, required: true, default: Date.now },
     updatedAt: { type: Date, required: true, default: Date.now },

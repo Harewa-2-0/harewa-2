@@ -20,8 +20,9 @@ const productSchema = new mongoose.Schema({
   },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductCategory', required: true },
   fabricType: { type: mongoose.Schema.Types.ObjectId, ref: 'Fabric', required: true },
+  // Remove seller and shop from being required because the admin is the only seller now.
   seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  shop: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true }
+  shop: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop' }
 
 }, { timestamps: true });
 
