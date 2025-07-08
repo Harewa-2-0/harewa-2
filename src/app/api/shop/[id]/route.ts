@@ -18,9 +18,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
     const body = await request.json();
-    if (!body.name) {
-        return badRequest("Name is required");
-    }
     try {
         const updatedShop = await Shop.findByIdAndUpdate(params.id, body, { new: true }).lean();
         if (!updatedShop) {

@@ -1,7 +1,7 @@
 import { Fabric } from "@/lib/models/Fabric";
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
-import { ok, created, badRequest } from "@/lib/response";
+import { ok, created } from "@/lib/response";
 
 // GET /api/fabric
 // Get all fabrics    
@@ -15,15 +15,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     await connectDB();
     const body = await request.json();
-    if (!body.name) {
-        return badRequest("Name is required");
-    }
-    const newFabric = new Fabric({
-        name: body.name,
-        description: body.description || "",
-        owner: body.owner || "",
-        location: body.location || ""
-    });
+
+    const newFabric = new Fabric(body);
     await newFabric.save();
     return created(newFabric);
 }
