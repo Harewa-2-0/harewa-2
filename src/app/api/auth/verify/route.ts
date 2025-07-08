@@ -5,6 +5,7 @@ import type { VerifiedAdmin } from "@/lib/types/auth";
 import { sendWelcomeEmail } from "@/lib/mailer";
 import connectDB from "@/lib/db";
 import { Profile } from "@/lib/models/Profile";
+import { Wallet } from "@/lib/models/Wallet";
 
 export async function POST(req: Request) {
   const { otp, email } = await req.json();
@@ -24,6 +25,11 @@ export async function POST(req: Request) {
     });
 
     await newProfile.save();
+
+    const newWallet = new Wallet({
+      user: user.id,
+    });
+    await newWallet.save();
 
     const accessCookie = serialize("access-token", accessToken, {
       httpOnly: true,

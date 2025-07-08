@@ -1,4 +1,5 @@
 import { Order } from "@/lib/models/Order";
+import { Product } from "@/lib/models/Product";
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
 import { ok, notFound, badRequest } from "@/lib/response";
@@ -7,11 +8,32 @@ import { ok, notFound, badRequest } from "@/lib/response";
 // Get order by id
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
-    const orderData = await Order.findById(params.id).lean();
-    if (!orderData) {
-        return notFound("Order not found");
+
+    try {
+        const orderData = await Order.findById(params.id).lean();
+        if (!orderData) {
+            return notFound("Order not found");
+        }
+        const orders = await Order.findById(params.id)
+            .populate({
+                path: "carts",
+                populate: {
+                    path: "products.product",
+                    model: Product
+                }
+            })
+            .lean();
+
+        return ok({
+            success: true,
+            message: "Success",
+            data: orders
+        });
+    } catch (error) {
+        console.error("Failed to fetch orders:", error);
+        return badRequest("Failed to fetch orders" + error
+        );
     }
-    return ok(orderData);
 }
 // PUT /api/order/[id]
 // Update an order by id  
