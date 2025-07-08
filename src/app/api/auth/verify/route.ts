@@ -7,11 +7,11 @@ import connectDB from "@/lib/db";
 import { Profile } from "@/lib/models/Profile";
 
 export async function POST(req: Request) {
-  const { otp } = await req.json();
+  const { otp, email } = await req.json();
 
   try {
     const { accessToken, refreshToken, user }: VerifiedAdmin =
-      await verifyOtpAndGenerateToken(otp);
+      await verifyOtpAndGenerateToken(otp, email);
 
     await connectDB();
 
