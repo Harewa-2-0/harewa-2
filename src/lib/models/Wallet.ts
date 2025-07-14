@@ -1,6 +1,18 @@
 // models/Wallet.js
 import mongoose from "mongoose";
 
+export interface IWallet extends mongoose.Document {
+  user: mongoose.Types.ObjectId;
+  balance: number;
+  transactions: {
+    type: 'credit' | 'debit';
+    amount: number;
+    description: string;
+  }[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 const walletSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
