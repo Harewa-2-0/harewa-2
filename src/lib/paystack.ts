@@ -31,7 +31,7 @@ export const initializePayment2 = async (email: string, amount: number, metadata
       body: JSON.stringify({
         email,
         amount: amount * 100, // in kobo
-        callback_url: `${process.env.CALLBACK_URL}/event/payment/callback`,
+        callback_url: `${process.env.PAYMENT_CALLBACK_URL}`,
         metadata
       })
     });
