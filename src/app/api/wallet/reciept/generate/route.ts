@@ -1,0 +1,1 @@
+// generate receipt for wallet transactions

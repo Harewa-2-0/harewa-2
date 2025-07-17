@@ -5,9 +5,7 @@ import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
 import { ok, created, badRequest, serverError } from "@/lib/response";
 import { requireAuth } from "@/lib/middleware/requireAuth";
-
-// GET /api/order
-// Get all orders    
+//this hould gat all wallet
 export async function GET() {
     await connectDB();
 
@@ -34,8 +32,7 @@ export async function GET() {
     }
 }
 
-// POST /api/order
-// Create a new order 
+//this shpuld create new wallet
 export async function POST(request: NextRequest) {
     try {
         await connectDB();
