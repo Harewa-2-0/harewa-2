@@ -18,22 +18,32 @@ export const initializePayment = async (email: string, amount: number, metadata 
 
   return res.data.data
 }
+export const initializePayment2 = async (
+  email: string,
+  amount: number,
+  metadata = {}
+) => {
+  const res = await fetch("https://api.paystack.co/transaction/initialize", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email,
+      amount: amount * 100, // convert to kobo
+      callback_url: process.env.PAYMENT_CALLBACK_URL,
+      metadata,
+    }),
+  });
 
-export const initializePayment2 = async (email: string, amount: number, metadata = {}) => {
-  const res = await fetch(
-    "https://api.paystack.co/transaction/initialize",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        amount: amount * 100, // in kobo
-        callback_url: `${process.env.PAYMENT_CALLBACK_URL}`,
-        metadata
-      })
-    });
-  return res;
-}
+  const data = await res.json(); // <--- Parse the response body
+
+  if (!res.ok) {
+    // Optionally log error details
+    console.error("Paystack init error:", data);
+    throw new Error(data.message || "Failed to initialize Paystack payment");
+  }
+  // console.log("Paystack init response:", data);
+  return data.data; // return the parsed response
+};

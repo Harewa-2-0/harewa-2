@@ -1,53 +1,14 @@
 import { Wallet, IWallet } from '../lib/models/Wallet';
-import { Types } from 'mongoose';
 import { ok, created, badRequest, serverError } from "@/lib/response";
-
-// Extended Request interface for authenticated users
-interface AuthenticatedRequest extends Request {
-  user: {
-    _id: string | Types.ObjectId;
-    email: string;
-    [key: string]: unknown;
-  };
+import {
+  AuthenticatedRequest,
+  AddFundsRequest,
+  DeductFundsRequest,
+  PaystackWebhookEvent,
+  ErrorResponse
 }
+  from '../lib/types/wallet';
 
-// Request body interfaces
-interface AddFundsRequest {
-  amount: number;
-  description?: string;
-  userId?: string;
-}
-
-interface DeductFundsRequest {
-  amount: number;
-  description?: string;
-  userId?: string;
-}
-
-// Paystack webhook event interface
-interface PaystackWebhookEvent {
-  event: string;
-  data: {
-    reference: string;
-    amount: number;
-    customer: {
-      email: string;
-      [key: string]: unknown;
-    };
-    metadata: {
-      user_id: string;
-      [key: string]: unknown;
-    };
-    [key: string]: unknown;
-  };
-}
-
-// Response interfaces
-
-interface ErrorResponse {
-  message: string;
-  error?: string;
-}
 
 // Get wallet for a specific user by userId
 export const getWalletForUser = async (userId: string) => {
@@ -57,17 +18,13 @@ export const getWalletForUser = async (userId: string) => {
       return badRequest('User ID is required');
     }
 
-    const wallet = await Wallet.findOne({ user: userId });
+    const wallet = await Wallet.findOne({ user: userId }).lean();
 
     if (!wallet) {
       return badRequest('Wallet not found');
     }
 
-    return ok({
-      success: true,
-      message: 'Wallet fetched successfully',
-      data: wallet
-    });
+    return wallet;
   } catch (err: unknown) {
     console.error('Error fetching wallet for user:', err);
     return serverError('Internal server error: ' + err);
@@ -76,17 +33,13 @@ export const getWalletForUser = async (userId: string) => {
 
 export const getWallet = async (req: AuthenticatedRequest,) => {
   try {
-    const wallet = await Wallet.findOne({ user: req.user._id });
+    const wallet = await Wallet.findOne({ user: req.user._id }).lean();
 
     if (!wallet) {
       return badRequest('Wallet not found');
     }
 
-    return ok({
-      success: true,
-      message: 'Wallet fetched successfully',
-      data: wallet
-    });
+    return wallet;
   } catch (error: unknown) {
     console.error('Error fetching wallet:', error);
     return serverError('Error fetching wallet: ' + error);
@@ -117,7 +70,7 @@ export const createWallet = async (req: AuthenticatedRequest,) => {
 
 export const addFunds = async (req: AddFundsRequest) => {
   try {
-    const { amount, description = 'Funds added', userId } = req;
+    const { amount, description = 'Funds added', userId, reference } = req;
 
     // Validate amount
     if (!amount || amount <= 0) {
@@ -130,26 +83,24 @@ export const addFunds = async (req: AddFundsRequest) => {
 
     const wallet = await Wallet.findOne({ user: userId });
 
+
     if (!wallet) {
       return badRequest('Wallet not found');
     }
 
-    const amountInNaira = Math.floor(amount / 100);
+    const amountInNaira = Math.floor(amount / 1);
     wallet.balance += amountInNaira;
     wallet.transactions.push({
       type: 'credit',
       amount: amountInNaira,
-      description
+      description,
+      reference
     });
     wallet.updatedAt = new Date();
 
     await wallet.save();
 
-    return ok({
-      success: true,
-      message: 'Funds added successfully',
-      data: wallet
-    });
+    return wallet;
   } catch (error: unknown) {
     console.error('Error adding funds:', error);
     return serverError('Error adding funds: ' + error);

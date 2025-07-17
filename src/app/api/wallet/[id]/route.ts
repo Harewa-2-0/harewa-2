@@ -4,8 +4,7 @@ import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
 import { ok, notFound, badRequest } from "@/lib/response";
 
-// GET /api/order/[id]
-// Get order by id
+//get wallet by id
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
 
@@ -35,8 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         );
     }
 }
-// PUT /api/order/[id]
-// Update an order by id  
+// update wallet by id
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
     const body = await request.json();
@@ -53,8 +51,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         return badRequest("Invalid order data: " + error);
     }
 }
-// DELETE /api/order/[id]
-// Delete an order by id          
+// DELETE wallet by id
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
     try {
