@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AnnouncementBar from '../Home/announcementBar';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
+import CartUI from '../shop/cart';
 
 const navItems = [
   { label: 'Fabrics Gallery', href: '/fabrics' },
@@ -23,6 +24,9 @@ export default function Header() {
   const [hideAnnouncement, setHideAnnouncement] = useState(false);
   const { user, logout, setUser } = useAuthStore();
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  // Temporary: replicate cartItems here to get count (should be globalized in real app)
+  const [cartCount, setCartCount] = useState(2); // Default to 2 for demo, sync with CartUI if global later
 
   // Hydrate Zustand user state from storage on mount (for Google login/callback)
   useEffect(() => {
@@ -66,11 +70,40 @@ export default function Header() {
     return '/cartt.png';
   };
 
+  // When opening cart, close avatar
+  const handleOpenCart = () => {
+    setCartOpen(true);
+    setAvatarOpen(false);
+  };
+  // When opening avatar, close cart
+  const handleOpenAvatar = () => {
+    setAvatarOpen((open) => !open);
+    setCartOpen(false);
+  };
+
   return (
     <>
+      {/* Overlay and Cart Dropdown as a group to ensure correct stacking and click handling */}
+      {cartOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            style={{ background: 'transparent' }}
+            onClick={() => setCartOpen(false)}
+          />
+          <CartUI isOpen={cartOpen} setIsOpen={setCartOpen} />
+        </>
+      )}
+      {/* Overlay for avatar/profile dropdown (desktop and mobile) */}
+      {avatarOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          style={{ background: 'transparent' }}
+          onClick={() => setAvatarOpen(false)}
+        />
+      )}
       {/* AnnouncementBar with conditional visibility */}
       {!hideAnnouncement && <AnnouncementBar />}
-
       {/* Main Header */}
       <header className="w-full bg-white border-b sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -97,7 +130,8 @@ export default function Header() {
             {/* Cart - Always visible */}
             <motion.div
               whileHover={{ scale: 1.12 }}
-              className="cursor-pointer"
+              className="cursor-pointer relative"
+              onClick={handleOpenCart}
             >
               <Image
                 src={getCartUrl()}
@@ -106,6 +140,12 @@ export default function Header() {
                 height={32}
                 className="object-contain"
               />
+              {/* Cart count badge */}
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-[#FDC713] text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white shadow">
+                  {cartCount}
+                </span>
+              )}
             </motion.div>
             
             {/* User Avatar and Menu - Only if logged in */}
@@ -114,7 +154,7 @@ export default function Header() {
                 <motion.button
                   whileHover={{ scale: 1.08 }}
                   className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#FDC713] focus:outline-none focus:ring-2 focus:ring-[#FDC713] hover:border-[#D4AF37] transition-colors relative group bg-white"
-                  onClick={() => setAvatarOpen((open) => !open)}
+                  onClick={handleOpenAvatar}
                   aria-label="User menu"
                 >
                   <Image
@@ -161,8 +201,12 @@ export default function Header() {
                       className="w-full text-left px-4 py-2 hover:bg-gray-100 rounded-b-lg text-red-600"
                       onClick={async () => {
                         // Call backend logout endpoint (GET)
+                        let logoutUrl = '/api/auth/logout';
+                        if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+                          logoutUrl = 'http://localhost:3000/api/auth/logout';
+                        }
                         try {
-                          await fetch('/api/auth/logout', { method: 'GET' });
+                          await fetch(logoutUrl, { method: 'POST', credentials: 'include' });
                         } catch (e) {
                           // Optionally handle error
                         }
@@ -210,7 +254,8 @@ export default function Header() {
             {/* Cart - Always visible on mobile */}
             <motion.div
               whileHover={{ scale: 1.12 }}
-              className="cursor-pointer"
+              className="cursor-pointer relative"
+              onClick={handleOpenCart}
             >
               <Image
                 src={getCartUrl()}
@@ -219,24 +264,78 @@ export default function Header() {
                 height={24}
                 className="object-contain"
               />
+              {/* Cart count badge */}
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-[#FDC713] text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white shadow">
+                  {cartCount}
+                </span>
+              )}
             </motion.div>
-            
             {/* User Avatar - Only if logged in */}
             {user && (
-              <motion.button
-                whileHover={{ scale: 1.08 }}
-                className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#FDC713] focus:outline-none focus:ring-2 focus:ring-[#FDC713] hover:border-[#D4AF37] transition-colors relative bg-white"
-                onClick={() => setAvatarOpen((open) => !open)}
-                aria-label="User menu"
-              >
-                <Image
-                  src={getAvatarUrl()}
-                  alt={`${getFirstName()}'s avatar`}
-                  width={32}
-                  height={32}
-                  className="w-full h-full object-cover block rounded-full"
-                />
-              </motion.button>
+              <>
+                <motion.button
+                  whileHover={{ scale: 1.08 }}
+                  className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#FDC713] focus:outline-none focus:ring-2 focus:ring-[#FDC713] hover:border-[#D4AF37] transition-colors relative bg-white"
+                  onClick={handleOpenAvatar}
+                  aria-label="User menu"
+                >
+                  <Image
+                    src={getAvatarUrl()}
+                    alt={`${getFirstName()}'s avatar`}
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover block rounded-full"
+                  />
+                </motion.button>
+                {/* Overlay for mobile avatar dropdown */}
+                {avatarOpen && (
+                  <div className="absolute right-5 top-12 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-2">
+                    {/* Close button */}
+                    <button
+                      className="absolute -top-3 -right-3 w-7 h-7 flex items-center justify-center rounded-full bg-[#FDC713] text-white text-lg font-bold shadow cursor-pointer border-2 border-white"
+                      style={{ zIndex: 10 }}
+                      onClick={() => setAvatarOpen(false)}
+                      aria-label="Close profile menu"
+                    >
+                      ×
+                    </button>
+                    <button
+                      className="w-full text-left px-4 py-2 hover:bg-gray-100 rounded-t-lg text-black"
+                      onClick={() => {
+                        setAvatarOpen(false);
+                        // TODO: Implement settings navigation
+                      }}
+                    >
+                      Settings
+                    </button>
+                    <button
+                      className="w-full text-left px-4 py-2 hover:bg-gray-100 rounded-b-lg text-red-600"
+                      onClick={async () => {
+                        // Call backend logout endpoint (GET)
+                        let logoutUrl = '/api/auth/logout';
+                        if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+                          logoutUrl = 'http://localhost:3000/api/auth/logout';
+                        }
+                        try {
+                          await fetch(logoutUrl, { method: 'POST', credentials: 'include' });
+                        } catch (e) {
+                          // Optionally handle error
+                        }
+                        // Clear user from both storages
+                        if (typeof window !== 'undefined') {
+                          localStorage.removeItem('user');
+                          sessionStorage.removeItem('user');
+                        }
+                        logout();
+                        setAvatarOpen(false);
+                      }}
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </>
             )}
             
             <button onClick={toggleMobileNav} className="md:hidden text-black">

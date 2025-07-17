@@ -242,7 +242,7 @@ const SignupScreen = () => {
                   />
                   <span className="ml-2 text-sm text-[#1A1A1AB2]">Remember me</span>
                 </label>
-                <a href="#" className="text-sm text-[#1A1A1A] hover:underline">
+                <a href="reset-password" className="text-sm text-[#1A1A1A] hover:underline">
                   Forgot password?
                 </a>
               </div>
