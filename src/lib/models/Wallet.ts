@@ -1,6 +1,5 @@
 // models/Wallet.js
 import mongoose from "mongoose";
-import { unique } from "next/dist/build/utils";
 
 export interface IWallet extends mongoose.Document {
   user: mongoose.Types.ObjectId;
@@ -40,6 +39,9 @@ const walletSchema = new mongoose.Schema({
       reference: {
         type: String, required: true, unique: true,
 
+      },
+      status: {
+        type: String, enum: ['pending', 'failed', 'success'], default: 'pending'
       },
       date: {
         type: Date,

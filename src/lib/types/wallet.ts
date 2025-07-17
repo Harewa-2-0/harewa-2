@@ -23,6 +23,7 @@ export interface DeductFundsRequest {
     amount: number;
     description?: string;
     userId?: string;
+    reference?: string; // Unique reference for the transaction
 }
 
 // Paystack webhook event interface
@@ -48,4 +49,11 @@ export interface PaystackWebhookEvent {
 export interface ErrorResponse {
     message: string;
     error?: string;
+}
+export interface transferRequest {
+    name: string,
+    account_number: string,
+    bank_code: string,
+    amount: number, // in naira
+    reason: string,
 }

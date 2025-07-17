@@ -18,7 +18,7 @@ export const getWalletForUser = async (userId: string) => {
       return badRequest('User ID is required');
     }
 
-    const wallet = await Wallet.findOne({ user: userId }).lean();
+    const wallet = await Wallet.findOne({ user: userId });
 
     if (!wallet) {
       return badRequest('Wallet not found');
@@ -145,7 +145,7 @@ export const addFundPaystack = async (
 export const deductFunds = async (req: DeductFundsRequest) => {
 
   try {
-    const { amount, description = 'Funds deducted', userId } = req;
+    const { amount, description = 'Funds deducted', userId, reference } = req;
 
     // Validate amount
     if (!amount || amount <= 0) {
@@ -166,17 +166,15 @@ export const deductFunds = async (req: DeductFundsRequest) => {
     wallet.transactions.push({
       type: 'debit',
       amount,
-      description
+      description,
+      reference: reference || `deduct-${Date.now()}`
+
     });
     wallet.updatedAt = new Date();
 
     await wallet.save();
 
-    return ok({
-      success: true,
-      message: 'Funds deducted successfully',
-      data: wallet
-    });
+    return wallet;
   } catch (error: unknown) {
     console.error('Error deducting funds:', error);
     return serverError('Error deducting funds: ' + error);
