@@ -1,66 +1,67 @@
-import { Order } from "@/lib/models/Order";
-import { Product } from "@/lib/models/Product";
+import { Wallet } from "@/lib/models/Wallet";
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
 import { ok, notFound, badRequest } from "@/lib/response";
 
-//get wallet by id
+// GET wallet by ID
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
 
     try {
-        const orderData = await Order.findById(params.id).lean();
-        if (!orderData) {
-            return notFound("Order not found");
+        const wallet = await Wallet.findById(params.id).lean();
+        if (!wallet) {
+            return notFound("Wallet not found");
         }
-        const orders = await Order.findById(params.id)
-            .populate({
-                path: "carts",
-                populate: {
-                    path: "products.product",
-                    model: Product
-                }
-            })
-            .lean();
 
         return ok({
             success: true,
-            message: "Success",
-            data: orders
+            message: "Wallet fetched successfully",
+            data: wallet
         });
     } catch (error) {
-        console.error("Failed to fetch orders:", error);
-        return badRequest("Failed to fetch orders" + error
-        );
+        console.error("Failed to fetch wallet:", error);
+        return badRequest("Failed to fetch wallet: " + error);
     }
 }
-// update wallet by id
+
+// UPDATE wallet by ID
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
     const body = await request.json();
-    // if (!body.name) {
-    //     return badRequest("Name is required");
-    // }
+
     try {
-        const updatedOrder = await Order.findByIdAndUpdate(params.id, body, { new: true }).lean();
-        if (!updatedOrder) {
-            return notFound("Order not found");
+        const updatedWallet = await Wallet.findByIdAndUpdate(params.id, body, { new: true }).lean();
+        if (!updatedWallet) {
+            return notFound("Wallet not found");
         }
-        return ok(updatedOrder);
+        return ok({
+            success: true,
+            message: "Wallet updated successfully",
+            data: updatedWallet
+        });
     } catch (error) {
-        return badRequest("Invalid order data: " + error);
+        console.error("Failed to update wallet:", error);
+        return badRequest("Invalid wallet data: " + error);
     }
 }
-// DELETE wallet by id
+
+// DELETE wallet by ID
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
+
     try {
-        const deletedOrder = await Order.findByIdAndDelete(params.id).lean();
-        if (!deletedOrder) {
-            return notFound("Order not found");
+        const deletedWallet = await Wallet.findByIdAndDelete(params.id).lean();
+        if (!deletedWallet) {
+            return notFound("Wallet not found");
         }
-        return ok(deletedOrder);
+
+        return ok({
+            success: true,
+            message: "Wallet deleted successfully",
+            data: deletedWallet
+        });
     } catch (error) {
-        return notFound("Order not found" + error);
+        console.error("Failed to delete wallet:", error);
+        return badRequest("Failed to delete wallet: " + error);
     }
 }
