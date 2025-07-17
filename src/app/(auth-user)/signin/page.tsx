@@ -191,10 +191,164 @@ const SigninScreen = () => {
     }));
 
     try {
-      window.location.href = '/api/auth/google';
+      // Open popup with Google OAuth
+      const popup = window.open(
+        '/api/auth/google',
+        'google-oauth',
+        'width=500,height=600,scrollbars=yes,resizable=yes'
+      );
+
+      if (!popup) {
+        throw new Error('Popup blocked. Please allow popups for this site.');
+      }
+
+      // Check popup status every second
+      const checkPopup = setInterval(() => {
+        try {
+          // If popup is closed, stop checking
+          if (popup.closed) {
+            clearInterval(checkPopup);
+            setAuthState(prev => ({
+              ...prev,
+              isGoogleLoading: false,
+            }));
+            return;
+          }
+
+          // Check if popup has been redirected to home page (successful auth)
+          if (popup.location.href === window.location.origin + '/' || 
+              popup.location.href === window.location.origin + '/?' ||
+              popup.location.href === window.location.origin + '/#') {
+            clearInterval(checkPopup);
+            
+            // Success! User is authenticated with cookies set
+            // Try to fetch user data from backend
+            (async () => {
+              try {
+                const userResponse = await fetch('/api/auth/me', {
+                  credentials: 'include', // Include cookies
+                });
+                
+                if (userResponse.ok) {
+                  const userData = await userResponse.json();
+                  
+                  // Create user object from the profile data
+                  const user = {
+                    id: userData.user?._id || 'google',
+                    email: userData.user?.email || 'google@example.com',
+                    fullName: userData.user?.fullName || userData.user?.name || 'Google User',
+                    name: userData.user?.name || userData.user?.fullName || 'Google User',
+                    role: (userData.user?.role || 'client') as 'user' | 'admin',
+                    avatar: userData.user?.avatar,
+                  };
+
+                  setUser(user, 'localStorage');
+                } else {
+                  // Fallback to basic user object if we can't fetch user data
+                  const user = {
+                    id: 'google',
+                    email: 'google@example.com',
+                    fullName: 'Google User',
+                    name: 'Google User',
+                    role: 'user' as const,
+                    avatar: undefined,
+                  };
+
+                  setUser(user, 'localStorage');
+                }
+              } catch (fetchError) {
+                console.error('Failed to fetch user data:', fetchError);
+                // Fallback to basic user object
+                const user = {
+                  id: 'google',
+                  email: 'google@example.com',
+                  fullName: 'Google User',
+                  name: 'Google User',
+                  role: 'user' as const,
+                  avatar: undefined,
+                };
+
+                setUser(user, 'localStorage');
+              }
+            })();
+            
+            setAuthState(prev => ({
+              ...prev,
+              showSuccess: true,
+              isGoogleLoading: false,
+            }));
+            
+            // Redirect after showing success message
+            setTimeout(() => {
+              setAuthState(prev => ({ ...prev, isRedirecting: true }));
+              router.push('/');
+            }, 2000);
+
+            // Close the popup
+            popup.close();
+          }
+          
+          // Check if popup has been redirected to error page
+          if (popup.location.href.includes('/login?error=')) {
+            clearInterval(checkPopup);
+            
+            // Extract error from URL
+            const urlParams = new URLSearchParams(popup.location.search);
+            const error = urlParams.get('error') || 'Authentication failed';
+            
+            let errorMessage = 'Google authentication failed.';
+            switch (error) {
+              case 'NoCode':
+                errorMessage = 'No authorization code received from Google.';
+                break;
+              case 'TokenExchangeFailed':
+                errorMessage = 'Failed to exchange authorization code for token.';
+                break;
+              case 'NoProfile':
+                errorMessage = 'Failed to fetch user profile from Google.';
+                break;
+              default:
+                errorMessage = `Google authentication failed: ${error}`;
+            }
+            
+            handleAuthError({ message: errorMessage }, true);
+            popup.close();
+          }
+          
+          // Check if popup is stuck on callback URL (might be a backend error)
+          if (popup.location.href.includes('/api/auth/google/callback') && 
+              !popup.location.href.includes('error=')) {
+            // Wait a bit longer, but if it's stuck for more than 10 seconds, show error
+            setTimeout(() => {
+              if (popup.location.href.includes('/api/auth/google/callback')) {
+                clearInterval(checkPopup);
+                handleAuthError({ message: 'Google authentication is taking too long. Please try again.' }, true);
+                popup.close();
+              }
+            }, 10000);
+          }
+        } catch (error) {
+          // Cross-origin error - popup is still on Google's domain
+          // This is expected, continue checking
+        }
+      }, 1000);
+
+      // Set a timeout to prevent hanging (5 minutes)
+      setTimeout(() => {
+        clearInterval(checkPopup);
+        if (!popup.closed) {
+          popup.close();
+        }
+        setAuthState(prev => ({
+          ...prev,
+          isGoogleLoading: false,
+        }));
+        handleAuthError({ message: 'Google authentication timed out. Please try again.' }, true);
+      }, 300000); // 5 minutes
+
     } catch (err) {
       console.error('Google login error:', err);
-      handleAuthError({ message: 'Failed to initialize Google login.' }, true);
+      handleAuthError({ message: err instanceof Error ? err.message : 'Failed to initialize Google login.' }, true);
     }
   };
 
