@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
                 });
 
             if (order.status !== "pending" && order.status !== "initiated") {
-                // return badRequest("Order already processed");
+                return badRequest("Order already processed");
             }
             if (!order) {
                 return badRequest("Order not found");
