@@ -3,7 +3,7 @@ import connectDB from "@/lib/db";
 import { ok, badRequest, serverError, notFound } from "@/lib/response";
 import { Order } from "@/lib/models/Order";
 import { Wallet } from "@/lib/models/Wallet";
-import { addFunds } from "@/lib/wallet";
+import { addFunds, deductFunds } from "@/lib/wallet";
 import { getUserFromUuid } from "@/lib/utils";
 import { Iuser } from "@/lib/types/auth";
 
@@ -68,7 +68,13 @@ export async function GET(req: Request) {
         }
 
         // Step 2: Update Order
-        if (order) { }
+        // if (order) { } //to be used later the defaiult order
+
+        await addFunds({ amount, userId: user._id, reference });
+        await deductFunds({
+            amount: order.amount, userId: user._id, reference
+        });
+
         order.status = "paid";
         await order.save();
 

@@ -2,7 +2,11 @@
 import mongoose from "mongoose";
 
 export interface IWallet extends mongoose.Document {
-  user: mongoose.Types.ObjectId;
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
   balance: number;
   transactions: {
     type: 'credit' | 'debit';
@@ -49,6 +53,12 @@ const walletSchema = new mongoose.Schema({
       },
     },
   ],
+  beneficiary: [{
+    name: String,
+    accountNumber: String,
+    bank: String,
+    accountType: String,
+  }],
   createdAt: {
     type: Date,
     default: Date.now,
