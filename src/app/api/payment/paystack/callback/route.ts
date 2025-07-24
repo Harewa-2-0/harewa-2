@@ -36,7 +36,7 @@ export async function GET(req: Request) {
             return badRequest("Payment not successful");
         }
 
-        const { type, amount, uuid } = payment.metadata;
+        const { type, amount, uuid, orderId } = payment.metadata;
 
         const user: Iuser = await getUserFromUuid(uuid);
 
@@ -58,28 +58,27 @@ export async function GET(req: Request) {
             return ok(funds, "Funds  processed successfully");
         }
 
-        const order = await Order.findById(user._id);
-        if (!order) {
-            return notFound("Order not found");
+        if (type == "order") {
+            await addFunds({ amount, userId: user._id, reference });
+
+            const order = await Order.findById(orderId);
+            if (!order) {
+                return notFound("Order not found");
+            }
+
+            if (order.status === "paid") {
+                return ok(order, "Order already processed");
+            }
+
+            await deductFunds({
+                amount: order.amount, userId: user._id, reference
+            });
+
+            order.status = "paid";
+            await order.save();
+
+            return ok(order, "Order processed successfully");
         }
-
-        if (order.status === "paid") {
-            return ok(order, "Order already processed");
-        }
-
-        // Step 2: Update Order
-        // if (order) { } //to be used later the defaiult order
-
-        await addFunds({ amount, userId: user._id, reference });
-        await deductFunds({
-            amount: order.amount, userId: user._id, reference
-        });
-
-        order.status = "paid";
-        await order.save();
-
-        return ok(order, "Order processed successfully");
-
     } catch (err: unknown) {
         console.error("Verification failed:", err);
         return serverError()

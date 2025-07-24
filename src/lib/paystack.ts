@@ -23,7 +23,7 @@ export const initializePayment = async (email: string, amount: number, metadata 
 export const initializePayment2 = async (
   email: string,
   amount: number,
-  metadata = {}
+  metadata = { items: [], type: '', amount, uuid: '', orderId: "" } // Default to empty items array`}
 ) => {
   const res = await fetch("https://api.paystack.co/transaction/initialize", {
     method: "POST",
@@ -46,13 +46,14 @@ export const initializePayment2 = async (
     console.error("Paystack init error:", data);
     throw new Error(data.message || "Failed to initialize Paystack payment");
   }
+  console.log("Paystack init response:", metadata);
   await sendInvoiceMail({
     to: email,
     subject: "Payment Invoice",
     data: {
       customerName: email || "Customer",
       invoiceId: data.data.reference,
-      items: [], // Add empty array or actual items if available
+      items: metadata.items, // Add empty array or actual items if available
       totalAmount: amount,
       dueDate: new Date().toISOString().split('T')[0], // Today's date as due date
       date: new Date().toISOString().split('T')[0], // Today's date
