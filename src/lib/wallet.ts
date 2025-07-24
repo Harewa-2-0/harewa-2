@@ -10,6 +10,7 @@ import {
 }
   from '../lib/types/wallet';
 import { sendReceiptMail } from './sendReceipts';
+import { getUserFromUserid } from './utils';
 
 
 // Get wallet for a specific user by userId
@@ -101,12 +102,14 @@ export const addFunds = async (req: AddFundsRequest) => {
     wallet.updatedAt = new Date();
 
     await wallet.save();
+    const user = await getUserFromUserid(wallet.user);
     //send receipt
+    // console.log("Sending receipt email to:", user, wallet);
     await sendReceiptMail({
-      to: wallet.user.email,
+      to: user.email,
       subject: 'Funds Added to Your Wallet',
       data: {
-        customerName: wallet.user.username || 'Customer',
+        customerName: user.username || 'Customer',
         receiptId: reference || `add-${Date.now()}`,
         amountPaid: amountInNaira,
         paymentMethod: 'Wallet Credit',
@@ -188,11 +191,13 @@ export const deductFunds = async (req: DeductFundsRequest) => {
 
     await wallet.save();
     //send receipt
+    const user = await getUserFromUserid(wallet.user);
+
     await sendReceiptMail({
-      to: wallet.user.email,
+      to: user.email,
       subject: 'Funds Deducted from Your Wallet',
       data: {
-        customerName: wallet.user.username || 'Customer',
+        customerName: user.username || 'Customer',
         receiptId: reference || `deduct-${Date.now()}`,
         amountPaid: amount,
         paymentMethod: 'Wallet Deduction',
