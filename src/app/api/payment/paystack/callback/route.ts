@@ -78,13 +78,10 @@ export async function GET(req: Request) {
         order.status = "paid";
         await order.save();
 
-
         return ok(order, "Order processed successfully");
 
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-        console.error("Verification failed:", err?.message || err);
+    } catch (err: unknown) {
+        console.error("Verification failed:", err);
         return serverError()
     }
 }
