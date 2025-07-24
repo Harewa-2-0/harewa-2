@@ -5,9 +5,11 @@ import {
   AddFundsRequest,
   DeductFundsRequest,
   PaystackWebhookEvent,
+  transactionRequest,
   ErrorResponse
 }
   from '../lib/types/wallet';
+import { sendReceiptMail } from './sendReceipts';
 
 
 // Get wallet for a specific user by userId
@@ -99,6 +101,18 @@ export const addFunds = async (req: AddFundsRequest) => {
     wallet.updatedAt = new Date();
 
     await wallet.save();
+    //send receipt
+    await sendReceiptMail({
+      to: wallet.user.email,
+      subject: 'Funds Added to Your Wallet',
+      data: {
+        customerName: wallet.user.username || 'Customer',
+        receiptId: reference || `add-${Date.now()}`,
+        amountPaid: amountInNaira,
+        paymentMethod: 'Wallet Credit',
+        date: new Date().toISOString()
+      }
+    });
 
     return wallet;
   } catch (error: unknown) {
@@ -173,6 +187,18 @@ export const deductFunds = async (req: DeductFundsRequest) => {
     wallet.updatedAt = new Date();
 
     await wallet.save();
+    //send receipt
+    await sendReceiptMail({
+      to: wallet.user.email,
+      subject: 'Funds Deducted from Your Wallet',
+      data: {
+        customerName: wallet.user.username || 'Customer',
+        receiptId: reference || `deduct-${Date.now()}`,
+        amountPaid: amount,
+        paymentMethod: 'Wallet Deduction',
+        date: new Date().toISOString()
+      }
+    });
 
     return wallet;
   } catch (error: unknown) {
@@ -199,6 +225,40 @@ export const getTransactions = async (req: AuthenticatedRequest) => {
     return serverError('Error fetching transactions: ' + error);
   }
 };
+
+export const getTransactionByReference = async (req: transactionRequest) => {
+  try {
+    const { reference, userId } = req;
+
+    if (!reference) {
+      return badRequest('Transaction reference is required');
+    }
+
+    const wallet = await Wallet.findOne({
+      user: userId,
+      'transactions.reference': reference
+    });
+
+    if (!wallet) {
+      return badRequest('Wallet not found or transaction does not exist');
+    }
+
+    // Find the specific transaction within the wallet
+    const transaction = wallet.transactions.find(
+      (tx: { reference?: string }) => tx.reference === reference
+    );
+
+    if (!transaction) {
+      return badRequest('Transaction not found');
+    }
+
+    return ok(transaction);
+  } catch (error: unknown) {
+    console.error('Error fetching transaction by reference:', error);
+    return serverError('Error fetching transaction: ' + error);
+  }
+};
+
 
 // Webhook handler for Paystack
 export const paystackWebhook = async (event: PaystackWebhookEvent) => {

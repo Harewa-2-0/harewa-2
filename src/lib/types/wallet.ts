@@ -22,7 +22,7 @@ export interface AddFundsRequest {
 export interface DeductFundsRequest {
     amount: number;
     description?: string;
-    userId?: string;
+    userId?: string | Types.ObjectId;
     reference?: string; // Unique reference for the transaction
 }
 
@@ -56,4 +56,17 @@ export interface transferRequest {
     bank_code: string,
     amount: number, // in naira
     reason: string,
+}
+export interface transactionRequest {
+    reference: string;
+    userId?: string | Types.ObjectId; // Optional user ID for additional context    
+}
+
+//transaction interface
+export interface ITransaction {
+    reference: string;
+    amount: number;
+    type: 'credit' | 'debit';
+    date: Date;
+    description?: string;
 }
