@@ -14,7 +14,9 @@ export const sendInvoiceMail = async ({
   data: {
     customerName: string;
     invoiceId: string;
-    items: { name: string; quantity: number; price: number }[];
+    items: {
+      product: { name: string; price: number }, quantity: number
+    }[];
     totalAmount: number;
     dueDate: string;
     date: string;
@@ -71,7 +73,9 @@ export const sendInvoiceMail = async ({
 export const generateInvoiceHtml = (data: {
   customerName: string;
   invoiceId: string;
-  items: { name: string; quantity: number; price: number }[];
+  items: {
+    product: { name: string; price: number }, quantity: number;
+  }[];
   totalAmount: number;
   dueDate: string;
   date: string;
@@ -82,15 +86,20 @@ export const generateInvoiceHtml = (data: {
 
   const itemsHtml = items
     .map(
-      (item) => `
+      (item) => {
+        const price = item.product?.price || 0;
+        const quantity = item.quantity || 0;
+        const total = quantity * price;
+        const name = item.product?.name || "Unknown Item";
+        return `
         <tr>
-          <td style="padding: 10px; border: 1px solid #ddd;">${item.name}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₦${item.price.toLocaleString()}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₦${(item.quantity * item.price).toLocaleString()}</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">${name}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${quantity}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₦${price.toLocaleString()}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₦${total}</td>
         </tr>
       `
-    )
+      })
     .join("");
 
   return `
