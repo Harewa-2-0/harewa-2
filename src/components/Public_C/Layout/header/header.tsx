@@ -5,10 +5,10 @@ import Image from 'next/image';
 import { Menu, X, ArrowUpRight } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import AnnouncementBar from '../Home/announcementBar';
+import AnnouncementBar from '../../Home/announcementBar';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import CartUI from '../shop/cart';
+import CartUI from '../../shop/cart';
 
 const navItems = [
   { label: 'Fabrics Gallery', href: '/fabrics' },
