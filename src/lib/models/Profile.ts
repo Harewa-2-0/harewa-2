@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const ProfileSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: "Users",
     required: true,
   },
   profilePicture: {
@@ -15,8 +15,18 @@ const ProfileSchema = new mongoose.Schema({
   },
   firstName: { type: String },
   lastName: { type: String },
-  address: { type: String },
 
+  addresses: [
+    {
+      line1: { type: String, required: true },
+      line2: { type: String },
+      city: { type: String },
+      state: { type: String },
+      zip: { type: String },
+      country: { type: String },
+      isDefault: { type: Boolean, default: false },
+    }
+  ],
 });
 
 export const Profile =
