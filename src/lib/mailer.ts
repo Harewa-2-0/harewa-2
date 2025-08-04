@@ -10,7 +10,7 @@ const teamTransporter = nodemailer.createTransport({
   },
 });
 
-const notificationTransporter = nodemailer.createTransport({
+export const notificationTransporter = nodemailer.createTransport({
   service: process.env.NOTIFICATION_SMTP_SERVICE,
   auth: {
     user: process.env.NOTIFICATION_EMAIL_USER, // Your email address
