@@ -51,6 +51,19 @@ export function generateTicketKey() {
   return crypto.randomBytes(20).toString("hex");
 }
 
+export async function getUserFromUuid(uuid: string) {
+  const user = await User.findOne({
+    uuid
+  });
+  return user;
+}
+
+export async function getUserFromUserid(userId: string) {
+  const user = await User.findOne({
+    _id: userId
+  });
+  return user;
+}
 export function generateKey(): string {
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";

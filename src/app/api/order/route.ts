@@ -1,6 +1,7 @@
 import { Order } from "@/lib/models/Order";
 import { Wallet } from "@/lib/models/Wallet";
 import { Product } from "@/lib/models/Product";
+import { Cart } from "@/lib/models/Cart";
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
 import { ok, created, badRequest, serverError } from "@/lib/response";
@@ -15,6 +16,7 @@ export async function GET() {
         const orders = await Order.find()
             .populate({
                 path: "carts",
+                model: Cart,
                 populate: {
                     path: "products.product",
                     model: Product
