@@ -1,5 +1,5 @@
-import ProfileLayout from '@/components/Public_C/profile/profile-layout';
+import ProfileLayout from '@/components/Protected/profile/profile-layout';
 
-export default function ProfilePageLayout({ children }: { children: React.ReactNode }) {
-  return <ProfileLayout>{children}</ProfileLayout>;
+export default function ProfilePageLayout() {
+  return <ProfileLayout />;
 }
