@@ -1,6 +1,6 @@
 'use client';
 
-import OrdersSection from '@/components/Protected/profile/orders/order-section';
+import OrdersSection from './orders/order-section';
 
 interface ProfilePageProps {
   activeTab: string;

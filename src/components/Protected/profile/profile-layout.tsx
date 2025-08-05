@@ -4,20 +4,18 @@ import { useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import MobileNavigation from './mobile-navigation';
 import DesktopSidebar from './desktop-sidebar';
+import ProfilePage from '@/components/Protected/profile/profile-page';
 
-interface ProfileLayoutProps {
-  children: React.ReactNode;
-}
-
-export default function ProfileLayout({ children }: ProfileLayoutProps) {
+export default function ProfileLayout() {
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState('orders');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
+
     if (tabId === 'logout') {
-      // Add logout logic if needed here too
+      // Add real logout logic
       console.log('Logging out...');
     }
   };
@@ -35,10 +33,10 @@ export default function ProfileLayout({ children }: ProfileLayoutProps) {
       <div className="flex">
         {/* Desktop Sidebar */}
         <DesktopSidebar
-  activeTab={activeTab}
-  onTabChange={handleTabChange}
-  user={user ?? undefined}
-/>
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          user={user ?? undefined}
+        />
 
         {/* Page Content */}
         <div className="flex-1">
@@ -48,12 +46,14 @@ export default function ProfileLayout({ children }: ProfileLayoutProps) {
               <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center text-white font-bold">
                 {user?.fullName?.[0] || 'U'}
               </div>
-              <h1 className="text-xl font-semibold">Hello {user?.fullName || 'User'}</h1>
+              <h1 className="text-xl font-semibold">
+                Hello {user?.fullName || 'User'}
+              </h1>
             </div>
           </div>
 
-          {/* Slot for nested pages */}
-          {children}
+          {/* Profile page content based on activeTab */}
+          <ProfilePage activeTab={activeTab} />
         </div>
       </div>
     </div>
