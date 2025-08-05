@@ -8,14 +8,14 @@ type OrderTabsProps = {
 
 export const OrderTabs = ({ activeOrderTab, onOrderTabChange }: OrderTabsProps) => (
   <div className="border-b">
-    <div className="flex">
+    <div className="flex justify-between">
       {orderTabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onOrderTabChange(tab.id)}
           className={`px-6 py-3 font-medium text-sm relative ${
             activeOrderTab === tab.id
-              ? 'text-black border-b-2 border-black'
+              ? 'text-black border-b-2 border-black bg-gray-100'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
