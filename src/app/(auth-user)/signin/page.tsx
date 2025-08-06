@@ -83,7 +83,7 @@ const SigninScreen = () => {
     // Redirect after showing success message
     setTimeout(() => {
       setAuthState(prev => ({ ...prev, isRedirecting: true }));
-      router.push('/');
+      router.push('/home');
     }, 2000);
   };
 
@@ -281,7 +281,7 @@ const SigninScreen = () => {
             // Redirect after showing success message
             setTimeout(() => {
               setAuthState(prev => ({ ...prev, isRedirecting: true }));
-              router.push('/');
+              router.push('/home');
             }, 2000);
 
             // Close the popup
