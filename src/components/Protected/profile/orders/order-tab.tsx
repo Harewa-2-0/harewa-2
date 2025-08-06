@@ -8,7 +8,7 @@ type OrderTabsProps = {
 
 export const OrderTabs = ({ activeOrderTab, onOrderTabChange }: OrderTabsProps) => (
   <div className="border-b">
-    <div className="flex justify-between">
+    <div className="flex justify-between md:justify-start">
       {orderTabs.map((tab) => (
         <button
           key={tab.id}
