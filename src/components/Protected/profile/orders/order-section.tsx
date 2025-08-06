@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { OrderCard } from '@/components/Protected/profile/orders/order-card';
 import { OrderTabs } from '@/components/Protected/profile/orders/order-tab';
-import { Package } from 'lucide-react';
+import EmptyState from '@/components/common/empty-state';
 
 const mockOrders = [
   {
@@ -16,7 +16,7 @@ const mockOrders = [
     totalPrice: '₦25,000',
     paymentStatus: 'In progress',
     paymentMethod: 'Cash on delivery',
-    image: '/api/placeholder/80/100',
+    image: '/cart_2.webp',
   },
   {
     id: '8002',
@@ -28,7 +28,7 @@ const mockOrders = [
     totalPrice: '₦25,000',
     paymentStatus: 'In progress',
     paymentMethod: 'Cash on delivery',
-    image: '/api/placeholder/80/100',
+    image: '/cart_1.webp',
   },
 ];
 
@@ -52,22 +52,17 @@ export default function OrdersSection() {
         onOrderTabChange={(tabId) => setActiveOrderTab(String(tabId))}
       />
 
-      {/* Order List */}
+      {/* Order List or Empty State */}
       <div className="p-4 md:p-6 space-y-4">
         {filteredOrders.length > 0 ? (
           filteredOrders.map((order) => (
             <OrderCard key={order.id} order={order} />
           ))
         ) : (
-          <div className="text-center py-12">
-            <Package size={48} className="mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No {activeOrderTab} orders
-            </h3>
-            <p className="text-gray-500">
-              You don't have any {activeOrderTab} orders at the moment.
-            </p>
-          </div>
+          <EmptyState
+            title={`No ${activeOrderTab} orders`}
+            description={`You don't have any ${activeOrderTab} orders at the moment.`}
+          />
         )}
       </div>
     </div>
