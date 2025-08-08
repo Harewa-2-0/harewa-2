@@ -40,18 +40,6 @@ export default function ProfileLayout() {
 
         {/* Page Content */}
         <div className="flex-1">
-          {/* Optional desktop header */}
-          <div className="hidden md:block p-6 bg-white border-b">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center text-white font-bold">
-                {user?.fullName?.[0] || 'U'}
-              </div>
-              <h1 className="text-xl font-semibold">
-                Hello {user?.fullName || 'User'}
-              </h1>
-            </div>
-          </div>
-
           {/* Profile page content based on activeTab */}
           <ProfilePage activeTab={activeTab} />
         </div>
