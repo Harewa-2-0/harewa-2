@@ -35,6 +35,10 @@ const customRequestSchema = new mongoose.Schema(
             type: String,
             required: true
         },
+        eventType: {
+            type: String,
+            required: true
+        },
         fitType: {
             type: String,
             required: true

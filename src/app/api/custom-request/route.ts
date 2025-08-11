@@ -10,9 +10,9 @@ export async function POST(req: NextRequest) {
         const decoded = requireAuth(req);
         await dbConnect();
 
-        const { gender, style, fitType, color, budget, description, image } = await req.json();
+        const { gender, eventType, style, fitType, color, budget, description, image } = await req.json();
 
-        if (!gender || !style || !fitType || !color || !budget || !description || !image) {
+        if (!gender || !eventType || !style || !fitType || !color || !budget || !description || !image) {
             return badRequest("All fields are required");
         }
 
@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
             gender,
             style,
             fitType,
+            eventType,
             color,
             budget,
             description,
