@@ -97,7 +97,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${mulish.variable}`}>
-      <body className="antialiased font-sans">{children}</body>
+      <body data-gramm="false" className="antialiased font-sans">{children}</body>
     </html>
   );
 }
