@@ -6,7 +6,10 @@ const fashionChatSchema = new mongoose.Schema(
         user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            required: false, // allow guest users
+            default: null
+        }, ip: {
+            type: String,
+            default: null // ✅ store guest IP here
         },
         messages: [
             {
