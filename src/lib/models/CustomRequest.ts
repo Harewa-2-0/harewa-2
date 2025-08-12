@@ -31,6 +31,11 @@ const customRequestSchema = new mongoose.Schema(
             enum: ["male", "female", "unisex"],
             required: true
         },
+        size: {
+            type: String,
+            enum: ["Small", "Large", "Medium", "XLarge", "XXLarge"],
+            required: true
+        },
         style: {
             type: String,
             required: true
