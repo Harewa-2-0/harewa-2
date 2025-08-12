@@ -1,4 +1,3 @@
-'use client';
 import TrendingFashionStyles from '@/components/Public_C/Home/trending_Fashion';
 import Hero from '@/components/Public_C/Home/hero';
 import What_we_Offer from '@/components/Public_C/Home/what_We_Offer';

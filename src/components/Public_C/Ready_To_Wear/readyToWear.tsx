@@ -4,7 +4,7 @@ import Link from 'next/link';
 import ProductCard, { Product } from './ProductCard';
 import Sidebar from './Sidebar';
 import { useResponsivePagination } from '../../../hooks/useResponsivePagination';
-import { fetchProducts } from '../../../utils/api';
+import { getProducts } from '@/services/products';
 
 interface FilterState {
   category: string;
@@ -82,9 +82,14 @@ const ReadyToWearPage: React.FC = () => {
   useEffect(() => {
     setLoading(true);
     
-    fetchProducts()
+    getProducts()
       .then((data) => {
-        setProducts(data || []);
+        // Ensure each product has an 'images' property (fallback to empty array if missing)
+        const mappedProducts = (data || []).map((product: any) => ({
+          ...product,
+          images: product.images ?? ['/placeholder.png'],
+        }));
+        setProducts(mappedProducts);
         setLoading(false);
       })
       .catch((err) => {

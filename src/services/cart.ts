@@ -1,13 +1,15 @@
 // src/services/cart.ts
-import { api, unwrap, type MaybeWrapped, type Json } from "@/utils/api";
+import { api, unwrap, type MaybeWrapped } from "@/utils/api";
+
+// If you want extras, make them unknown so strict fields don't conflict.
+type Extras = Record<string, unknown>;
 
 /* ---------- Types ---------- */
 export type CartItem = {
   productId: string;
   quantity: number;
   price: number; // unit price at time of add
-  [k: string]: Json | undefined;
-};
+} & Extras;
 
 export type Cart = {
   id?: string;
@@ -17,14 +19,12 @@ export type Cart = {
   subtotal?: number;
   currency?: string;
   isActive?: boolean;
-  [k: string]: Json | undefined;
-};
+} & Extras;
 
 export type CreateCartInput = {
   userId?: string;
   items?: CartItem[];
-  [k: string]: Json | undefined;
-};
+} & Extras;
 
 export type UpdateCartInput = Partial<Omit<Cart, "id" | "_id">> & {
   id: string;
@@ -34,8 +34,7 @@ export type AddToMyCartInput = {
   productId: string;
   quantity?: number;
   price?: number;
-  [k: string]: Json | undefined;
-};
+} & Extras;
 
 /* ---------- Paths (confirmed) ---------- */
 const BASE = "/cart";
@@ -60,8 +59,6 @@ const toQS = (params?: Record<string, string | number | boolean | undefined>) =>
     : "";
 
 /* ---------- Mutations ---------- */
-
-// Add Cart
 export async function addCart(payload: CreateCartInput) {
   const raw = await api<MaybeWrapped<Cart>>(paths.add, {
     method: "POST",
@@ -72,7 +69,6 @@ export async function addCart(payload: CreateCartInput) {
   return unwrap<Cart>(raw);
 }
 
-// Update Cart
 export async function updateCart({ id, ...rest }: UpdateCartInput) {
   const raw = await api<MaybeWrapped<Cart>>(paths.update(id), {
     method: "PUT",
@@ -83,7 +79,6 @@ export async function updateCart({ id, ...rest }: UpdateCartInput) {
   return unwrap<Cart>(raw);
 }
 
-// Delete Cart
 export async function deleteCart(id: string) {
   const raw = await api<MaybeWrapped<{ deleted: boolean }>>(paths.delete(id), {
     method: "DELETE",
@@ -92,7 +87,6 @@ export async function deleteCart(id: string) {
   return unwrap<{ deleted: boolean }>(raw);
 }
 
-// Add to My Cart
 export async function addToMyCart(item: AddToMyCartInput) {
   const raw = await api<MaybeWrapped<Cart>>(paths.addToMy, {
     method: "POST",
@@ -104,20 +98,16 @@ export async function addToMyCart(item: AddToMyCartInput) {
 }
 
 /* ---------- Reads ---------- */
-
-// Get Cart by ID
 export async function getCartById(id: string) {
   const raw = await api<MaybeWrapped<Cart>>(paths.byId(id));
   return unwrap<Cart>(raw);
 }
 
-// Get My Cart
 export async function getMyCart() {
   const raw = await api<MaybeWrapped<Cart>>(paths.my);
   return unwrap<Cart>(raw);
 }
 
-// Get All Carts (admin/staff)
 export async function getAllCarts(params?: Record<string, string | number | boolean | undefined>) {
   const raw = await api<MaybeWrapped<Cart[] | { items: Cart[] }>>(
     `${paths.list}${toQS(params)}`

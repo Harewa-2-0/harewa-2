@@ -1,3 +1,4 @@
+"use client"
 import React from 'react';
 import { motion, Variants, Easing } from 'framer-motion';
 
