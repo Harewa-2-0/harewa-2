@@ -1,5 +1,7 @@
 import { NextRequest, } from "next/server";
 import { Product } from "@/lib/models/Product";
+import { ProductCategory } from "@/lib/models/ProductCategory";
+import { Fabric } from "@/lib/models/Fabric";
 import connectDB from "@/lib/db";
 import { ok, created, } from "@/lib/response";
 import { Wishlist } from "@/lib/models/Wishlist";
@@ -37,8 +39,17 @@ export async function GET(req: NextRequest) {
     } catch (err) {
         // User not authenticated — that's fine, we just skip wishlist logic
     }
-
-    const products = await Product.find().lean();
+    const products = await Product.find()
+        .populate({
+            path: "category",
+            model: ProductCategory,
+            select: ["name", "description", "id"],
+        })
+        .populate({
+            path: "fabricType",
+            model: Fabric,
+            // remove: ["_id", "createdAt", "updatedAt"]
+        }).lean();
 
     // Add "favourite" field to each product if user is authenticated
     const enriched = products.map((product) => ({
