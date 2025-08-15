@@ -24,6 +24,8 @@ export class ApiError extends Error {
   }
 }
 
+// ===== helpers =====
+
 // Join API_BASE + path safely
 function buildUrl(path: string) {
   if (path.startsWith("http")) return path;
@@ -51,68 +53,131 @@ function withJson(init: RequestInit): RequestInit {
   };
 }
 
-/** Tiny fetch wrapper with timeout + cookie auth + better errors */
+// Parse response body (json or text → best-effort json)
+async function parseBody(res: Response): Promise<any> {
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    return await res.json().catch(() => null);
+  }
+  const text = await res.text();
+  if (text && (text.startsWith("{") || text.startsWith("["))) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }
+  return text;
+}
+
+// Detect "access token expired" shapes from backend
+function isAccessExpired(status: number, body: any) {
+  if (status !== 401) return false;
+  const code =
+    body?.error?.code ||
+    body?.code ||
+    (typeof body?.error === "string" ? body.error : undefined);
+  const msg = (body?.message || body)?.toString?.().toLowerCase?.() || "";
+  return (
+    code === "TOKEN_EXPIRED" ||
+    code === "ACCESS_TOKEN_EXPIRED" ||
+    msg.includes("token expired") ||
+    msg.includes("jwt expired") ||
+    msg.includes("access token expired")
+  );
+}
+
+// ===== refresh single-flight =====
+let refreshPromise: Promise<void> | null = null;
+
+async function doRefreshOnce(): Promise<void> {
+  const res = await fetch(buildUrl("/api/auth/refresh"), {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const body = await parseBody(res);
+    const msg =
+      (body && (body.error?.message || body.error || body.message)) ||
+      res.statusText ||
+      "Refresh failed";
+    throw new ApiError(String(msg), res.status, body);
+  }
+}
+
+async function ensureRefresh(): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = doRefreshOnce().finally(() => {
+      refreshPromise = null; // allow future refreshes
+    });
+  }
+  return refreshPromise;
+}
+
+/** Tiny fetch wrapper with timeout + cookie auth + auto refresh/retry + better errors */
 export async function api<T = any>(
   path: string,
   init: RequestInit = {},
   opts: { timeout?: number } = {}
 ): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(
-    () => controller.abort(),
-    opts.timeout ?? DEFAULT_TIMEOUT
-  );
-
   const url = buildUrl(path);
 
-  try {
-    const res = await fetch(url, {
-      credentials: "include",
-      signal: controller.signal,
-      ...init,
-    });
+  async function runOnce(): Promise<{ res: Response; body: any }> {
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      opts.timeout ?? DEFAULT_TIMEOUT
+    );
+    try {
+      const res = await fetch(url, {
+        credentials: "include",
+        signal: controller.signal,
+        ...init,
+      });
 
-    // 204/205: no content to parse
-    if (res.status === 204 || res.status === 205) {
-      if (!res.ok)
-        throw new ApiError(res.statusText || `HTTP ${res.status}`, res.status);
-      return undefined as unknown as T;
-    }
-
-    const ct = res.headers.get("content-type") || "";
-    let body: any = null;
-
-    if (ct.includes("application/json")) {
-      body = await res.json().catch(() => null);
-    } else {
-      const text = await res.text();
-      // Try JSON if it looks like it
-      if (text && (text.startsWith("{") || text.startsWith("["))) {
-        try {
-          body = JSON.parse(text);
-        } catch {
-          body = text;
-        }
-      } else {
-        body = text;
+      // 204/205: no content to parse
+      if (res.status === 204 || res.status === 205) {
+        if (!res.ok)
+          throw new ApiError(res.statusText || `HTTP ${res.status}`, res.status);
+        return { res, body: undefined };
       }
-    }
 
-    if (!res.ok) {
-      const msg =
-        (body &&
-          typeof body === "object" &&
-          "message" in body &&
-          (body as any).message) ||
-        res.statusText ||
-        `HTTP ${res.status}`;
-      throw new ApiError(String(msg), res.status, body);
+      const body = await parseBody(res);
+      return { res, body };
+    } finally {
+      clearTimeout(timer);
     }
-
-    return body as T;
-  } finally {
-    clearTimeout(timer);
   }
+
+  // First attempt
+  let { res, body } = await runOnce();
+
+  // If access expired → single-flight refresh → replay once
+  if (isAccessExpired(res.status, body)) {
+    try {
+      await ensureRefresh();
+    } catch (err: any) {
+      // Surface as 401 to callers
+      const message = err?.message || "Session expired";
+      throw new ApiError(message, 401, err?.payload ?? body);
+    }
+    ({ res, body } = await runOnce());
+  }
+
+  // Final error handling
+  if (!res.ok) {
+    const msg =
+      (body &&
+        typeof body === "object" &&
+        "message" in body &&
+        (body as any).message) ||
+      res.statusText ||
+      `HTTP ${res.status}`;
+    throw new ApiError(String(msg), res.status, body);
+  }
+
+  return body as T;
 }
 
 /** SWR/React Query compatible fetcher */

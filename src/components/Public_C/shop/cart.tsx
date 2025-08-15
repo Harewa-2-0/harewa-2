@@ -5,8 +5,6 @@ import { X, Minus, Plus, Trash2 } from "lucide-react";
 import { useCartStore, useCartTotalItems } from "@/store/cartStore";
 import { replaceCartProducts } from "@/services/cart";
 import { ensureCartHydrated, bindCartFocusRevalidate } from "@/services/lib/cart-sync";
-//import { getMyCart } from "@/services/cart";
-
 
 interface CartUIProps {
   isOpen?: boolean;
@@ -14,7 +12,6 @@ interface CartUIProps {
 }
 
 const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
-  // ✅ stable subscriptions
   const items = useCartStore((s) => s.items);
   const cartId = useCartStore((s) => s.cartId);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
@@ -22,11 +19,8 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const replaceCart = useCartStore((s) => s.replaceCart);
   const clearCart = useCartStore((s) => s.clearCart);
 
-
-  // derived, hydration-safe
   const totalItems = useCartTotalItems();
 
-  // Calculate subtotal from items directly
   const subtotal = useMemo(() => {
     return items.reduce((total, item) => {
       const itemPrice =
@@ -35,7 +29,6 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     }, 0);
   }, [items]);
 
-  // hydrate once + on focus
   useEffect(() => {
     ensureCartHydrated({ force: false, enrich: true });
     bindCartFocusRevalidate();
@@ -43,10 +36,8 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
 
-  // debounce map must be stable across renders
   const debounceMap = useRef<Record<string, number | ReturnType<typeof setTimeout>>>({});
 
-  // Build backend lines from current store (or explicit snapshot)
   const buildLines = (arr: typeof items) =>
     arr.map((i) => ({
       productId: i.id,
@@ -54,42 +45,32 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
       price: i.price,
     }));
 
-  // Safer replace: reads latest store when called without explicit items, stamps lastSynced
   const sendReplace = (explicit?: typeof items) => {
-    if (!cartId) return; // local-only until we know the server cart id
+    if (!cartId) return;
     const current = explicit ?? useCartStore.getState().items;
     const lines = buildLines(current);
 
     return replaceCartProducts(cartId, lines)
       .then(() => useCartStore.getState().setLastSyncedNow?.())
       .catch(() => {
-        // On any error, re-hydrate from server to realign
         ensureCartHydrated({ force: true, enrich: true });
       });
   };
 
   const onChangeQty = (id: string, qty: number) => {
-    // Store semantics: qty <= 0 removes the item
-    updateQuantity(id, qty); // optimistic
+    updateQuantity(id, qty);
     if (debounceMap.current[id]) clearTimeout(debounceMap.current[id] as any);
-    debounceMap.current[id] = setTimeout(() => {
-      // When the timeout fires, read latest store to avoid stale closures
-      sendReplace();
-    }, 400);
+    debounceMap.current[id] = setTimeout(() => sendReplace(), 400);
   };
 
   const onRemove = (id: string) => {
-    const prev = items; // snapshot for rollback
+    const prev = items;
     const next = prev.filter((i) => i.id !== id);
-
-    removeItem(id); // optimistic
-
-    if (!cartId) return; // local-only removal when we don't yet have a server cart
-
+    removeItem(id);
+    if (!cartId) return;
     replaceCartProducts(cartId, buildLines(next))
       .then(() => useCartStore.getState().setLastSyncedNow?.())
       .catch(() => {
-        // rollback local state to match server; then try to hydrate
         replaceCart(prev);
         ensureCartHydrated({ force: true, enrich: true });
       });
@@ -97,21 +78,16 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   const onClearAll = () => {
     const prev = items;
-    // wipe local items (but keep cartId if your store’s clearCart preserves it)
     clearCart();
-
-    if (!cartId) return; // nothing to sync yet
-
+    if (!cartId) return;
     replaceCartProducts(cartId, [])
       .then(() => useCartStore.getState().setLastSyncedNow?.())
       .catch(() => {
-        // rollback local items if server failed
         replaceCart(prev);
         ensureCartHydrated({ force: true, enrich: true });
       });
   };
 
-  // Clear any pending debounces on unmount
   useEffect(() => {
     return () => {
       Object.values(debounceMap.current).forEach((v) => {
@@ -123,11 +99,12 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-16 right-4 z-50">
+    <div className="fixed right-4 top-20 md:top-24 z-50">
       <div className="absolute inset-0" style={{ pointerEvents: "none" }} />
-      <div className="bg-white rounded-lg shadow-2xl border max-w-md w-96 max-h-[95vh] overflow-hidden flex flex-col">
+      {/* ⬇️ Fixed, viewport-based height so footer stays visible */}
+      <div className="bg-white rounded-lg shadow-2xl border max-w-md w-96 h-[calc(100vh-5rem)] md:h-[calc(100vh-6rem)] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-900">MY CART</h2>
           <button
             onClick={() => setIsOpen && setIsOpen(false)}
@@ -147,21 +124,21 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
         {/* Clear-all row (only when there are items) */}
         {items.length > 0 && (
-          <div className="p-3 border-b flex justify-center">
+          <div className="p-3 border-b flex justify-center flex-shrink-0">
             <button
               onClick={onClearAll}
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm hover:bg-red-50 hover:text-red-600 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-red-300 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 cursor-pointer shadow-sm"
               aria-label="Clear cart"
               title="Remove all items"
             >
-              <Trash2 size={16} />
+              <Trash2 size={16} className="text-red-600" />
               <span>Clear cart</span>
             </button>
           </div>
         )}
 
-        {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto max-h-[60vh]">
+        {/* Cart Items — only this area scrolls */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
           {items.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">Your cart is empty.</div>
           ) : (
@@ -171,10 +148,10 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
               const hasMeta = Boolean(name) && Boolean(image);
 
               return (
-                <div key={item.id} className="p-4 border-b border-gray-100">
-                  <div className="flex gap-3">
-                    {/* Product Image */}
-                    <div className="w-20 h-28 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
+                <div key={item.id} className="p-3 border-b border-gray-100">
+                  <div className="flex gap-2.5">
+                    {/* Product Image (reduced height) */}
+                    <div className="w-20 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
                       <img
                         src={image || "/placeholder.png"}
                         alt={name || "Loading product..."}
@@ -182,13 +159,13 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                       />
                     </div>
 
-                    {/* Product Details */}
+                    {/* Product Details (tight) */}
                     <div className="flex-1">
-                      <p className="text-sm text-gray-700 mb-2 leading-tight">
+                      <p className="text-sm text-gray-700 mb-1.5 leading-tight line-clamp-2">
                         {name || "Loading..."}
                       </p>
 
-                      <div className="mb-3">
+                      <div className="mb-2">
                         <span className="text-red-500 font-semibold">
                           {typeof item.price === "number" && Number.isFinite(item.price)
                             ? formatPrice(item.price)
@@ -196,35 +173,35 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5">
                         <button
                           onClick={() => onChangeQty(item.id, Math.max(0, item.quantity - 1))}
-                          className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50"
+                          className="w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50"
                           aria-label="Decrease quantity"
                         >
-                          <Minus size={14} className="text-gray-600" />
+                          <Minus size={12} className="text-gray-600" />
                         </button>
 
-                        <span className="font-medium text-gray-900 min-w-[20px] text-center">
+                        <span className="font-medium text-gray-900 min-w-[18px] text-center text-sm">
                           {item.quantity}
                         </span>
 
                         <button
                           onClick={() => onChangeQty(item.id, item.quantity + 1)}
-                          className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50"
+                          className="w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50"
                           aria-label="Increase quantity"
                         >
-                          <Plus size={14} className="text-gray-600" />
+                          <Plus size={12} className="text-gray-600" />
                         </button>
 
-                        {/* per-item remove: X button */}
+                        {/* per-item remove */}
                         <button
                           onClick={() => onRemove(item.id)}
-                          className="ml-auto w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-red-50 hover:border-red-300 transition-colors"
+                          className="ml-auto w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-red-50 hover:border-red-300 transition-colors"
                           title="Remove item"
                           aria-label="Remove item"
                         >
-                          <X size={14} className="text-gray-600" />
+                          <X size={12} className="text-gray-600" />
                         </button>
                       </div>
                     </div>
@@ -235,8 +212,8 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50">
+        {/* Footer (always visible) */}
+        <div className="p-4 border-t bg-gray-50 flex-shrink-0">
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center gap-2">
               <span className="text-gray-700">Subtotal:</span>
