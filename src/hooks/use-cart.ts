@@ -1,24 +1,26 @@
-// hooks/use-cart.ts
 import { useCartStore } from '@/store/cartStore';
+import { useCartDrawerStore } from '@/store/cartDrawerStore';
 import { useShallow } from 'zustand/react/shallow';
 
-export const useCartCount = () =>
-  useCartStore((s) => s.items.reduce((n, it) => n + it.quantity, 0));
+export const useCartHasHydrated = () => useCartStore((s) => s._hasHydrated);
+
+export const useCartCount = () => {
+  const hydrated = useCartHasHydrated();
+  return useCartStore((s) =>
+    hydrated ? s.items.reduce((n, it) => n + it.quantity, 0) : 0
+  );
+};
 
 export const useCartSubtotal = () =>
-  useCartStore((s) => s.items.reduce((sum, it) => sum + it.price * it.quantity, 0));
+  useCartStore((s) => s.items.reduce((sum, it) => sum + (it.price ?? 0) * it.quantity, 0));
 
-export const useCartOpen = () => useCartStore((s) => s.isOpen);
+export const useCartOpen = () => useCartDrawerStore((s) => s.isOpen);
 
 export const useCartActions = () =>
-  useCartStore(
+  useCartDrawerStore(
     useShallow((s) => ({
       openCart: s.openCart,
       closeCart: s.closeCart,
       toggleCart: s.toggleCart,
-      addItem: s.addItem,
-      removeItem: s.removeItem,
-      updateQuantity: s.updateQuantity,
-      clearCart: s.clearCart,
     }))
   );

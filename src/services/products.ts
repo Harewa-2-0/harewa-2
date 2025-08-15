@@ -7,6 +7,9 @@ export type Product = {
   id?: string;
   name: string;
   price: number;
+  images?: string[];     // <- optional; many UIs expect this
+  image?: string;        // <- some backends send a single image
+  slug?: string;         // <- optional but useful for links
   [k: string]: Json | undefined;
 };
 
@@ -21,13 +24,13 @@ export type UpdateProductInput = Partial<CreateProductInput> & {
 /** ---------- Endpoints (adjust paths if your API differs) ---------- */
 const BASE = "/api/product";
 const paths = {
-  add: BASE,                            // POST /api/product
-  addBulk: `${BASE}/bulk`,              // POST /api/product/bulk
-  update: (id: string) => `${BASE}/${id}`, // PUT /api/product/:id
-  delete: (id: string) => `${BASE}/${id}`, // DELETE /api/product/:id
-  list: BASE,                           // GET /api/product?…
-  byId: (id: string) => `${BASE}/${id}`, // GET /api/product/:id
-  byShop: (shopId: string) => `${BASE}/shop/${shopId}`,     // GET /api/product/shop/:shopId
+  add: BASE,                                     // POST /api/product
+  addBulk: `${BASE}/bulk`,                       // POST /api/product/bulk
+  update: (id: string) => `${BASE}/${id}`,       // PUT /api/product/:id
+  delete: (id: string) => `${BASE}/${id}`,       // DELETE /api/product/:id
+  list: BASE,                                    // GET /api/product?…
+  byId: (id: string) => `${BASE}/${id}`,         // GET /api/product/:id
+  byShop: (shopId: string) => `${BASE}/shop/${shopId}`,       // GET /api/product/shop/:shopId
   bySeller: (sellerId: string) => `${BASE}/seller/${sellerId}`, // GET /api/product/seller/:sellerId
 };
 
@@ -41,6 +44,10 @@ const toQS = (params?: Record<string, string | number | boolean | undefined>) =>
         }, {})
       )}`
     : "";
+
+// Normalize product id coming from backend
+const pid = (p: Pick<Product, "_id" | "id"> | null | undefined) =>
+  p ? String((p as any)._id ?? (p as any).id ?? "") : "";
 
 /** ---------- CRUD ---------- */
 
@@ -123,4 +130,44 @@ export async function getProductsBySellerId(
   );
   const data = unwrap<Product[] | { items: Product[] }>(raw);
   return Array.isArray(data) ? data : data?.items ?? [];
+}
+
+/** ---------- Batch-by-ids (for cart enrichment) ---------- */
+/**
+ * Standard approach:
+ * 1) Try a batch endpoint: GET /api/product?ids=a,b,c
+ * 2) Fallback to per-id requests, rate-limited to small chunks
+ */
+export async function getProductsByIds(ids: string[]) {
+  const unique = Array.from(new Set(ids.map(String).filter(Boolean)));
+  if (unique.length === 0) return [];
+
+  // 1) Try batch endpoint using existing list route with ?ids=
+  try {
+    const raw = await api<MaybeWrapped<Product[] | { items: Product[] }>>(
+      `${paths.list}${toQS({ ids: unique.join(",") })}`
+    );
+    const data = unwrap<Product[] | { items: Product[] }>(raw);
+    const arr = Array.isArray(data) ? data : data?.items ?? [];
+    if (arr.length > 0) {
+      const set = new Set(unique);
+      // Only keep requested ids and in server order
+      const filtered = arr.filter((p) => set.has(pid(p)));
+      if (filtered.length > 0) return filtered;
+    }
+  } catch {
+    // fall back
+  }
+
+  // 2) Fallback: fan-out by id with small concurrency (avoid hammering)
+  const out: Product[] = [];
+  const CHUNK = 6;
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const slice = unique.slice(i, i + CHUNK);
+    const settled = await Promise.allSettled(slice.map((id) => getProductById(id)));
+    for (const r of settled) {
+      if (r.status === "fulfilled" && r.value) out.push(r.value);
+    }
+  }
+  return out;
 }

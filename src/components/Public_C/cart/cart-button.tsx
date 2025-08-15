@@ -4,6 +4,8 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import CartUI from '../shop/cart';
 import { useCartActions, useCartCount, useCartOpen } from '@/hooks/use-cart';
+import { useCartHasHydrated } from '@/store/cartStore';
+
 
 
 type CartButtonProps = {
@@ -22,6 +24,8 @@ export default function CartButton({
   const { openCart, closeCart } = useCartActions();
 
   const iconSrc = getCartIconUrl ? getCartIconUrl() : '/cartt.png';
+  const hydrated = useCartHasHydrated();
+
 
   return (
     <>
@@ -39,7 +43,7 @@ export default function CartButton({
           height={size}
           className="object-contain"
         />
-        {count > 0 && (
+        {hydrated && count > 0 && (
           <span className="absolute -top-2 -right-2 bg-[#FDC713] text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white shadow">
             {count}
           </span>
