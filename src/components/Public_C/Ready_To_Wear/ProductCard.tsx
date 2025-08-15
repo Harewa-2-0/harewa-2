@@ -31,7 +31,8 @@ export interface Product {
 interface ProductCardProps {
   product: Product;
   toggleLike: (id: string) => void;
-  addToCart: (id: string) => void;
+  // Pass the full product so the handler can send price & other info to API
+  addToCart: (product: Product) => void;
 }
 
 const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
@@ -47,18 +48,20 @@ const renderStars = (rating: number = 4) => (
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, addToCart }) => {
   const [imageError, setImageError] = useState(false);
-  
+
   // Get the first image or use a placeholder
-  const imageUrl = product.images && product.images.length > 0 
-    ? product.images[0] 
-    : '/placeholder.png';
-  
+  const imageUrl =
+    product.images && product.images.length > 0
+      ? product.images[0]
+      : '/placeholder.png';
+
   // Fallback for missing data
   const displayName = product.name || 'Product Name';
   const displayPrice = product.price || 0;
   const displayRating = product.rating || 4;
-  const displayReviews = product.reviews || 0;
   const isLiked = product.isLiked || false;
+  const remainingInStock =
+    product.remainingInStock ?? product.quantity ?? 0;
 
   return (
     <Link href={`/shop/${product._id}`} className="block">
@@ -71,13 +74,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, addToCar
             onError={() => setImageError(true)}
           />
           <button
-            onClick={e => { 
-              e.preventDefault(); 
-              toggleLike(product._id); 
+            onClick={(e) => {
+              e.preventDefault();
+              toggleLike(product._id);
             }}
             className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
           >
-            <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+            <Heart
+              className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+            />
           </button>
         </div>
         <div className="p-4">
@@ -89,20 +94,25 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, addToCar
               {formatPrice(displayPrice)}
             </span>
             <button
-              onClick={e => { 
-                e.preventDefault(); 
-                addToCart(product._id); 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation(); // don’t trigger Link/navigation
+                addToCart(product);
               }}
               className="p-2 text-gray-600 hover:text-yellow-400 transition-colors cursor-pointer"
+              aria-label="Add to cart"
             >
               <ShoppingCart className="w-5 h-5" />
             </button>
+
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-1">
               {renderStars(displayRating)}
             </div>
-            <span className="text-sm text-gray-500">({displayReviews})</span>
+            <span className="text-sm text-gray-500">
+              ({remainingInStock})
+            </span>
           </div>
         </div>
       </div>
@@ -110,4 +120,4 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, addToCar
   );
 };
 
-export default ProductCard; 
+export default ProductCard;
