@@ -23,20 +23,14 @@ const navItems = [
 
 export default function Header() {
   const { isMobileNavOpen, toggleMobileNav, closeMobileNav } = useUIStore();
-  const { user, hydrateFromCookie } = useAuthStore();
-
+  const { user, hasHydratedAuth } = useAuthStore();
   const [hideAnnouncement, setHideAnnouncement] = useState(false);
-
-  useEffect(() => {
-    hydrateFromCookie();
-  }, [hydrateFromCookie]);
 
   useEffect(() => {
     setHideAnnouncement(isMobileNavOpen);
   }, [isMobileNavOpen]);
 
   const getCartUrl = () => '/cartt.png';
-  const getAvatarUrl = () => '/avatar.webp';
 
   return (
     <>
@@ -59,33 +53,50 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Desktop Right */}
+          {/* Desktop Right (Avatar/Name first, then Cart) */}
           <div className="hidden md:flex items-center gap-4 ml-8">
-            <CartButton size={32} getCartIconUrl={getCartUrl} />
-            {user ? (
-              <UserMenu desktop className="ml-2" getAvatarUrl={getAvatarUrl} />
+            {!hasHydratedAuth ? (
+              <div style={{ width: 120, height: 32 }} aria-hidden />
+            ) : user ? (
+              <UserMenu desktop className="ml-2" />
             ) : (
               <>
                 <motion.div whileHover={{ scale: 1.05 }}>
-                  <Link href="/signup" className="border border-black text-[#D4AF37] px-4 py-1 rounded-full font-semibold">
+                  <Link
+                    href="/signup"
+                    className="border border-black text-[#D4AF37] px-4 py-1 rounded-full font-semibold"
+                  >
                     Sign Up
                   </Link>
                 </motion.div>
                 <motion.div whileHover={{ scale: 1.05 }}>
-                  <Link href="/signin" className="bg-[#FFE181] text-black flex items-center gap-1 px-3 py-1 rounded-full font-semibold">
+                  <Link
+                    href="/signin"
+                    className="bg-[#FFE181] text-black flex items-center gap-1 px-3 py-1 rounded-full font-semibold"
+                  >
                     Login <ArrowUpRight size={16} />
                   </Link>
                 </motion.div>
               </>
             )}
+
+            {/* Cart after avatar/name — with extra space */}
+            <CartButton
+              size={32}
+              getCartIconUrl={getCartUrl}
+              className="ml-8"     // ⬅️ added: increase gap between profile and cart
+            />
           </div>
 
-          {/* Mobile Right */}
+          {/* Mobile Right (Avatar circle first, then Cart) */}
           <div className="md:hidden flex items-center gap-3">
+            {hasHydratedAuth && user && <UserMenu desktop={false} />}
             <CartButton size={24} getCartIconUrl={getCartUrl} />
-            {user && <UserMenu desktop={false} getAvatarUrl={getAvatarUrl} />}
-
-            <button onClick={toggleMobileNav} className="md:hidden text-black" aria-label="Toggle navigation">
+            <button
+              onClick={toggleMobileNav}
+              className="md:hidden text-black"
+              aria-label="Toggle navigation"
+            >
               {isMobileNavOpen ? <X size={30} /> : <Menu size={30} />}
             </button>
           </div>
@@ -110,12 +121,20 @@ export default function Header() {
               </div>
 
               <div className="mt-14 flex flex-col space-y-3">
-                {!user && (
+                {hasHydratedAuth && !user && (
                   <div className="flex gap-4">
-                    <Link href="/signup" onClick={closeMobileNav} className="flex-1 border border-black text-[#D4AF37] text-center px-4 py-2 rounded-full">
+                    <Link
+                      href="/signup"
+                      onClick={closeMobileNav}
+                      className="flex-1 border border-black text-[#D4AF37] text-center px-4 py-2 rounded-full"
+                    >
                       Sign Up
                     </Link>
-                    <Link href="/signin" onClick={closeMobileNav} className="flex-1 bg-[#FFE181] text-black text-center px-4 py-2 rounded-full">
+                    <Link
+                      href="/signin"
+                      onClick={closeMobileNav}
+                      className="flex-1 bg-[#FFE181] text-black text-center px-4 py-2 rounded-full"
+                    >
                       Login <ArrowUpRight size={16} className="inline ml-1" />
                     </Link>
                   </div>

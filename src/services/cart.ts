@@ -101,6 +101,7 @@ export async function addToMyCart(item: AddToMyCartInput) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     credentials: "include",
+    cache: "no-store",
   });
   return unwrap<Cart>(raw);
 }
@@ -115,6 +116,7 @@ export async function addLinesToMyCart(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     credentials: "include",
+    cache: "no-store",
   });
   return unwrap<Cart>(raw);
 }
@@ -127,6 +129,7 @@ export async function replaceCartProducts(id: string, products: UpdateCartInput[
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     credentials: "include",
+    cache: "no-store",
   });
   return unwrap<Cart>(raw);
 }
@@ -145,6 +148,7 @@ export async function removeProductFromCart(cartId: string, productId: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     credentials: "include",
+    cache: "no-store",
   });
   return unwrap<Cart>(raw);
 }
@@ -154,6 +158,7 @@ export async function deleteCart(id: string) {
   const raw = await api<MaybeWrapped<Cart>>(paths.delete(id), {
     method: "DELETE",
     credentials: "include",
+    cache: "no-store",
   });
   return unwrap<Cart>(raw);
 }
@@ -162,7 +167,10 @@ export async function deleteCart(id: string) {
 
 /** Get a cart by id */
 export async function getCartById(id: string) {
-  const raw = await api<MaybeWrapped<Cart>>(paths.byId(id), { credentials: "include" });
+  const raw = await api<MaybeWrapped<Cart>>(paths.byId(id), {
+    credentials: "include",
+    cache: "no-store",
+  });
   return unwrap<Cart>(raw);
 }
 
@@ -176,6 +184,7 @@ export async function getMyCart(userId?: string) {
   try {
     const raw = await api<MaybeWrapped<Cart | Cart[] | { data: Cart[] }>>(paths.me, {
       credentials: "include",
+      cache: "no-store",
     });
     const data = unwrap<Cart | Cart[] | { data: Cart[] } | any>(raw);
     const list = toCartArray(data);
@@ -191,6 +200,7 @@ export async function getMyCart(userId?: string) {
     const url = `${paths.listMine}?mine=true`;
     const raw = await api<MaybeWrapped<Cart[] | { data: Cart[] }>>(url, {
       credentials: "include",
+      cache: "no-store",
     });
     const data = unwrap<Cart[] | { data: Cart[] } | any>(raw);
     const list = toCartArray(data);
@@ -205,6 +215,7 @@ export async function getMyCart(userId?: string) {
   try {
     const raw = await api<MaybeWrapped<Cart[] | { data: Cart[] }>>(paths.listMine, {
       credentials: "include",
+      cache: "no-store",
     });
     const data = unwrap<Cart[] | { data: Cart[] } | any>(raw);
     const list = toCartArray(data);

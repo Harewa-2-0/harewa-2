@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Mulish } from "next/font/google";
-import "../app/globals.css"
-
+import "../app/globals.css";
+import AuthBootstrap from "./auth-bootstrap";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,33 +43,35 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://harewa.com'),
+  metadataBase: new URL("https://harewa.com"),
   alternates: {
-    canonical: '/',
+    canonical: "/",
   },
   openGraph: {
-    type: 'website',
-    locale: 'en_US',
-    url: 'https://harewa.com',
-    title: 'HAREWA – Where Innovation Meets Fashion',
-    description: 'Your premier destination where cutting-edge technology meets the vibrant world of fashion. Discover trends, shop ready-to-wear, explore fabrics, and get AI-powered style recommendations.',
-    siteName: 'HAREWA',
+    type: "website",
+    locale: "en_US",
+    url: "https://harewa.com",
+    title: "HAREWA – Where Innovation Meets Fashion",
+    description:
+      "Your premier destination where cutting-edge technology meets the vibrant world of fashion. Discover trends, shop ready-to-wear, explore fabrics, and get AI-powered style recommendations.",
+    siteName: "HAREWA",
     images: [
       {
-        url: '/logo.webp',
+        url: "/logo.webp",
         width: 1200,
         height: 630,
-        alt: 'HAREWA Fashion-Tech Platform Logo',
+        alt: "HAREWA Fashion-Tech Platform Logo",
       },
     ],
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'HAREWA – Where Innovation Meets Fashion',
-    description: 'Your premier destination where cutting-edge technology meets the vibrant world of fashion. Discover trends, shop ready-to-wear, explore fabrics, and get AI-powered style recommendations.',
-    images: ['/logo.webp'],
-    creator: '@harewa',
-    site: '@harewa',
+    card: "summary_large_image",
+    title: "HAREWA – Where Innovation Meets Fashion",
+    description:
+      "Your premier destination where cutting-edge technology meets the vibrant world of fashion. Discover trends, shop ready-to-wear, explore fabrics, and get AI-powered style recommendations.",
+    images: ["/logo.webp"],
+    creator: "@harewa",
+    site: "@harewa",
   },
   robots: {
     index: true,
@@ -77,18 +79,17 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
   verification: {
-    google: 'your-google-verification-code',
-    yandex: 'your-yandex-verification-code',
-    yahoo: 'your-yahoo-verification-code',
+    google: "your-google-verification-code",
+    yandex: "your-yandex-verification-code",
+    yahoo: "your-yahoo-verification-code",
   },
 };
-
 
 export default function RootLayout({
   children,
@@ -96,8 +97,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${mulish.variable}`}>
-      <body data-gramm="false" className="antialiased font-sans">{children}</body>
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} ${mulish.variable}`}
+    >
+      <body data-gramm="false" className="antialiased font-sans">
+        <AuthBootstrap />
+        {children}
+      </body>
     </html>
   );
 }

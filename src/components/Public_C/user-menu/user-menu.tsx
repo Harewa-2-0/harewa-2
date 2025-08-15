@@ -3,13 +3,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 
 type UserMenuProps = {
   desktop?: boolean; // true for desktop header, false for mobile
   className?: string;
-  getAvatarUrl?: () => string;
+  getAvatarUrl?: () => string; // optional override; will be superseded by user.avatar when present
 };
 
 export default function UserMenu({
@@ -20,17 +20,38 @@ export default function UserMenu({
   const { user, logout } = useAuthStore();
   const [open, setOpen] = useState(false);
 
-  const avatarSize = desktop ? 40 : 32;
-  const wrapperSize = desktop ? 'w-10 h-10' : 'w-8 h-8';
-  const borderClass =
-    'border-2 border-[#FDC713] focus:outline-none focus:ring-2 focus:ring-[#FDC713] hover:border-[#D4AF37]';
-  const avatarSrc = getAvatarUrl ? getAvatarUrl() : '/avatar.webp';
+  if (!user) return null;
 
-  const getFirstName = () => {
+  // Sizes
+  const avatarPx = desktop ? 36 : 32; // circle size - increased both
+  const fontPx = desktop ? 14 : 13;   // name text size
+  const chipPadX = desktop ? 'px-2.5' : 'px-2';
+  const chipPadY = desktop ? 'py-1.5' : 'py-1';
+
+  // Prefer explicit prop > server avatar; else no URL (fall back to initial)
+  const resolvedAvatarUrl = useMemo(() => {
+    const fromProp = getAvatarUrl?.();
+    return fromProp || user?.avatar || null;
+  }, [getAvatarUrl, user?.avatar]);
+
+  const displayName = useMemo(
+    () => user?.fullName || user?.name || user?.email || 'User',
+    [user]
+  );
+
+  const firstName = useMemo(() => {
     if (user?.fullName) return user.fullName.split(' ')[0];
     if (user?.name) return user.name.split(' ')[0];
-    return '';
-  };
+    if (user?.email) return user.email.split('@')[0];
+    return 'User';
+  }, [user]);
+
+  const initial = useMemo(() => {
+    const src = user?.name || user?.fullName || user?.email || 'U';
+    return src.trim().charAt(0).toUpperCase() || 'U';
+  }, [user]);
+
+  const handleToggle = () => setOpen((v) => !v);
 
   const handleLogout = async () => {
     try {
@@ -43,36 +64,99 @@ export default function UserMenu({
     setOpen(false);
   };
 
-  if (!user) return null;
-
   return (
     <div className={`relative ${className}`}>
-      <motion.button
-        whileHover={{ scale: 1.08 }}
-        onClick={() => setOpen((v) => !v)}
-        aria-label="User menu"
-        className={`${wrapperSize} rounded-full overflow-hidden ${borderClass} transition-colors relative group bg-white`}
-      >
-        <Image
-          src={avatarSrc}
-          alt={`${getFirstName()}'s avatar`}
-          width={avatarSize}
-          height={avatarSize}
-          className="w-full h-full object-cover block rounded-full"
-        />
-        {desktop && (
-          <span className="hidden md:block absolute left-1/2 -translate-x-1/2 top-12 z-50 px-3 py-1 bg-black text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-200 pointer-events-none whitespace-nowrap">
-            {user?.fullName}
+      {/* Mobile: Just the initial, no background at all */}
+      {!desktop ? (
+        <motion.button
+          whileHover={{ scale: 1.04 }}
+          onClick={handleToggle}
+          aria-label="User menu"
+          className="focus:outline-none focus:ring-2 focus:ring-[#FDC713] rounded-full"
+          style={{ cursor: 'pointer' }}
+        >
+          {/* Just the bare circular initial OR avatar */}
+          <span
+            className="inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none"
+            style={{ width: avatarPx, height: avatarPx }}
+          >
+            {resolvedAvatarUrl ? (
+              <Image
+                src={resolvedAvatarUrl}
+                alt={`${firstName}'s avatar`}
+                width={avatarPx}
+                height={avatarPx}
+                className="w-full h-full object-cover rounded-full"
+              />
+            ) : (
+              <span className="font-semibold" style={{ fontSize: 13 }}>
+                {initial}
+              </span>
+            )}
           </span>
-        )}
-      </motion.button>
+        </motion.button>
+      ) : (
+        /* Desktop: Curvy background that starts FROM the initial edge */
+        <motion.button
+          whileHover={{ scale: 1.04 }}
+          onClick={handleToggle}
+          aria-label="User menu"
+          className="group relative inline-flex items-center focus:outline-none"
+          style={{ cursor: 'pointer' }}
+        >
+          {/* Curvy background that flows from initial's right edge */}
+          <div 
+            className="absolute bg-gray-100 group-hover:bg-gray-200 transition-colors border-2 border-[#FDC713] group-hover:border-[#D4AF37] border-l-0"
+            style={{
+              left: `${avatarPx * 0.7}px`, // Start from inside the circle
+              top: '50%',
+              transform: 'translateY(-50%)',
+              height: `${avatarPx + 4}px`, // Increased padding Y
+              width: `${Math.max(firstName.length * 10 + 35, 80)}px`, // Dynamic width with minimum + more right padding
+              borderRadius: `0 ${avatarPx * 0.4}px ${avatarPx * 0.4}px 0`,
+              // Create curves using clip-path
+              clipPath: 'polygon(0 25%, 15% 10%, 85% 15%, 100% 35%, 100% 65%, 85% 85%, 15% 90%, 0 75%)'
+            }}
+          />
 
-      {desktop && (
-        <span className="hidden md:inline font-semibold text-black text-base ml-2">
-          {getFirstName()}
-        </span>
+          {/* Content layer */}
+          <div className="relative flex items-center gap-2 z-10">
+            {/* Circular initial OR avatar - completely separate, no background */}
+            <span
+              className="inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 border-[#FDC713] group-hover:border-[#D4AF37] transition-colors"
+              style={{ width: avatarPx, height: avatarPx }}
+            >
+              {resolvedAvatarUrl ? (
+                <Image
+                  src={resolvedAvatarUrl}
+                  alt={`${firstName}'s avatar`}
+                  width={avatarPx}
+                  height={avatarPx}
+                  className="w-full h-full object-cover rounded-full"
+                />
+              ) : (
+                <span className="font-semibold" style={{ fontSize: 14 }}>
+                  {initial}
+                </span>
+              )}
+            </span>
+
+            {/* Name sits on the curvy background */}
+            <span
+              className="hidden md:inline font-semibold text-black truncate pr-4"
+              style={{ 
+                fontSize: fontPx, 
+                lineHeight: 1,
+                maxWidth: `${Math.max(firstName.length * 10, 60)}px` // Dynamic max-width to ensure it fits
+              }}
+            >
+              {firstName}
+            </span>
+          </div>
+        </motion.button>
       )}
 
+      {/* Dropdown */}
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
