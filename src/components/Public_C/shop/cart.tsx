@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCartStore, useCartTotalItems } from "@/store/cartStore";
 import { replaceCartProducts } from "@/services/cart";
 import { ensureCartHydrated, bindCartFocusRevalidate } from "@/services/lib/cart-sync";
+import { useAuthStore } from "@/store/authStore";
 
 interface CartUIProps {
   isOpen?: boolean;
@@ -32,6 +33,9 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const removeItem = useCartStore((s) => s.removeItem);
   const replaceCart = useCartStore((s) => s.replaceCart);
   const clearCart = useCartStore((s) => s.clearCart);
+  const setLastSyncedNow = useCartStore((s) => s.setLastSyncedNow);
+
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const totalItems = useCartTotalItems();
 
@@ -67,7 +71,6 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
         bodyTouchAction: (body.style as any).touchAction,
       };
 
-      // Lock scroll broadly (covers iOS Safari too)
       html.style.overflow = "hidden";
       body.style.overflow = "hidden";
       (html.style as any).overscrollBehavior = "contain";
@@ -99,7 +102,6 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
     return () => {
       window.removeEventListener("keydown", onKey);
-      // Cleanup once per render; ensure we don’t leave the page locked
       if (isOpen) unlock();
     };
   }, [isOpen, setIsOpen]);
@@ -115,12 +117,13 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
       price: i.price,
     }));
 
+  /** Auth-gated replace: skip server writes for guests */
   const sendReplace = (explicit?: typeof items) => {
-    if (!cartId) return;
+    if (!isAuthenticated || !cartId) return; // guests or no server cart → local only
     const current = explicit ?? useCartStore.getState().items;
     const lines = buildLines(current);
     return replaceCartProducts(cartId, lines)
-      .then(() => useCartStore.getState().setLastSyncedNow?.())
+      .then(() => setLastSyncedNow?.())
       .catch(() => {
         ensureCartHydrated({ force: true, enrich: true });
       });
@@ -136,9 +139,12 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     const prev = items;
     const next = prev.filter((i) => i.id !== id);
     removeItem(id);
-    if (!cartId) return;
+
+    // Guests: stop here (local only)
+    if (!isAuthenticated || !cartId) return;
+
     replaceCartProducts(cartId, buildLines(next))
-      .then(() => useCartStore.getState().setLastSyncedNow?.())
+      .then(() => setLastSyncedNow?.())
       .catch(() => {
         replaceCart(prev);
         ensureCartHydrated({ force: true, enrich: true });
@@ -148,9 +154,12 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const onClearAll = () => {
     const prev = items;
     clearCart();
-    if (!cartId) return;
+
+    // Guests: stop here (local only)
+    if (!isAuthenticated || !cartId) return;
+
     replaceCartProducts(cartId, [])
-      .then(() => useCartStore.getState().setLastSyncedNow?.())
+      .then(() => setLastSyncedNow?.())
       .catch(() => {
         replaceCart(prev);
         ensureCartHydrated({ force: true, enrich: true });
