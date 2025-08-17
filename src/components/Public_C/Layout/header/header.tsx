@@ -84,7 +84,7 @@ export default function Header() {
             <CartButton
               size={32}
               getCartIconUrl={getCartUrl}
-              className="ml-8"     // ⬅️ added: increase gap between profile and cart
+              className="ml-8" 
             />
           </div>
 
