@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { loginWithEmail, getMe, GOOGLE_OAUTH_URL } from "@/services/auth";
 
 interface FormData {
   email: string;
@@ -79,7 +80,7 @@ export default function useAuthHandlers() {
       setTimeout(() => {
         setAuthState((prev) => ({ ...prev, isRedirecting: true }));
         router.push("/home");
-      }, 800); // faster redirect
+      }, 800);
     },
     [formData, router, setUser]
   );
@@ -92,7 +93,7 @@ export default function useAuthHandlers() {
 
       if (isGoogle) {
         msg = "Google authentication failed. Please try again.";
-      } else if (msg.toLowerCase().includes("not verified")) {
+      } else if (typeof msg === "string" && msg.toLowerCase().includes("not verified")) {
         setEmailForVerification(formData.email);
         router.push("/verify-email");
         return;
@@ -109,7 +110,7 @@ export default function useAuthHandlers() {
     [formData.email, router, setEmailForVerification]
   );
 
-  /** ✅ Email Login */
+  /** ✅ Email Login (via service) */
   const handleEmailLogin = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -124,22 +125,13 @@ export default function useAuthHandlers() {
       setAuthState((prev) => ({ ...prev, isLoading: true, loginError: null }));
 
       try {
-        const res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-          }),
+        const { user } = await loginWithEmail({
+          email: formData.email,
+          password: formData.password,
         });
-
-        const data = await res.json();
-        if (!res.ok) return handleAuthError(data);
-
-        handleAuthSuccess(data.user, formData.rememberMe);
-      } catch {
-        handleAuthError({ message: "Network error. Please try again." });
+        handleAuthSuccess(user, formData.rememberMe);
+      } catch (err: any) {
+        handleAuthError(err);
       }
     },
     [formData, handleAuthError, handleAuthSuccess]
@@ -152,17 +144,8 @@ export default function useAuthHandlers() {
       const { type, status } = event.data || {};
       if (type === "oauth" && status === "success") {
         // Popup has closed itself after setting cookies → fetch the user
-        fetch("/api/auth/me", {
-          credentials: "include",
-          cache: "no-store",
-        })
-          .then((res) => {
-            if (!res.ok) throw new Error("Not authenticated");
-            return res.json();
-          })
-          .then((data) => {
-            handleAuthSuccess(data.user, true);
-          })
+        getMe()
+          .then(({ user }) => handleAuthSuccess(user, true))
           .catch(() =>
             handleAuthError({ message: "Google login failed or was cancelled." }, true)
           );
@@ -182,7 +165,7 @@ export default function useAuthHandlers() {
     }));
 
     const popup = window.open(
-      "/api/auth/google",
+      GOOGLE_OAUTH_URL,
       "google-oauth",
       "width=500,height=600,scrollbars=yes,resizable=yes"
     );

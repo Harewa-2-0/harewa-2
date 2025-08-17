@@ -13,3 +13,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
     </>
   );
 }
+export const metadata = {
+  title: 'HAREWA - Public Pages',
+  description: 'Public pages of HAREWA',
+};
