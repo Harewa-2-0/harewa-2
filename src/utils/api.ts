@@ -1,12 +1,9 @@
 // src/utils/api.ts
 
-// Optional: set this in .env.local if your API is on another domain.
-// If you call Next.js route handlers (/api/*) in the same app, you can leave it empty.
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || '';
-
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 const DEFAULT_TIMEOUT = 15000;
 
-type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -14,103 +11,186 @@ type Json =
   | { [key: string]: Json }
   | Json[];
 
-type MaybeWrapped<T> = { success?: boolean; data?: T } | T;
+export type MaybeWrapped<T> = { success?: boolean; data?: T } | T;
 
-/** tiny fetch wrapper with timeout + cookie auth */
+export class ApiError extends Error {
+  status: number;
+  payload?: unknown;
+  constructor(message: string, status: number, payload?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+// ===== helpers =====
+
+// Join API_BASE + path safely
+function buildUrl(path: string) {
+  if (path.startsWith("http")) return path;
+  if (!API_BASE) return path; // same-origin
+  try {
+    return new URL(
+      path.replace(/^\//, ""),
+      API_BASE.endsWith("/") ? API_BASE : API_BASE + "/"
+    ).toString();
+  } catch {
+    return `${API_BASE}${path}`;
+  }
+}
+
+// Decide headers only when needed (don’t set for FormData)
+function withJson(init: RequestInit): RequestInit {
+  const isFormData =
+    typeof window !== "undefined" && init.body instanceof FormData;
+  return {
+    ...init,
+    headers: {
+      ...(init.headers || {}),
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    },
+  };
+}
+
+// Parse response body (json or text → best-effort json)
+async function parseBody(res: Response): Promise<any> {
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    return await res.json().catch(() => null);
+  }
+  const text = await res.text();
+  if (text && (text.startsWith("{") || text.startsWith("["))) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }
+  return text;
+}
+
+// Detect "access token expired" shapes from backend
+function isAccessExpired(status: number, body: any) {
+  if (status !== 401) return false;
+  const code =
+    body?.error?.code ||
+    body?.code ||
+    (typeof body?.error === "string" ? body.error : undefined);
+  const msg = (body?.message || body)?.toString?.().toLowerCase?.() || "";
+  return (
+    code === "TOKEN_EXPIRED" ||
+    code === "ACCESS_TOKEN_EXPIRED" ||
+    msg.includes("token expired") ||
+    msg.includes("jwt expired") ||
+    msg.includes("access token expired")
+  );
+}
+
+// ===== refresh single-flight =====
+let refreshPromise: Promise<void> | null = null;
+
+async function doRefreshOnce(): Promise<void> {
+  const res = await fetch(buildUrl("/api/auth/refresh"), {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const body = await parseBody(res);
+    const msg =
+      (body && (body.error?.message || body.error || body.message)) ||
+      res.statusText ||
+      "Refresh failed";
+    throw new ApiError(String(msg), res.status, body);
+  }
+}
+
+async function ensureRefresh(): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = doRefreshOnce().finally(() => {
+      refreshPromise = null; // allow future refreshes
+    });
+  }
+  return refreshPromise;
+}
+
+/** Tiny fetch wrapper with timeout + cookie auth + auto refresh/retry + better errors */
 export async function api<T = any>(
   path: string,
   init: RequestInit = {},
   opts: { timeout?: number } = {}
 ): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), opts.timeout ?? DEFAULT_TIMEOUT);
+  const url = buildUrl(path);
 
-  const url = path.startsWith('http')
-    ? path
-    : `${API_BASE}${path}`;
+  async function runOnce(): Promise<{ res: Response; body: any }> {
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      opts.timeout ?? DEFAULT_TIMEOUT
+    );
+    try {
+      const res = await fetch(url, {
+        credentials: "include",
+        signal: controller.signal,
+        ...init,
+      });
 
-  try {
-    const res = await fetch(url, {
-      credentials: 'include', // keep cookies (auth)
-      signal: controller.signal,
-      ...init,
-    });
+      // 204/205: no content to parse
+      if (res.status === 204 || res.status === 205) {
+        if (!res.ok)
+          throw new ApiError(res.statusText || `HTTP ${res.status}`, res.status);
+        return { res, body: undefined };
+      }
 
-    const ct = res.headers.get('content-type') || '';
-    const body: Json = ct.includes('application/json') ? await res.json() : await res.text();
-
-    if (!res.ok) {
-      const msg = typeof body === 'string' ? body : (body as any)?.message || `HTTP ${res.status}`;
-      throw new Error(msg);
+      const body = await parseBody(res);
+      return { res, body };
+    } finally {
+      clearTimeout(timer);
     }
-    return body as T;
-  } finally {
-    clearTimeout(timer);
   }
+
+  // First attempt
+  let { res, body } = await runOnce();
+
+  // If access expired → single-flight refresh → replay once
+  if (isAccessExpired(res.status, body)) {
+    try {
+      await ensureRefresh();
+    } catch (err: any) {
+      // Surface as 401 to callers
+      const message = err?.message || "Session expired";
+      throw new ApiError(message, 401, err?.payload ?? body);
+    }
+    ({ res, body } = await runOnce());
+  }
+
+  // Final error handling
+  if (!res.ok) {
+    const msg =
+      (body &&
+        typeof body === "object" &&
+        "message" in body &&
+        (body as any).message) ||
+      res.statusText ||
+      `HTTP ${res.status}`;
+    throw new ApiError(String(msg), res.status, body);
+  }
+
+  return body as T;
 }
 
 /** SWR/React Query compatible fetcher */
 export const fetcher = <T = any>(url: string) => api<T>(url);
 
 /** Helper to normalize {success,data} or bare data */
-function unwrap<T>(payload: MaybeWrapped<T>): T {
-  if (payload && typeof payload === 'object' && 'data' in (payload as any)) {
+export function unwrap<T>(payload: MaybeWrapped<T>): T {
+  if (payload && typeof payload === "object" && "data" in (payload as any)) {
     return ((payload as any).data ?? null) as T;
   }
   return payload as T;
 }
 
-/* ---------------------------------- */
-/* Products API                        */
-/* ---------------------------------- */
-
-export type Product = {
-  _id?: string;
-  id?: string;
-  name?: string;
-  price?: number | string;
-  // ...extend as needed
-};
-
-/** Optional query params: page, limit, q, category, etc. */
-export async function fetchProducts(params?: Record<string, string | number | undefined>) {
-  const qs = params
-    ? `?${new URLSearchParams(
-        Object.entries(params).reduce<Record<string, string>>((acc, [k, v]) => {
-          if (v !== undefined && v !== null) acc[k] = String(v);
-          return acc;
-        }, {})
-      )}`
-    : '';
-
-  if (process.env.NODE_ENV !== 'production') {
-    // light debug in dev
-    console.log('GET /api/product' + qs);
-  }
-
-  const raw = await api<MaybeWrapped<Product[]>>(`/api/product${qs}`);
-
-  // Normalize a few common shapes safely
-  const data = unwrap<Product[] | any>(raw);
-  if (Array.isArray(data)) return data;
-  if (Array.isArray((data as any)?.items)) return (data as any).items;
-
-  console.warn('Unexpected products response shape:', data);
-  return [] as Product[];
-}
-
-export async function fetchProductById(id: string) {
-  if (!id) throw new Error('Product ID is required');
-
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`GET /api/product/${id}`);
-  }
-
-  const raw = await api<MaybeWrapped<Product>>(`/api/product/${id}`);
-  const data = unwrap<Product | any>(raw);
-
-  if (data && (data._id || data.id)) return data;
-
-  console.warn('Unexpected product response shape:', data);
-  return null;
-}
+/** Convenience for JSON POST-style requests */
+export const json = (body: unknown): RequestInit =>
+  withJson({ method: "POST", body: JSON.stringify(body) });
