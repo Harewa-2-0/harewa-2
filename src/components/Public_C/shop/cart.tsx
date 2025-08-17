@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useMemo } from "react";
 import { X, Minus, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useCartStore, useCartTotalItems } from "@/store/cartStore";
 import { replaceCartProducts } from "@/services/cart";
 import { ensureCartHydrated, bindCartFocusRevalidate } from "@/services/lib/cart-sync";
@@ -9,6 +10,19 @@ import { ensureCartHydrated, bindCartFocusRevalidate } from "@/services/lib/cart
 interface CartUIProps {
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
+}
+
+declare global {
+  interface Window {
+    __scrollLockCount?: number;
+    __scrollLockPrev?: {
+      htmlOverflow?: string;
+      bodyOverflow?: string;
+      htmlOverscroll?: string;
+      bodyOverscroll?: string;
+      bodyTouchAction?: string;
+    };
+  }
 }
 
 const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
@@ -34,6 +48,62 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     bindCartFocusRevalidate();
   }, []);
 
+  // Robust scroll lock (handles multiple modals & Strict Mode)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    const lock = () => {
+      window.__scrollLockCount = (window.__scrollLockCount ?? 0) + 1;
+      if (window.__scrollLockCount > 1) return; // already locked elsewhere
+
+      window.__scrollLockPrev = {
+        htmlOverflow: html.style.overflow,
+        bodyOverflow: body.style.overflow,
+        htmlOverscroll: (html.style as any).overscrollBehavior,
+        bodyOverscroll: (body.style as any).overscrollBehavior,
+        bodyTouchAction: (body.style as any).touchAction,
+      };
+
+      // Lock scroll broadly (covers iOS Safari too)
+      html.style.overflow = "hidden";
+      body.style.overflow = "hidden";
+      (html.style as any).overscrollBehavior = "contain";
+      (body.style as any).overscrollBehavior = "contain";
+      (body.style as any).touchAction = "none";
+    };
+
+    const unlock = () => {
+      if (!window.__scrollLockCount) return;
+      window.__scrollLockCount = Math.max(0, (window.__scrollLockCount ?? 1) - 1);
+      if (window.__scrollLockCount > 0) return; // still in use by another modal
+
+      const prev = window.__scrollLockPrev || {};
+      html.style.overflow = prev.htmlOverflow ?? "";
+      body.style.overflow = prev.bodyOverflow ?? "";
+      (html.style as any).overscrollBehavior = prev.htmlOverscroll ?? "";
+      (body.style as any).overscrollBehavior = prev.bodyOverscroll ?? "";
+      (body.style as any).touchAction = prev.bodyTouchAction ?? "";
+      window.__scrollLockPrev = undefined;
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen?.(false);
+    };
+    window.addEventListener("keydown", onKey);
+
+    if (isOpen) lock();
+    else unlock();
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      // Cleanup once per render; ensure we don’t leave the page locked
+      if (isOpen) unlock();
+    };
+  }, [isOpen, setIsOpen]);
+
   const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
 
   const debounceMap = useRef<Record<string, number | ReturnType<typeof setTimeout>>>({});
@@ -49,7 +119,6 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     if (!cartId) return;
     const current = explicit ?? useCartStore.getState().items;
     const lines = buildLines(current);
-
     return replaceCartProducts(cartId, lines)
       .then(() => useCartStore.getState().setLastSyncedNow?.())
       .catch(() => {
@@ -99,137 +168,158 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed right-4 top-20 md:top-24 z-50">
-      <div className="absolute inset-0" style={{ pointerEvents: "none" }} />
-      {/* ⬇️ Fixed, viewport-based height so footer stays visible */}
-      <div className="bg-white rounded-lg shadow-2xl border max-w-md w-96 h-[calc(100vh-5rem)] md:h-[calc(100vh-6rem)] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
-          <h2 className="text-lg font-semibold text-gray-900">MY CART</h2>
-          <button
-            onClick={() => setIsOpen && setIsOpen(false)}
-            className="p-1 rounded-full border border-[#CCCCCC] transition-colors duration-200 group cursor-pointer"
-            style={{ outline: "none" }}
-            aria-label="Close cart"
-          >
-            <X size={20} className="text-[#CCCCCC] group-hover:text-white transition-colors duration-200" />
-          </button>
-          <style jsx>{`
-            .group:hover {
-              background: #D4AF37;
-              border-color: transparent;
-            }
-          `}</style>
-        </div>
+    <div className="fixed inset-0 z-50">
+      {/* Overlay: subtle dark, click to close */}
+      <button
+        aria-label="Close cart"
+        onClick={() => setIsOpen && setIsOpen(false)}
+        className="absolute inset-0 bg-black/40 backdrop-blur-[1px] transition-opacity duration-200"
+      />
 
-        {/* Clear-all row (only when there are items) */}
-        {items.length > 0 && (
-          <div className="p-3 border-b flex justify-center flex-shrink-0">
+      {/* Drawer container */}
+      <div className="absolute right-3 md:right-4 top-20 md:top-24">
+        <div
+          role="dialog"
+          aria-modal="true"
+          tabIndex={-1}
+          className="bg-white rounded-lg shadow-2xl border
+                     max-w-full w-[92vw] sm:w-96
+                     h-[calc(100vh-6rem)] md:h-[calc(100vh-7rem)]
+                     overflow-hidden flex flex-col"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
+            <h2 className="text-lg font-semibold text-gray-900">MY CART</h2>
             <button
-              onClick={onClearAll}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-red-300 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 cursor-pointer shadow-sm"
-              aria-label="Clear cart"
-              title="Remove all items"
+              onClick={() => setIsOpen && setIsOpen(false)}
+              className="p-1 rounded-full border border-[#CCCCCC] transition-colors duration-200 group cursor-pointer"
+              style={{ outline: "none" }}
+              aria-label="Close cart"
             >
-              <Trash2 size={16} className="text-red-600" />
-              <span>Clear cart</span>
+              <X size={20} className="text-[#CCCCCC] group-hover:text-white transition-colors duration-200" />
             </button>
+            <style jsx>{`
+              .group:hover {
+                background: #D4AF37;
+                border-color: transparent;
+              }
+            `}</style>
           </div>
-        )}
 
-        {/* Cart Items — only this area scrolls */}
-        <div className="flex-1 overflow-y-auto overscroll-contain">
-          {items.length === 0 ? (
-            <div className="p-4 text-sm text-gray-500">Your cart is empty.</div>
-          ) : (
-            items.map((item) => {
-              const name = (item as any).name as string | undefined;
-              const image = (item as any).image as string | undefined;
-              const hasMeta = Boolean(name) && Boolean(image);
+          {/* Clear-all row */}
+          {items.length > 0 && (
+            <div className="p-3 border-b flex justify-center flex-shrink-0">
+              <button
+                onClick={onClearAll}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-red-300 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 cursor-pointer shadow-sm"
+                aria-label="Clear cart"
+                title="Remove all items"
+              >
+                <Trash2 size={16} className="text-red-600" />
+                <span>Clear cart</span>
+              </button>
+            </div>
+          )}
 
-              return (
-                <div key={item.id} className="p-3 border-b border-gray-100">
-                  <div className="flex gap-2.5">
-                    {/* Product Image (reduced height) */}
-                    <div className="w-20 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
-                      <img
-                        src={image || "/placeholder.png"}
-                        alt={name || "Loading product..."}
-                        className={`w-full h-full object-cover ${hasMeta ? "" : "opacity-70"}`}
-                      />
-                    </div>
+          {/* Cart Items */}
+          <div className="flex-1 overflow-y-auto overscroll-contain">
+            {items.length === 0 ? (
+              <div className="p-4 text-sm text-gray-500">Your cart is empty.</div>
+            ) : (
+              items.map((item) => {
+                const name = (item as any).name as string | undefined;
+                const image = (item as any).image as string | undefined;
+                const hasMeta = Boolean(name) && Boolean(image);
 
-                    {/* Product Details (tight) */}
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-700 mb-1.5 leading-tight line-clamp-2">
-                        {name || "Loading..."}
-                      </p>
-
-                      <div className="mb-2">
-                        <span className="text-red-500 font-semibold">
-                          {typeof item.price === "number" && Number.isFinite(item.price)
-                            ? formatPrice(item.price)
-                            : "—"}
-                        </span>
+                return (
+                  <div key={item.id} className="p-3 border-b border-gray-100">
+                    <div className="flex gap-2.5">
+                      <div className="w-20 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        <img
+                          src={image || "/placeholder.png"}
+                          alt={name || "Loading product..."}
+                          className={`w-full h-full object-cover ${hasMeta ? "" : "opacity-70"}`}
+                        />
                       </div>
 
-                      <div className="flex items-center gap-2.5">
-                        <button
-                          onClick={() => onChangeQty(item.id, Math.max(0, item.quantity - 1))}
-                          className="w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50"
-                          aria-label="Decrease quantity"
-                        >
-                          <Minus size={12} className="text-gray-600" />
-                        </button>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-700 mb-1.5 leading-tight line-clamp-2">
+                          {name || "Loading..."}
+                        </p>
 
-                        <span className="font-medium text-gray-900 min-w-[18px] text-center text-sm">
-                          {item.quantity}
-                        </span>
+                        <div className="mb-2">
+                          <span className="text-red-500 font-semibold">
+                            {typeof item.price === "number" && Number.isFinite(item.price)
+                              ? formatPrice(item.price)
+                              : "—"}
+                          </span>
+                        </div>
 
-                        <button
-                          onClick={() => onChangeQty(item.id, item.quantity + 1)}
-                          className="w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50"
-                          aria-label="Increase quantity"
-                        >
-                          <Plus size={12} className="text-gray-600" />
-                        </button>
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            onClick={() => onChangeQty(item.id, Math.max(0, item.quantity - 1))}
+                            className="w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50"
+                            aria-label="Decrease quantity"
+                          >
+                            <Minus size={12} className="text-gray-600" />
+                          </button>
 
-                        {/* per-item remove */}
-                        <button
-                          onClick={() => onRemove(item.id)}
-                          className="ml-auto w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-red-50 hover:border-red-300 transition-colors"
-                          title="Remove item"
-                          aria-label="Remove item"
-                        >
-                          <X size={12} className="text-gray-600" />
-                        </button>
+                          <span className="font-medium text-gray-900 min-w-[18px] text-center text-sm">
+                            {item.quantity}
+                          </span>
+
+                          <button
+                            onClick={() => onChangeQty(item.id, item.quantity + 1)}
+                            className="w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50"
+                            aria-label="Increase quantity"
+                          >
+                            <Plus size={12} className="text-gray-600" />
+                          </button>
+
+                          <button
+                            onClick={() => onRemove(item.id)}
+                            className="ml-auto w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-red-50 hover:border-red-300 transition-colors"
+                            title="Remove item"
+                            aria-label="Remove item"
+                          >
+                            <X size={12} className="text-gray-600" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Footer (always visible) */}
-        <div className="p-4 border-t bg-gray-50 flex-shrink-0">
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-700">Subtotal:</span>
-              <span className="font-bold text-black text-lg">{formatPrice(subtotal)}</span>
-            </div>
-            <span className="text-sm text-gray-500">
-              {totalItems} item{totalItems === 1 ? "" : "s"}
-            </span>
+                );
+              })
+            )}
           </div>
-          <div className="mt-2">
-            <button
-              className="w-full py-3 rounded-lg font-medium text-white transition-colors cursor-pointer"
-              style={{ background: "#D4AF37" }}
-            >
-              CHECKOUT
-            </button>
+
+          {/* Footer */}
+          <div className="p-4 border-t bg-gray-50 flex-shrink-0">
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-700">Subtotal:</span>
+                <span className="font-bold text-black text-lg">{formatPrice(subtotal)}</span>
+              </div>
+              <span className="text-sm text-gray-500">
+                {totalItems} item{totalItems === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <Link
+                href="/cart"
+                className="w-full py-3 rounded-lg font-medium text-black text-center border border-[#CCCCCC] bg-white hover:bg-gray-50 transition-colors"
+              >
+                VIEW CART
+              </Link>
+
+              <button
+                className="w-full py-3 rounded-lg font-medium text-white transition-colors cursor-pointer"
+                style={{ background: "#D4AF37" }}
+              >
+                CHECKOUT
+              </button>
+            </div>
           </div>
         </div>
       </div>
