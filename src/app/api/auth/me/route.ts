@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/middleware/requireAuth";
 import { User } from "@/lib/models/User";
 
+// GET user profile
 export async function GET(req: NextRequest) {
   try {
     const decoded = requireAuth(req);
@@ -22,6 +23,37 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({ profile });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (err: any) {
+    const message =
+      err.message === "Unauthorized" ? "Unauthorized" : "Invalid token";
+    const status = message === "Unauthorized" ? 401 : 403;
+
+    return NextResponse.json({ message }, { status });
+  }
+}
+
+// DELETE user + profile
+export async function DELETE(req: NextRequest) {
+  try {
+    const decoded = requireAuth(req);
+
+    await dbConnect();
+
+    // Delete the profile first (if exists)
+    await Profile.findOneAndDelete({ user: decoded.sub });
+
+    // Delete the user
+    const deletedUser = await User.findByIdAndDelete(decoded.sub);
+
+    if (!deletedUser) {
+      return NextResponse.json(
+        { message: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ message: "User deleted successfully" });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     const message =
