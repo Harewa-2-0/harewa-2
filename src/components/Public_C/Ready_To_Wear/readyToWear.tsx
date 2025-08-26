@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import ProductCard, { Product } from "./ProductCard";
 import Sidebar from "./Sidebar";
 import { useResponsivePagination } from "../../../hooks/useResponsivePagination";
 import { getProducts } from "@/services/products";
-import { addLinesToMyCart, replaceCartProducts } from "@/services/cart";
-import { useCartStore } from "@/store/cartStore";
+import { useAuthStore } from "@/store/authStore";
 
 interface FilterState {
   category: string;
@@ -94,6 +93,7 @@ const ReadyToWearPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated } = useAuthStore();
 
   // (We don't need a hook subscription to actions here; we'll use getState() in the handler)
 
@@ -179,55 +179,6 @@ const ReadyToWearPage: React.FC = () => {
     setProducts((prev) =>
       prev.map((p) => (p._id === productId ? { ...p, isLiked: !p.isLiked } : p))
     );
-  };
-
-  /**
-   * Robust add-to-cart:
-   * - optimistic local add
-   * - POST full lines once to create a cart (when cartId is missing)
-   * - thereafter PUT full lines to the same cartId
-   */
-  const addToCart = async (product: Product) => {
-    const {
-      addItem,
-      setLastSyncedNow,
-      setCartId,
-    } = useCartStore.getState();
-
-    // 1) optimistic local add (includes UI meta for immediate drawer render)
-    const pid = String((product as any)._id ?? (product as any).id);
-    addItem({
-      id: pid,
-      name: product.name,
-      price: product.price,
-      image: product.images?.[0] || "/placeholder.png",
-      description: (product as any).description || "",
-    });
-    setLastSyncedNow?.();
-
-    // 2) Build FULL lines from latest local state (deduped by your store logic)
-    const lines = useCartStore.getState().items.map((i) => ({
-      productId: i.id,
-      quantity: Math.max(1, Math.floor(i.quantity)),
-      price: typeof i.price === "number" ? i.price : undefined,
-    }));
-
-    // 3) POST or PUT depending on cartId
-    try {
-      const existingId = useCartStore.getState().cartId;
-      if (existingId) {
-        await replaceCartProducts(existingId, lines);
-      } else {
-        const created = await addLinesToMyCart(lines);
-        const newId = String((created as any)?.id ?? (created as any)?._id ?? "");
-        if (newId) setCartId(newId);
-      }
-      setLastSyncedNow?.();
-    } catch (e) {
-      // Keep local state; focus/open will merge later
-      // Optionally show a toast here
-      console.error("Cart sync failed after add", e);
-    }
   };
 
   const filteredProducts = products.filter((product) => {
@@ -413,7 +364,7 @@ const ReadyToWearPage: React.FC = () => {
                       key={product._id}
                       product={product}
                       toggleLike={toggleLike}
-                      addToCart={() => addToCart(product)}
+                      isLoggedIn={isAuthenticated}
                     />
                   ))}
                 </div>

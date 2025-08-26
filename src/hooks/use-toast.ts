@@ -16,7 +16,7 @@ export default function useToast() {
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 5000);
+    }, 3000);
   };
 
   return { toasts, setToasts, addToast };
