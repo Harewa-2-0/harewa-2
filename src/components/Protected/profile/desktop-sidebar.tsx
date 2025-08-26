@@ -41,8 +41,9 @@ export default function DesktopSidebar({ activeTab, onTabChange, user }: Props) 
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left mb-1 transition-colors
               ${activeTab === item.id
                 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                : item.id === 'delete-account'
+                ? 'text-red-600 hover:bg-red-50'
                 : 'text-gray-700 hover:bg-gray-50'}
-              ${item.isLogout ? 'text-red-600 hover:bg-red-50' : ''}
             `}
           >
             <item.icon size={20} />

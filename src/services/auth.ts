@@ -96,5 +96,19 @@ export async function logoutServer() {
   }
 }
 
+/** Delete current user account */
+export async function deleteCurrentUser() {
+  const response = await api<any>("/api/auth/me", {
+    method: "DELETE",
+  });
+  
+  // Only return on 2xx status codes
+  if (response.status >= 200 && response.status < 300) {
+    return response;
+  }
+  
+  throw new Error(`Failed to delete account: ${response.status}`);
+}
+
 /** OAuth entry (opened in popup by the UI) */
 export const GOOGLE_OAUTH_URL = "/api/auth/google";

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Mulish } from "next/font/google";
 import "../app/globals.css";
 import AuthBootstrap from "./auth-bootstrap";
+import { CartHydrationWithErrorBoundary } from "@/components/Public_C/cart/cart-hydration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -103,6 +104,7 @@ export default function RootLayout({
     >
       <body data-gramm="false" className="antialiased font-sans">
         <AuthBootstrap />
+        <CartHydrationWithErrorBoundary />
         {children}
       </body>
     </html>
