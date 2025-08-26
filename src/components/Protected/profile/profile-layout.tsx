@@ -13,11 +13,6 @@ export default function ProfileLayout() {
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
-
-    if (tabId === 'logout') {
-      // Add real logout logic
-      console.log('Logging out...');
-    }
   };
 
   return (

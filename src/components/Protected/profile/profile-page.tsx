@@ -3,8 +3,7 @@
 import OrdersSection from './orders/order-section';
 import WishlistSection from './wishlist/wishlist-section';
 import MyInfoSection from './info/my-info-section';
-
-
+import DeleteAccountSection from './delete-account-section';
 
 interface ProfilePageProps {
   activeTab: string;
@@ -24,11 +23,11 @@ export default function ProfilePage({ activeTab }: ProfilePageProps) {
         </div>
       )}
 
-        {activeTab === 'wishlist' && <WishlistSection />}
+      {activeTab === 'wishlist' && <WishlistSection />}
 
+      {activeTab === 'info' && <MyInfoSection />}
 
-        {activeTab === 'info' && <MyInfoSection />}
-
+      {activeTab === 'delete-account' && <DeleteAccountSection />}
     </>
   );
 }
