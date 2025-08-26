@@ -4,7 +4,8 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import CartUI from '../shop/cart';
 import { useCartActions, useCartCount, useCartOpen } from '@/hooks/use-cart';
-import { useCartHasHydrated } from '@/store/cartStore';
+import { useCartHasHydrated, useCartStore } from '@/store/cartStore';
+import { useAuthStore } from '@/store/authStore';
 import { useCallback, useEffect } from 'react';
 import { getMe } from '@/services/auth';
 
@@ -42,8 +43,9 @@ export default function CartButton({
 }: CartButtonProps) {
   const count = useCartCount();
   const isOpen = useCartOpen();
-  const { openCart, closeCart } = useCartActions();
+  const { openCart, closeCart, openCartForGuest } = useCartActions();
   const hydrated = useCartHasHydrated();
+  const { isAuthenticated } = useAuthStore();
 
   const iconSrc = getCartIconUrl ? getCartIconUrl() : '/cartt.png';
 
@@ -56,8 +58,15 @@ export default function CartButton({
 
   const handleOpen = useCallback(async () => {
     await doPreflight();
-    openCart();
-  }, [doPreflight, openCart]);
+    
+    if (isAuthenticated) {
+      // Open drawer only - hydration will be handled by CartUI
+      openCart();
+    } else {
+      // Guest users - just open drawer with local storage items
+      openCartForGuest();
+    }
+  }, [doPreflight, isAuthenticated, openCart, openCartForGuest]);
 
   return (
     <>
@@ -86,7 +95,18 @@ export default function CartButton({
           <div className="fixed inset-0 z-40" onClick={closeCart} aria-hidden="true" />
           <CartUI
             isOpen={isOpen}
-            setIsOpen={(v: boolean) => (v ? openCart() : closeCart())}
+            setIsOpen={(v: boolean) => {
+              if (v) {
+                // When opening, just open the drawer
+                if (isAuthenticated) {
+                  openCart();
+                } else {
+                  openCartForGuest();
+                }
+              } else {
+                closeCart();
+              }
+            }}
           />
         </>
       )}
