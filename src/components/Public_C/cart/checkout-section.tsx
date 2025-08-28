@@ -96,6 +96,54 @@ export default function CheckoutSection() {
 
   return (
     <div className="space-y-4">
+      {/* Promo Code - Moved to top */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Have a promo code?</h3>
+        
+        {appliedPromo ? (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-green-800">
+                Promo code <strong>{appliedPromo}</strong> applied
+              </span>
+              <button
+                onClick={handleRemovePromo}
+                className="text-green-600 hover:text-green-800 text-sm underline"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value)}
+              placeholder="Enter promo code"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#fdc713] focus:border-transparent text-black"
+              onKeyPress={(e) => e.key === 'Enter' && handleApplyPromo()}
+            />
+            <button
+              onClick={handleApplyPromo}
+              disabled={isApplyingPromo || !promoCode.trim()}
+              className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {isApplyingPromo ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                'CODE'
+              )}
+            </button>
+          </div>
+        )}
+        
+        {/* Promo Code Hint */}
+        <p className="text-xs text-gray-500 mt-2">
+          Try <strong>WELCOME10</strong> for 10% off your first order
+        </p>
+      </div>
+
       {/* Order Summary */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-6">Order Summary</h2>
@@ -135,69 +183,10 @@ export default function CheckoutSection() {
         <button
           onClick={handleCheckout}
           disabled={orderSummary.itemCount === 0}
-          className="w-full py-4 bg-[#fdc713] text-black font-bold rounded-lg hover:bg-[#f0c000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-4 bg-[#fdc713] cursor-pointer text-white font-bold rounded-lg hover:bg-[#f0c000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {orderSummary.itemCount === 0 ? 'Cart is Empty' : 'PROCEED TO CHECKOUT'}
         </button>
-      </div>
-
-      {/* Promo Code */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Have a promo code?</h3>
-        
-        {appliedPromo ? (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-green-800">
-                Promo code <strong>{appliedPromo}</strong> applied
-              </span>
-              <button
-                onClick={handleRemovePromo}
-                className="text-green-600 hover:text-green-800 text-sm underline"
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value)}
-              placeholder="Enter promo code"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#fdc713] focus:border-transparent"
-              onKeyPress={(e) => e.key === 'Enter' && handleApplyPromo()}
-            />
-            <button
-              onClick={handleApplyPromo}
-              disabled={isApplyingPromo || !promoCode.trim()}
-              className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isApplyingPromo ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                'APPLY CODE'
-              )}
-            </button>
-          </div>
-        )}
-        
-        {/* Promo Code Hint */}
-        <p className="text-xs text-gray-500 mt-2">
-          Try <strong>WELCOME10</strong> for 10% off your first order
-        </p>
-      </div>
-
-      {/* Additional Info */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Need Help?</h3>
-        <div className="space-y-3 text-sm text-gray-600">
-          <p>• Free shipping on orders over ₦50,000</p>
-          <p>• 30-day return policy</p>
-          <p>• Secure checkout with SSL encryption</p>
-          <p>• Customer support available 24/7</p>
-        </div>
       </div>
 
       {/* Toast Notifications */}
