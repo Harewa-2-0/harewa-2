@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useCartStore } from '@/store/cartStore';
 import { useRouter } from 'next/navigation';
 import useToast from '@/hooks/use-toast';
+import { useAuthCartSync } from '@/hooks/use-auth-cart-sync';
 
 export default function CheckoutSection() {
   const [promoCode, setPromoCode] = useState('');
@@ -11,6 +12,9 @@ export default function CheckoutSection() {
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
   const { addToast, toasts, setToasts } = useToast();
   const router = useRouter();
+  
+  // Sync cart with authentication state changes
+  useAuthCartSync();
   
   const items = useCartStore((s) => s.items);
   const isLoading = useCartStore((s) => s.isLoading);
