@@ -58,6 +58,21 @@ export const useAuthStore = create<AuthState>()(
         // Best-effort server logout to clear HttpOnly cookies
         await logoutServer().catch(() => undefined);
 
+        // Clear cart store before clearing auth
+        if (typeof window !== "undefined") {
+          try {
+            // Import and clear cart store
+            const { useCartStore } = await import('@/store/cartStore');
+            useCartStore.getState().clearCart();
+            
+            // Import and clear profile cache
+            const { useProfileStore } = await import('@/store/profile-store');
+            useProfileStore.getState().clearCache();
+          } catch (error) {
+            console.warn('Failed to clear stores:', error);
+          }
+        }
+
         set({
           user: null,
           isAuthenticated: false,

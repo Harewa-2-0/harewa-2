@@ -6,6 +6,7 @@ import CartUI from '../shop/cart';
 import { useCartActions, useCartCount, useCartOpen } from '@/hooks/use-cart';
 import { useCartHasHydrated, useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
+import { useAuthCartSync } from '@/hooks/use-auth-cart-sync';
 import { useCallback, useEffect } from 'react';
 import { getMe } from '@/services/auth';
 
@@ -46,6 +47,9 @@ export default function CartButton({
   const { openCart, closeCart, openCartForGuest } = useCartActions();
   const hydrated = useCartHasHydrated();
   const { isAuthenticated } = useAuthStore();
+
+  // Sync cart with authentication state changes
+  useAuthCartSync();
 
   const iconSrc = getCartIconUrl ? getCartIconUrl() : '/cartt.png';
 

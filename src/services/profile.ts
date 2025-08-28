@@ -11,24 +11,34 @@ export type User = {
 };
 
 export type Address = {
-  id?: string;
-  kind: 'billing' | 'shipping';
-  fullName?: string;
+  _id?: string;
+  line1: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  isDefault: boolean;
+};
+
+export type ProfileUpdatePayload = {
+  username?: string;
   phone?: string;
-  address1: string;
-  address2?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  postalCode?: string;
+  bio?: string;
+  firstName?: string;
+  lastName?: string;
+  addresses?: Address[];
 };
 
 export function getMe() {
-  return api<User>('/me');
+  return api<User>('/api/auth/me');
 }
 
-export function patchMe(payload: Partial<Pick<User, 'fullName'|'phone'|'gender'|'dob'>>) {
-  return api<User>('/me', {
+export function getProfile() {
+  return api<any>('/api/auth/profile');
+}
+
+export function patchMe(payload: ProfileUpdatePayload) {
+  return api<User>('/api/auth/profile', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -38,25 +48,25 @@ export function patchMe(payload: Partial<Pick<User, 'fullName'|'phone'|'gender'|
 export function uploadAvatar(file: File) {
   const form = new FormData();
   form.append('avatar', file);
-  return api<User>('/me/avatar', { method: 'POST', body: form });
+  return api<User>('/api/auth/profile/picture', { method: 'POST', body: form });
 }
 
 // Addresses — server shape may differ; adapt paths if needed
 export function getTwoAddresses() {
   // Expecting array [{kind:'billing',...},{kind:'shipping',...}]
-  return api<Address[]>('/addresses?limit=2');
+  return api<Address[]>('/api/addresses?limit=2');
 }
 
 export function upsertAddress(addr: Address) {
   // if id exists -> PATCH, else POST (but still only billing/shipping)
-  if (addr.id) {
-    return api<Address>(`/addresses/${addr.id}`, {
+  if (addr._id) {
+    return api<Address>(`/api/addresses/${addr._id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(addr),
     });
   }
-  return api<Address>('/addresses', {
+  return api<Address>('/api/addresses', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(addr),
