@@ -221,12 +221,19 @@ export const useCartStore = create<CartState>()(
           }
         } catch (e: any) {
           // Handle different types of errors
-          if (e.status === 401) {
-            if (e.message?.includes('expired') || e.message?.includes('jwt expired')) {
-              set({ error: "Session expired. Please refresh the page." });
-            } else {
-              set({ error: "Authentication required" });
-            }
+          if (e.status === 401 || e.status === 403) {
+            // User is not authenticated - clear cart and mark as guest
+            set({ 
+              cartId: null, 
+              items: [], // Clear items when not authenticated
+              lastSyncedAt: Date.now(),
+              error: null,
+              isGuestCart: true,
+              isLoading: false
+            });
+            return; // Exit early to prevent infinite loading
+          } else if (e.message?.includes('expired') || e.message?.includes('jwt expired')) {
+            set({ error: "Session expired. Please refresh the page." });
           } else {
             set({ error: "Failed to fetch cart from server" });
           }
@@ -259,6 +266,39 @@ export const useCartStore = create<CartState>()(
             };
             checkLoading();
           });
+        }
+        
+        // Check if user is authenticated before attempting to fetch
+        // This prevents infinite loading when user is not authenticated
+        try {
+          const response = await fetch('/api/auth/me', { 
+            credentials: 'include',
+            cache: 'no-store'
+          });
+          
+          if (!response.ok) {
+            // User is not authenticated - mark as guest cart and don't fetch
+            set({ 
+              cartId: null, 
+              items: [], 
+              lastSyncedAt: Date.now(),
+              error: null,
+              isGuestCart: true,
+              isLoading: false
+            });
+            return;
+          }
+        } catch (error) {
+          // Auth check failed - mark as guest cart and don't fetch
+          set({ 
+            cartId: null, 
+            items: [], 
+            lastSyncedAt: Date.now(),
+            error: null,
+            isGuestCart: true,
+            isLoading: false
+          });
+          return;
         }
         
         // Start new fetch - this will set isLoading: true and clear it in finally
@@ -391,14 +431,29 @@ export const useCartStore = create<CartState>()(
       /** NEW: mark cart as guest cart */
       setGuestCart: (isGuest) => set({ isGuestCart: isGuest }),
 
-      /** NEW: utility function to deduplicate cart items */
-      deduplicateItems: () => {
-        const { items } = get();
-        const deduplicatedItems = deduplicateCartItems(items);
-        set({ items: deduplicatedItems });
-      },
+        /** NEW: utility function to deduplicate cart items */
+  deduplicateItems: () => {
+    const { items } = get();
+    const deduplicatedItems = deduplicateCartItems(items);
+    set({ items: deduplicatedItems });
+  },
 
-      setLastSyncedNow: () => set({ lastSyncedAt: Date.now() }),
+  /** NEW: handle authentication state changes */
+  handleAuthStateChange: (isAuthenticated: boolean) => {
+    if (!isAuthenticated) {
+      // User logged out - clear cart and reset state
+      set({ 
+        cartId: null, 
+        items: [], 
+        lastSyncedAt: Date.now(),
+        error: null,
+        isGuestCart: true,
+        isLoading: false
+      });
+    }
+  },
+
+  setLastSyncedNow: () => set({ lastSyncedAt: Date.now() }),
       setLoading: (loading: boolean) => set({ isLoading: loading }),
       setError: (error: string | null) => set({ error }),
 
