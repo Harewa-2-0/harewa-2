@@ -36,17 +36,17 @@ export default function Header() {
     <>
       {!hideAnnouncement && <AnnouncementBar />}
 
-      <header className="w-full bg-white border-b sticky top-0 z-40">
+      <header className="w-full bg-black border-b border-gray-700 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/">
             <Image src="/logo.webp" alt="Harewa Logo" width={120} height={40} priority />
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex gap-6 items-center text-sm text-black font-medium flex-1 justify-center">
+          <nav className="hidden md:flex gap-6 items-center text-sm text-white font-medium flex-1 justify-center">
             {navItems.map(({ label, href }) => (
               <motion.div key={label} whileHover={{ scale: 1.05 }}>
-                <Link href={href} className="hover:underline">
+                <Link href={href} className="hover:underline hover:text-[#FFE181]">
                   {label}
                 </Link>
               </motion.div>
@@ -64,7 +64,7 @@ export default function Header() {
                 <motion.div whileHover={{ scale: 1.05 }}>
                   <Link
                     href="/signup"
-                    className="border border-black text-[#D4AF37] px-4 py-1 rounded-full font-semibold"
+                    className="border border-white text-[#D4AF37] px-4 py-1 rounded-full font-semibold hover:bg-white hover:text-black transition-colors"
                   >
                     Sign Up
                   </Link>
@@ -72,7 +72,7 @@ export default function Header() {
                 <motion.div whileHover={{ scale: 1.05 }}>
                   <Link
                     href="/signin"
-                    className="bg-[#FFE181] text-black flex items-center gap-1 px-3 py-1 rounded-full font-semibold"
+                    className="bg-[#FFE181] text-black flex items-center gap-1 px-3 py-1 rounded-full font-semibold hover:bg-yellow-200 transition-colors"
                   >
                     Login <ArrowUpRight size={16} />
                   </Link>
@@ -94,7 +94,7 @@ export default function Header() {
             <CartButton size={24} getCartIconUrl={getCartUrl} />
             <button
               onClick={toggleMobileNav}
-              className="md:hidden text-black"
+              className="md:hidden text-white"
               aria-label="Toggle navigation"
             >
               {isMobileNavOpen ? <X size={30} /> : <Menu size={30} />}
@@ -106,7 +106,7 @@ export default function Header() {
         <AnimatePresence>
           {isMobileNavOpen && (
             <motion.div
-              className="md:hidden fixed w-full bg-white px-4 pt-14 pb-8 text-black text-base font-medium border-t min-h-screen flex flex-col"
+              className="md:hidden fixed w-full bg-black px-4 pt-14 pb-8 text-white text-base font-medium border-t border-gray-700 min-h-screen flex flex-col"
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -20, opacity: 0 }}
@@ -114,7 +114,7 @@ export default function Header() {
             >
               <div className="flex flex-col space-y-8">
                 {navItems.map(({ label, href }) => (
-                  <Link key={label} href={href} onClick={closeMobileNav} className="block">
+                  <Link key={label} href={href} onClick={closeMobileNav} className="block hover:text-[#FFE181]">
                     {label}
                   </Link>
                 ))}
@@ -126,14 +126,14 @@ export default function Header() {
                     <Link
                       href="/signup"
                       onClick={closeMobileNav}
-                      className="flex-1 border border-black text-[#D4AF37] text-center px-4 py-2 rounded-full"
+                      className="flex-1 border border-white text-[#D4AF37] text-center px-4 py-2 rounded-full hover:bg-white hover:text-black transition-colors"
                     >
                       Sign Up
                     </Link>
                     <Link
                       href="/signin"
                       onClick={closeMobileNav}
-                      className="flex-1 bg-[#FFE181] text-black text-center px-4 py-2 rounded-full"
+                      className="flex-1 bg-[#FFE181] text-black text-center px-4 py-2 rounded-full hover:bg-yellow-200 transition-colors"
                     >
                       Login <ArrowUpRight size={16} className="inline ml-1" />
                     </Link>
