@@ -11,6 +11,7 @@ import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import CartButton from '../../cart/cart-button';
 import UserMenu from '../../user-menu/user-menu';
+import { useAuthCartSync } from '@/hooks/use-auth-cart-sync';
 
 const navItems = [
   { label: 'Fabrics Gallery', href: '/fabrics' },
@@ -25,6 +26,9 @@ export default function Header() {
   const { isMobileNavOpen, toggleMobileNav, closeMobileNav } = useUIStore();
   const { user, hasHydratedAuth } = useAuthStore();
   const [hideAnnouncement, setHideAnnouncement] = useState(false);
+
+  // Sync cart with authentication state changes
+  useAuthCartSync();
 
   useEffect(() => {
     setHideAnnouncement(isMobileNavOpen);

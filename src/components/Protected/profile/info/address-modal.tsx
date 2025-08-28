@@ -1,76 +1,157 @@
 'use client';
 
-import React from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import type { AddressValues } from './address-card';
+import { X, Loader2 } from 'lucide-react';
+import type { ProfileAddress } from '@/store/profile-store';
+
+export type AddressValues = {
+  line1: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  isDefault: boolean;
+};
 
 export default function AddressModal({
-  open, title, initial, onClose, onSubmit
+  open,
+  title,
+  initial,
+  onClose,
+  onSubmit,
 }: {
   open: boolean;
   title: string;
   initial?: AddressValues;
   onClose: () => void;
-  onSubmit: (v: AddressValues) => Promise<void>;
+  onSubmit: (data: AddressValues) => Promise<void>;
 }) {
-  const { register, handleSubmit, reset } = useForm<AddressValues>({ defaultValues: initial });
+  const [saving, setSaving] = useState(false);
+  const { register, handleSubmit, reset, formState: { isDirty } } = useForm<AddressValues>();
 
-  // sync when initial changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  React.useEffect(() => reset(initial), [initial]);
+  useEffect(() => {
+    if (open && initial) {
+      reset(initial);
+    } else if (open) {
+      reset({
+        line1: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: '',
+        isDefault: false
+      });
+    }
+  }, [open, initial, reset]);
+
+  const handleFormSubmit = async (data: AddressValues) => {
+    setSaving(true);
+    try {
+      await onSubmit(data);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-lg rounded-lg border">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="font-semibold">{title}</h3>
-          <button onClick={onClose} className="p-2 rounded hover:bg-gray-100" aria-label="Close">
-            <X size={16} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-black">{title}</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X size={20} />
           </button>
         </div>
-        <form
-          onSubmit={handleSubmit(async (v) => { await onSubmit(v); onClose(); })}
-          className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4"
-        >
-          <div className="md:col-span-2">
-            <label className="block text-sm text-gray-600 mb-1">Full name</label>
-            <input {...register('fullName')} className="w-full border rounded-lg px-3 py-2"/>
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm text-gray-600 mb-1">Phone</label>
-            <input {...register('phone')} className="w-full border rounded-lg px-3 py-2"/>
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm text-gray-600 mb-1">Address line 1</label>
-            <input {...register('address1', { required: true })} className="w-full border rounded-lg px-3 py-2"/>
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm text-gray-600 mb-1">Address line 2</label>
-            <input {...register('address2')} className="w-full border rounded-lg px-3 py-2"/>
-          </div>
+
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">City</label>
-            <input {...register('city')} className="w-full border rounded-lg px-3 py-2"/>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">State/Region</label>
-            <input {...register('state')} className="w-full border rounded-lg px-3 py-2"/>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">Country</label>
-            <input {...register('country')} className="w-full border rounded-lg px-3 py-2"/>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">Postal code</label>
-            <input {...register('postalCode')} className="w-full border rounded-lg px-3 py-2"/>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
+            <input
+              {...register('line1', { required: true })}
+              type="text"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#fdc713] focus:border-transparent text-black"
+              placeholder="123 Main Street"
+            />
           </div>
 
-          <div className="md:col-span-2 flex items-center justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-[#D4AF37] text-white rounded-lg hover:bg-[#bfa129]">Save</button>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+            <input
+              {...register('city', { required: true })}
+              type="text"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#fdc713] focus:border-transparent text-black"
+              placeholder="Lagos"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+            <input
+              {...register('state', { required: true })}
+              type="text"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#fdc713] focus:border-transparent text-black"
+              placeholder="Lagos"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">ZIP Code</label>
+            <input
+              {...register('zip')}
+              type="text"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#fdc713] focus:border-transparent text-black"
+              placeholder="100001"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+            <input
+              {...register('country', { required: true })}
+              type="text"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#fdc713] focus:border-transparent text-black"
+              placeholder="Nigeria"
+            />
+          </div>
+
+          <div className="flex items-center">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register('isDefault')}
+                className="w-4 h-4 text-[#fdc713] border-gray-300 rounded focus:ring-[#fdc713]"
+              />
+              <span className="text-sm text-gray-700">Set as default address</span>
+            </label>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="submit"
+              disabled={saving || !isDirty}
+              className="flex-1 px-4 py-2 bg-[#fdc713] text-black rounded-lg hover:bg-[#f0c000] transition-colors disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="animate-spin mr-2 inline" size={16} />
+                  Saving...
+                </>
+              ) : (
+                'Save Address'
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
           </div>
         </form>
       </div>
