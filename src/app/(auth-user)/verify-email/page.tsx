@@ -3,38 +3,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Mail } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '../../../store/authStore';
+import { useToast } from '@/contexts/toast-context';
 
-// Toast type
-interface ToastType {
-  id: number;
-  message: string;
-  type: 'info' | 'success' | 'error';
-}
-
-const useToast = () => {
-  const [toasts, setToasts] = useState<ToastType[]>([]);
-  const addToast = (message: string, type: ToastType['type'] = 'info') => {
-    const id = Date.now();
-    const toast: ToastType = { id, message, type };
-    setToasts(prev => [...prev, toast]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 5000);
-  };
-  return { toasts, setToasts, addToast };
-};
-
-const Toast: React.FC<{ toast: ToastType; onClose: () => void }> = ({ toast, onClose }) => (
-  <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
-    toast.type === 'success' ? 'bg-green-500' : 
-    toast.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-  } text-white`}>
-    <div className="flex items-center justify-between">
-      <span>{toast.message}</span>
-      <button onClick={onClose} className="ml-2 text-white hover:text-gray-200">×</button>
-    </div>
-  </div>
-);
+// Toast notifications are now handled globally by ToastContainer
 
 interface VerifyEmailPageProps {
   email?: string;
@@ -43,7 +14,7 @@ interface VerifyEmailPageProps {
 export default function VerifyEmailPage({ email: emailProp }: VerifyEmailPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toasts, setToasts, addToast } = useToast();
+  const { addToast } = useToast();
   
   // Try multiple sources for email: auth store, URL param, or prop
   const emailFromStore = useAuthStore((state) => state.emailForVerification);
@@ -212,13 +183,7 @@ export default function VerifyEmailPage({ email: emailProp }: VerifyEmailPagePro
         />
       </div>
 
-      {toasts.map(toast => (
-        <Toast
-          key={toast.id}
-          toast={toast}
-          onClose={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-        />
-      ))}
+      {/* Toast notifications are now handled globally by ToastContainer */}
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="mx-auto w-16 h-16 rounded-lg flex items-center justify-center mb-8" style={{ backgroundColor: '#D4AF37' }}>

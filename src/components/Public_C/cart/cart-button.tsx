@@ -3,12 +3,13 @@
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import CartUI from '../shop/cart';
-import { useCartActions, useCartCount, useCartOpen } from '@/hooks/use-cart';
-import { useCartHasHydrated, useCartStore } from '@/store/cartStore';
+import { useCartActions, useCartOpen } from '@/hooks/use-cart';
+import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { useAuthCartSync } from '@/hooks/use-auth-cart-sync';
 import { useCallback, useEffect } from 'react';
 import { getMe } from '@/services/auth';
+import { useShallow } from 'zustand/react/shallow';
 
 // Global throttle for auth preflight across all CartButtons
 let lastPreflightAt = 0;
@@ -42,11 +43,17 @@ export default function CartButton({
   preflight = true,
   preflightIntervalMs = 60_000, // 1 minute
 }: CartButtonProps) {
-  const count = useCartCount();
+  // Use optimistic count that updates immediately
+  const { count, hydrated, isAuthenticated } = useCartStore(
+    useShallow((s) => ({
+      count: s.items.reduce((n, i) => n + i.quantity, 0),
+      hydrated: s._hasHydrated,
+      isAuthenticated: false, // We'll get this from auth store separately
+    }))
+  );
   const isOpen = useCartOpen();
   const { openCart, closeCart, openCartForGuest } = useCartActions();
-  const hydrated = useCartHasHydrated();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated: authIsAuthenticated } = useAuthStore();
 
   // Sync cart with authentication state changes
   useAuthCartSync();
@@ -63,14 +70,14 @@ export default function CartButton({
   const handleOpen = useCallback(async () => {
     await doPreflight();
     
-    if (isAuthenticated) {
+    if (authIsAuthenticated) {
       // Open drawer only - hydration will be handled by CartUI
       openCart();
     } else {
       // Guest users - just open drawer with local storage items
       openCartForGuest();
     }
-  }, [doPreflight, isAuthenticated, openCart, openCartForGuest]);
+  }, [doPreflight, authIsAuthenticated, openCart, openCartForGuest]);
 
   return (
     <>
@@ -87,7 +94,8 @@ export default function CartButton({
           height={size}
           className="object-contain"
         />
-        {hydrated && count > 0 && (
+        {/* Show count immediately when hydrated, even if 0 */}
+        {hydrated && (
           <span className="absolute -top-2 -right-2 bg-[#FDC713] text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white shadow">
             {count}
           </span>
@@ -102,7 +110,7 @@ export default function CartButton({
             setIsOpen={(v: boolean) => {
               if (v) {
                 // When opening, just open the drawer
-                if (isAuthenticated) {
+                if (authIsAuthenticated) {
                   openCart();
                 } else {
                   openCartForGuest();

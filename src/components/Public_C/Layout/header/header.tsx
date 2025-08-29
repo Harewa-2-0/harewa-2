@@ -95,7 +95,7 @@ export default function Header() {
           {/* Mobile Right (Avatar circle first, then Cart) */}
           <div className="md:hidden flex items-center gap-3">
             {hasHydratedAuth && user && <UserMenu desktop={false} />}
-            <CartButton size={24} getCartIconUrl={getCartUrl} />
+            <CartButton size={24} getCartIconUrl={getCartUrl} preflight={false} />
             <button
               onClick={toggleMobileNav}
               className="md:hidden text-white"

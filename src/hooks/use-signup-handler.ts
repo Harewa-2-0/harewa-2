@@ -2,12 +2,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
-import useToast from "./use-toast";
+import { useToast } from "@/contexts/toast-context";
 
 export default function useSignupHandlers() {
   const router = useRouter();
   const { setEmailForVerification } = useAuthStore();
-  const { toasts, setToasts, addToast } = useToast();
+  const { addToast } = useToast();
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -62,8 +62,6 @@ export default function useSignupHandlers() {
     handleInputChange,
     handleSubmit,
     isLoading,
-    toasts,
-    setToasts,
     addToast,
     showUserExistsModal,
     setShowUserExistsModal,

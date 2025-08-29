@@ -364,11 +364,36 @@ export async function getCartById(id: string) {
   return unwrap<Cart>(raw);
 }
 
+/** ---------- Helpers for hydration/sync ---------- */
+
+// OPTIMIZATION: Request deduplication to prevent multiple simultaneous calls
+const pendingRequests = new Map<string, Promise<any>>();
+
 /** Get my most recent/active cart (scoped to current user if possible).
  * Uses /api/cart/me endpoint which requires authentication.
  * Returns null if user is not logged in or cart doesn't exist.
  */
 export async function getMyCart(userId?: string) {
+  const requestKey = `getMyCart-${userId || 'current'}`;
+  
+  // If there's already a request in flight, return it
+  if (pendingRequests.has(requestKey)) {
+    return pendingRequests.get(requestKey);
+  }
+  
+  // Create new request
+  const requestPromise = performGetMyCart(userId);
+  pendingRequests.set(requestKey, requestPromise);
+  
+  try {
+    const result = await requestPromise;
+    return result;
+  } finally {
+    pendingRequests.delete(requestKey);
+  }
+}
+
+async function performGetMyCart(userId?: string) {
   try {
     const raw = await api<MaybeWrapped<Cart | Cart[] | { data: Cart[] }>>(paths.me, {
       credentials: "include",
@@ -416,8 +441,6 @@ export async function getMyCart(userId?: string) {
     return null;
   }
 }
-
-/** ---------- Helpers for hydration/sync ---------- */
 
 /** Deduplicate cart items by product ID and merge quantities */
 export function deduplicateCartItems<T extends { id: string; quantity: number; price?: number }>(
