@@ -23,6 +23,12 @@ type CartState = {
 
   addItem: (item: { id: string; quantity?: number; price?: number } & Record<string, unknown>) => void;
 
+  // NEW: Tight optimistic quantity update
+  updateQuantityOptimistic: (productId: string, newQuantity: number) => void;
+
+  // NEW: Tight optimistic item removal
+  removeItemOptimistic: (productId: string) => void;
+
   /** NEW: merge server → local (no overwrites/loss) */
   mergeServerCart: (server: Cart | null) => void;
 
@@ -54,8 +60,13 @@ type CartState = {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
+  /** OPTIMIZATION: Smart background sync methods */
+  startSmartBackgroundSync: () => void;
+  stopBackgroundSync: () => void;
+
   _hasHydrated: boolean;
   _setHasHydrated: (v: boolean) => void;
+  backgroundSyncIntervalId?: NodeJS.Timeout;
 };
 
 const createNoopStorage = () => ({
@@ -146,6 +157,32 @@ export const useCartStore = create<CartState>()(
             return newState;
           }
         });
+      },
+
+      // NEW: Tight optimistic quantity update
+      updateQuantityOptimistic: (productId: string, newQuantity: number) => {
+        return set((s) => {
+          const q = Math.max(0, Math.floor(newQuantity));
+          if (q <= 0) {
+            // Remove item if quantity is 0 or negative
+            return { items: s.items.filter((i) => i.id !== productId) };
+          }
+          
+          const idx = s.items.findIndex((i) => i.id === productId);
+          if (idx >= 0) {
+            const next = s.items.slice();
+            next[idx] = { ...next[idx], quantity: q };
+            return { items: next };
+          }
+          return s; // No change if item not found
+        });
+      },
+
+      // NEW: Tight optimistic item removal
+      removeItemOptimistic: (productId: string) => {
+        return set((s) => ({ 
+          items: s.items.filter((i) => i.id !== productId) 
+        }));
       },
 
       /** Merge instead of replace to avoid "disappears after open" */

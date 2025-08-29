@@ -3,6 +3,8 @@ import { Geist, Geist_Mono, Mulish } from "next/font/google";
 import "../app/globals.css";
 import AuthBootstrap from "./auth-bootstrap";
 import { CartHydrationWithErrorBoundary } from "@/components/Public_C/cart/cart-hydration";
+import ToastContainer from '@/components/ui/toast-container';
+import { ToastProvider } from '@/contexts/toast-context';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -103,9 +105,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${mulish.variable}`}
     >
       <body data-gramm="false" className="antialiased font-sans">
-        <AuthBootstrap />
-        <CartHydrationWithErrorBoundary />
-        {children}
+        <ToastProvider>
+          <AuthBootstrap />
+          <CartHydrationWithErrorBoundary />
+          {children}
+          <ToastContainer />
+        </ToastProvider>
       </body>
     </html>
   );
