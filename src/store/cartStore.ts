@@ -2,10 +2,17 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Cart, EnrichedCartItem } from "@/services/cart";
-import { mapServerCartToStoreItems, getMyCart, replaceCartProducts, deleteCart, enrichCartItems, addLinesToMyCart, deduplicateCartItems } from "@/services/cart";
+import type { Cart } from "@/services/cart";
+import { mapServerCartToStoreItems, getMyCart, replaceCartProducts, deleteCart, addLinesToMyCart, deduplicateCartItems } from "@/services/cart";
 
-export type CartLine = EnrichedCartItem;
+// Store-specific cart item type that uses 'id' instead of 'productId'
+export type CartLine = {
+  id: string;
+  quantity: number;
+  price?: number;
+  name?: string;
+  image?: string;
+} & Record<string, unknown>;
 
 type CartState = {
   cartId?: string | null;
@@ -225,13 +232,11 @@ export const useCartStore = create<CartState>()(
             const serverId = String(cart.id ?? cart._id ?? "") || null;
             const serverLines = mapServerCartToStoreItems(cart);
             
-            // Always enrich server items with product details
+            // Server items are already enriched by backend
             if (serverLines.length > 0) {
-              const enrichedItems = await enrichCartItems(serverLines);
-              
               set({ 
                 cartId: serverId, 
-                items: enrichedItems,
+                items: serverLines,
                 lastSyncedAt: Date.now(),
                 error: null,
                 isGuestCart: false // Server cart is not a guest cart
@@ -286,8 +291,9 @@ export const useCartStore = create<CartState>()(
         const { isGuestCart, lastSyncedAt } = get();
         
         // If not a guest cart and we have recent data, respect TTL unless forced
-        if (!force && !isGuestCart && lastSyncedAt && (now - lastSyncedAt) < 3000) {
-          return; // Return immediately if within 3 second TTL
+        // Reduced TTL to 1 second for faster updates on login
+        if (!force && !isGuestCart && lastSyncedAt && (now - lastSyncedAt) < 1000) {
+          return; // Return immediately if within 1 second TTL
         }
         
         // If there's already a fetch in flight, wait for it (single-flight)
@@ -305,38 +311,8 @@ export const useCartStore = create<CartState>()(
           });
         }
         
-        // Check if user is authenticated before attempting to fetch
-        // This prevents infinite loading when user is not authenticated
-        try {
-          const response = await fetch('/api/auth/me', { 
-            credentials: 'include',
-            cache: 'no-store'
-          });
-          
-          if (!response.ok) {
-            // User is not authenticated - mark as guest cart and don't fetch
-            set({ 
-              cartId: null, 
-              items: [], 
-              lastSyncedAt: Date.now(),
-              error: null,
-              isGuestCart: true,
-              isLoading: false
-            });
-            return;
-          }
-        } catch (error) {
-          // Auth check failed - mark as guest cart and don't fetch
-          set({ 
-            cartId: null, 
-            items: [], 
-            lastSyncedAt: Date.now(),
-            error: null,
-            isGuestCart: true,
-            isLoading: false
-          });
-          return;
-        }
+        // No need to check auth here - the calling component already knows user is authenticated
+        // This eliminates an unnecessary API call
         
         // Start new fetch - this will set isLoading: true and clear it in finally
         return get().fetchCartFromServer();
@@ -420,10 +396,9 @@ export const useCartStore = create<CartState>()(
           if (freshCart) {
             // If server still has a cart, sync it
             const serverItems = mapServerCartToStoreItems(freshCart);
-            const enrichedItems = await enrichCartItems(serverItems);
             set({ 
               cartId: freshCart._id || freshCart.id, 
-              items: enrichedItems,
+              items: serverItems,
               lastSyncedAt: Date.now(),
               error: null 
             });
@@ -493,6 +468,14 @@ export const useCartStore = create<CartState>()(
   setLastSyncedNow: () => set({ lastSyncedAt: Date.now() }),
       setLoading: (loading: boolean) => set({ isLoading: loading }),
       setError: (error: string | null) => set({ error }),
+
+      // Background sync methods (stubs for now)
+      startSmartBackgroundSync: () => {
+        // TODO: Implement background sync if needed
+      },
+      stopBackgroundSync: () => {
+        // TODO: Implement background sync if needed
+      },
 
       _hasHydrated: false,
       _setHasHydrated: (v: boolean) => set({ _hasHydrated: v }),

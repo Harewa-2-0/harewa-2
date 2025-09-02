@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, ShoppingCart, Star } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
@@ -131,10 +131,18 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, isLogged
               <button
                 onClick={handleAddToCart}
                 disabled={isAddingToCart}
-                className="p-2 transition-colors cursor-pointer text-gray-600 hover:text-yellow-400"
-                aria-label="Add to cart"
+                className={`p-2 transition-all duration-200 rounded-full ${
+                  isAddingToCart 
+                    ? 'bg-gray-100 cursor-not-allowed opacity-60' 
+                    : 'text-gray-600 hover:text-yellow-400 hover:bg-yellow-50 cursor-pointer'
+                }`}
+                aria-label={isAddingToCart ? "Adding to cart..." : "Add to cart"}
               >
-                <ShoppingCart className={`w-5 h-5 ${isAddingToCart ? 'animate-pulse' : ''}`} />
+                {isAddingToCart ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                ) : (
+                  <ShoppingCart className="w-5 h-5" />
+                )}
               </button>
             </div>
             <div className="flex items-center justify-between">

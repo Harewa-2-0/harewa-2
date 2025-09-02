@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import ProductCard, { Product } from "./ProductCard";
 import Sidebar from "./Sidebar";
@@ -36,6 +36,7 @@ const CustomDropdown = ({
 }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) {
@@ -45,12 +46,15 @@ const CustomDropdown = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
   return (
     <div className="relative min-w-[140px]" ref={ref}>
       <button
         type="button"
         className="flex items-center justify-between w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-base font-medium text-black focus:outline-none focus:ring-2 focus:ring-[#FDC713] hover:border-[#FDC713] transition-colors"
         onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
       >
         <span>{value || label}</span>
         <ChevronDown
@@ -58,10 +62,15 @@ const CustomDropdown = ({
         />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 mt-1 bg-white shadow-lg rounded-lg z-20 overflow-hidden border border-gray-100">
+        <div
+          className="absolute left-0 right-0 mt-1 bg-white shadow-lg rounded-lg z-20 overflow-hidden border border-gray-100"
+          role="listbox"
+        >
           {options.map((option) => (
             <div
               key={option}
+              role="option"
+              aria-selected={value === option}
               className={`px-4 py-2 cursor-pointer text-base text-black hover:bg-[#FDC713] hover:text-black transition-colors ${
                 value === option ? "bg-gray-100" : ""
               }`}
@@ -88,77 +97,56 @@ const ReadyToWearPage: React.FC = () => {
     color: "",
     priceRange: [0, 500000],
   });
-  const [sortBy, setSortBy] = useState("feature");
+  const [sortBy, setSortBy] = useState<"feature" | "price-low" | "price-high" | "newest">("feature");
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated } = useAuthStore();
 
-  // (We don't need a hook subscription to actions here; we'll use getState() in the handler)
-
   useEffect(() => {
     setLoading(true);
 
     getProducts()
       .then((data) => {
-        const demoFirst = ["/A1.webp", "/A2.webp", "/A3.webp"];
-        const demoSecond = ["/w1.webp", "/w2.webp", "/w3.webp"];
-
-        const isPlaceholder = (urls?: string[]) => {
-          if (!urls || urls.length === 0) return true;
-          const badHosts = ["example.com", "placehold.co"];
+        // Basic validator: if images missing/empty/clearly placeholder -> use single fallback
+        const isBadUrl = (u?: string) => {
+          if (!u) return true;
+          // allow site-relative paths
+          if (u.startsWith("/")) return false;
           try {
-            return urls.every((u) => {
-              if (!u) return true;
-              if (u.startsWith("/")) return false;
-              const { hostname } = new URL(u);
-              return badHosts.includes(hostname);
-            });
+            const { hostname } = new URL(u);
+            return ["example.com", "placehold.co"].includes(hostname);
           } catch {
             return true;
           }
         };
 
-        const mappedProducts = (data || []).map((product: any, idx: number) => {
-          let images: string[] = product?.images ?? ["/placeholder.png"];
-
-          if (idx === 0 && isPlaceholder(images)) {
-            images = demoFirst;
-          } else if (idx === 1 && isPlaceholder(images)) {
-            images = demoSecond;
-          } else if (!images || images.length === 0) {
+        const normalized: Product[] = (data || []).map((product: any) => {
+          let images: string[] = Array.isArray(product?.images) ? product.images : [];
+          images = images.filter(Boolean);
+          if (images.length === 0 || images.every(isBadUrl)) {
             images = ["/placeholder.png"];
           }
-
           return { ...product, images };
         });
 
-        setProducts(mappedProducts);
+        setProducts(normalized);
         setLoading(false);
       })
       .catch((err) => {
-        setError(err.message || "Failed to load products");
+        setError(err?.message || "Failed to load products");
         setLoading(false);
 
+        // Keep a tiny fallback to avoid an empty page, but no demo overrides.
         const fallbackData: Product[] = [
           {
-            _id: "test-1",
-            name: "Test Product 1",
+            _id: "fallback-1",
+            name: "Sample Product",
             price: 25000,
-            images: ["/A1.webp", "/A2.webp", "/A3.webp"],
+            images: ["/placeholder.png"],
             rating: 4,
             reviews: 12,
-            isLiked: false,
-            gender: "female",
-          },
-          {
-            _id: "test-2",
-            name: "Test Product 2",
-            price: 30000,
-            images: ["/w1.webp", "/w2.webp", "/w3.webp"],
-            rating: 5,
-            reviews: 8,
             isLiked: false,
             gender: "female",
           },
@@ -181,74 +169,62 @@ const ReadyToWearPage: React.FC = () => {
     );
   };
 
-  const filteredProducts = products.filter((product) => {
-    if (filters.category !== "All") {
-      const categoryGenderMap: { [key: string]: string } = {
-        Men: "male",
-        Women: "female",
-        Kids: "kids",
-      };
-      const expectedGender = categoryGenderMap[filters.category];
-      if (
-        expectedGender &&
-        product.gender?.toLowerCase() !== expectedGender.toLowerCase()
-      ) {
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      if (filters.category !== "All") {
+        const categoryGenderMap: { [key: string]: string } = {
+          Men: "male",
+          Women: "female",
+          Kids: "kids",
+        };
+        const expectedGender = categoryGenderMap[filters.category];
+        if (
+          expectedGender &&
+          product.gender?.toLowerCase() !== expectedGender.toLowerCase()
+        ) {
+          return false;
+        }
+      }
+      if (product.price < filters.priceRange[0] || product.price > filters.priceRange[1]) {
         return false;
       }
-    }
-    if (
-      product.price < filters.priceRange[0] ||
-      product.price > filters.priceRange[1]
-    )
-      return false;
-    if (
-      filters.style &&
-      product.style &&
-      product.style.toLowerCase() !== filters.style.toLowerCase()
-    )
-      return false;
-    if (filters.size && product.sizes && !product.sizes.includes(filters.size))
-      return false;
-    if (
-      filters.fitType &&
-      product.fitType &&
-      product.fitType.toLowerCase() !== filters.fitType.toLowerCase()
-    )
-      return false;
-    if (
-      filters.color &&
-      product.color &&
-      product.color.toLowerCase() !== filters.color.toLowerCase()
-    )
-      return false;
-    return true;
-  });
+      if (filters.style && product.style && product.style.toLowerCase() !== filters.style.toLowerCase()) {
+        return false;
+      }
+      if (filters.size && product.sizes && !product.sizes.includes(filters.size)) {
+        return false;
+      }
+      if (filters.fitType && product.fitType && product.fitType.toLowerCase() !== filters.fitType.toLowerCase()) {
+        return false;
+      }
+      if (filters.color && product.color && product.color.toLowerCase() !== filters.color.toLowerCase()) {
+        return false;
+      }
+      return true;
+    });
+  }, [products, filters]);
 
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    if (sortBy === "price-low") return a.price - b.price;
-    if (sortBy === "price-high") return b.price - a.price;
+  const sortedProducts = useMemo(() => {
+    const arr = [...filteredProducts];
+    if (sortBy === "price-low") return arr.sort((a, b) => a.price - b.price);
+    if (sortBy === "price-high") return arr.sort((a, b) => b.price - a.price);
     if (sortBy === "newest") {
-      const ad = (a as any).createdAt
-        ? new Date((a as any).createdAt).getTime()
-        : 0;
-      const bd = (b as any).createdAt
-        ? new Date((b as any).createdAt).getTime()
-        : 0;
-      return bd - ad;
+      const dateOf = (p: any) => (p?.createdAt ? new Date(p.createdAt).getTime() : 0);
+      return arr.sort((a: any, b: any) => dateOf(b) - dateOf(a));
     }
-    return 0;
-  });
+    return arr; // "feature" (default)
+  }, [filteredProducts, sortBy]);
 
   const { currentPage, setCurrentPage, totalPages, paginatedItems } =
     useResponsivePagination(sortedProducts);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pt-20 md:pt-24">
       {/* Header Section */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Breadcrumb */}
-          <div className="py-4">
+          {/* Breadcrumb - Hidden on mobile */}
+          <div className="py-4 hidden md:block">
             <nav className="flex text-sm text-gray-500">
               <span>Home</span>
               <span className="mx-2">›</span>
@@ -272,7 +248,55 @@ const ReadyToWearPage: React.FC = () => {
           </div>
 
           {/* Controls */}
-          <div className="flex items-center justify-between py-4">
+          <div className="py-4">
+            {/* Mobile Layout */}
+            <div className="lg:hidden space-y-4">
+              <button
+                onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg"
+              >
+                Filters
+              </button>
+              <div className="flex items-center space-x-2">
+                <div className="flex-1">
+                  <CustomDropdown
+                    value={filters.category}
+                    options={categories}
+                    onChange={(v) => handleFilterChange("category", v)}
+                    label="Category"
+                  />
+                </div>
+                <div className="flex-1">
+                  <CustomDropdown
+                    value={
+                      sortBy === "feature"
+                        ? "Feature"
+                        : sortBy === "price-low"
+                        ? "Price: Low to High"
+                        : sortBy === "price-high"
+                        ? "Price: High to Low"
+                        : "Newest"
+                    }
+                    options={[
+                      "Feature",
+                      "Price: Low to High",
+                      "Price: High to Low",
+                      "Newest",
+                    ]}
+                    onChange={(v) => {
+                      if (v === "Feature") setSortBy("feature");
+                      else if (v === "Price: Low to High") setSortBy("price-low");
+                      else if (v === "Price: High to Low") setSortBy("price-high");
+                      else if (v === "Newest") setSortBy("newest");
+                    }}
+                    label="Sort by"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Layout */}
+            <div className="hidden lg:flex items-center justify-between">
             <button
               onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
               className="lg:hidden px-4 py-2 bg-gray-100 text-gray-700 rounded-lg"
@@ -287,7 +311,15 @@ const ReadyToWearPage: React.FC = () => {
                 label="Category"
               />
               <CustomDropdown
-                value={sortBy}
+                value={
+                  sortBy === "feature"
+                    ? "Sort by feature"
+                    : sortBy === "price-low"
+                    ? "Price: Low to High"
+                    : sortBy === "price-high"
+                    ? "Price: High to Low"
+                    : "Newest"
+                }
                 options={[
                   "Sort by feature",
                   "Price: Low to High",
@@ -302,35 +334,38 @@ const ReadyToWearPage: React.FC = () => {
                 }}
                 label="Sort by"
               />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-4">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Mobile Filter Overlay */}
           {isMobileFilterOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 lg:hidden">
-              <div className="absolute left-0 top-0 h-full w-80 bg-white overflow-y-auto">
-                <div className="p-4 border-b border-gray-200">
+            <div className="fixed inset-0 bg-black/30 z-40 lg:hidden">
+              <div className="absolute left-0 top-0 h-full w-80 bg-white flex flex-col">
+                <div className="flex-1 overflow-y-auto">
+                  <Sidebar
+                    filters={filters}
+                    handleFilterChange={handleFilterChange}
+                    styles={styles}
+                    sizes={sizes}
+                    fitTypes={fitTypes}
+                    colors={colors}
+                    totalItems={filteredProducts.length}
+                  />
+                </div>
+                <div className="p-4 border-t border-gray-200 flex justify-center">
                   <button
                     onClick={() => setIsMobileFilterOpen(false)}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="w-12 h-12 bg-[#D4AF37] text-white rounded-full flex items-center justify-center hover:bg-[#B8941F] transition-colors"
                   >
                     ✕
                   </button>
                 </div>
-                <Sidebar
-                  filters={filters}
-                  handleFilterChange={handleFilterChange}
-                  styles={styles}
-                  sizes={sizes}
-                  fitTypes={fitTypes}
-                  colors={colors}
-                  totalItems={filteredProducts.length}
-                />
               </div>
             </div>
           )}

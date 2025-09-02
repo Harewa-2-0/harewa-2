@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { X, Minus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { useCartStore, useCartTotalItems } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/contexts/toast-context";
@@ -37,6 +38,8 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const [isCartLoading, setIsCartLoading] = useState(false);
   // Track pending operations per product to prevent double-submit
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
+  // Track items being removed for animation
+  const [removingItems, setRemovingItems] = useState<Set<string>>(new Set());
   
   const items = useCartStore((s) => s.items);
   const cartId = useCartStore((s) => s.cartId);
@@ -291,7 +294,17 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
         
         // Step 1: Immediate optimistic update for ALL users
         if (newQty === 0) {
-          removeItemOptimistic(id);
+          // Start removal animation
+          setRemovingItems(prev => new Set(prev).add(id));
+          // Delay actual removal to allow animation
+          setTimeout(() => {
+            removeItemOptimistic(id);
+            setRemovingItems(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(id);
+              return newSet;
+            });
+          }, 300); // Match animation duration
         } else {
           updateQuantityOptimistic(id, newQty);
         }
@@ -374,7 +387,16 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     } else {
       // For guest users, just update locally with optimistic updates
       if (qty <= 0) {
-        removeItemOptimistic(id);
+        // Start removal animation for guests too
+        setRemovingItems(prev => new Set(prev).add(id));
+        setTimeout(() => {
+          removeItemOptimistic(id);
+          setRemovingItems(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(id);
+            return newSet;
+          });
+        }, 300);
         addToast("Item removed from cart", "success");
       } else {
         updateQuantityOptimistic(id, qty);
@@ -387,16 +409,34 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const onRemove = async (id: string) => {
     if (isAuthenticated && cartId) {
       try {
-        // Step 1: Immediate optimistic update
-        removeItemOptimistic(id);
+        // Step 1: Start removal animation
+        setRemovingItems(prev => new Set(prev).add(id));
         
         // Step 2: Server sync
         await removeItemAndSync(id);
+        
+        // Step 3: Complete removal after animation
+        setTimeout(() => {
+          removeItemOptimistic(id);
+          setRemovingItems(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(id);
+            return newSet;
+          });
+        }, 300);
+        
         addToast("Item removed from cart", "success");
       } catch (error) {
-        // Step 3: Rollback on error
+        // Step 4: Rollback on error
         addToast("Failed to remove item. Please try again.", "error");
         console.error("Failed to remove item:", error);
+        
+        // Stop animation and restore item
+        setRemovingItems(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(id);
+          return newSet;
+        });
         
         // Restore the item that was optimistically removed
         const currentItem = items.find(item => item.id === id);
@@ -406,8 +446,16 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
         }
       }
     } else {
-      // For guest users, remove locally with optimistic updates
-      removeItemOptimistic(id);
+      // For guest users, remove locally with optimistic updates and animation
+      setRemovingItems(prev => new Set(prev).add(id));
+      setTimeout(() => {
+        removeItemOptimistic(id);
+        setRemovingItems(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(id);
+          return newSet;
+        });
+      }, 300);
       addToast("Item removed from cart", "success");
       addToast("Changes saved locally. Sign in to sync across devices.", "info");
     }
@@ -597,14 +645,33 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                 )}
               </div>
             ) : (
-              uniqueItems.map((item) => {
-                // Use enriched product details
-                const name = item.name || 'Product Name';
-                const image = item.image || '/placeholder.png';
-                const hasMeta = Boolean(name) && Boolean(image);
+              <AnimatePresence mode="popLayout">
+                {uniqueItems.map((item) => {
+                  // Use enriched product details
+                  const name = item.name || 'Product Name';
+                  const image = item.image || '/placeholder.png';
+                  const hasMeta = Boolean(name) && Boolean(image);
+                  const isRemoving = removingItems.has(item.id);
 
-                return (
-                  <div key={item.id} className="p-3 border-b border-gray-100">
+                  return (
+                    <motion.div
+                      key={item.id}
+                      layout
+                      initial={{ opacity: 1, x: 0, scale: 1 }}
+                      animate={{ 
+                        opacity: isRemoving ? 0 : 1, 
+                        x: isRemoving ? -300 : 0,
+                        scale: isRemoving ? 0.8 : 1
+                      }}
+                      exit={{ 
+                        opacity: 0, 
+                        x: -300, 
+                        scale: 0.8,
+                        transition: { duration: 0.3, ease: "easeInOut" }
+                      }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      className="p-3 border-b border-gray-100"
+                    >
                     <div className="flex gap-2.5">
                       <div className="w-20 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
                         <img
@@ -652,9 +719,10 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             )}
           </div>
 

@@ -2,31 +2,38 @@
 
 import { User } from 'lucide-react';
 import { menuItems } from './profile-tabs';
+import { useProfileStore } from '@/store/profile-store';
 
 interface Props {
   activeTab: string;
   onTabChange: (tabId: string) => void;
-  user?: {
-    fullName?: string;
-    email?: string;
-  };
 }
 
-export default function DesktopSidebar({ activeTab, onTabChange, user }: Props) {
+export default function DesktopSidebar({ activeTab, onTabChange }: Props) {
+  const { profileData } = useProfileStore();
+  
   return (
-    <div className="hidden md:block w-64 bg-white border-r min-h-screen">
+    <div className="hidden md:block w-64 bg-white border-r min-h-screen fixed left-0 top-16 pt-8 overflow-y-auto">
       {/* User Profile Section */}
       <div className="p-6 border-b">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-yellow-400 flex items-center justify-center text-white font-bold">
-            {user?.fullName?.[0]?.toUpperCase() || 'U'}
-          </div>
+          {profileData?.profilePicture ? (
+            <img 
+              src={profileData.profilePicture} 
+              alt="Profile" 
+              className="w-12 h-12 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-yellow-400 flex items-center justify-center text-white font-bold text-lg">
+              {profileData?.firstName?.[0]?.toUpperCase() || profileData?.user.username?.[0]?.toUpperCase() || 'U'}
+            </div>
+          )}
           <div>
-            <h2 className="font-semibold text-gray-900">
-              Hello {user?.fullName || 'HAREWA'}
+            <h2 className="font-semibold text-gray-900 text-lg">
+              {profileData?.firstName || profileData?.user.username || 'HAREWA'}
             </h2>
             <p className="text-sm text-gray-500">
-              {user?.email || 'user@harewa.com'}
+              {profileData?.user.email}
             </p>
           </div>
         </div>
