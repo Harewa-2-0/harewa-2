@@ -6,6 +6,7 @@ import { OrderTabs } from '@/components/Protected/profile/orders/order-tab';
 import EmptyState from '@/components/common/empty-state';
 
 const mockOrders = [
+
   {
     id: '8001',
     date: 'Jun 11, 2023, 1:00 PM',
