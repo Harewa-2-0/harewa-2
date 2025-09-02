@@ -10,6 +10,22 @@ export type User = {
   avatarUrl?: string;
 };
 
+export type Profile = {
+  _id: string;
+  user: {
+    email: string;
+    username: string;
+    isVerified: boolean;
+    role: string;
+    phoneNumber?: string;
+  };
+  firstName: string;
+  lastName: string;
+  addresses: Address[];
+  bio: string;
+  profilePicture?: string;
+};
+
 export type Address = {
   _id?: string;
   line1: string;
@@ -34,7 +50,7 @@ export function getMe() {
 }
 
 export function getProfile() {
-  return api<any>('/api/auth/profile');
+  return api<Profile>('/api/auth/profile');
 }
 
 export function patchMe(payload: ProfileUpdatePayload) {
@@ -47,8 +63,8 @@ export function patchMe(payload: ProfileUpdatePayload) {
 
 export function uploadAvatar(file: File) {
   const form = new FormData();
-  form.append('avatar', file);
-  return api<User>('/api/auth/profile/picture', { method: 'POST', body: form });
+  form.append('file', file);
+  return api<Profile>('/api/auth/profile/picture', { method: 'POST', body: form });
 }
 
 // Addresses — server shape may differ; adapt paths if needed
