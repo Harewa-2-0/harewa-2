@@ -27,6 +27,7 @@ export async function DELETE(
 
         // Find address index
         const addressIndex = profile.addresses.findIndex(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (a: any) => a._id?.toString() === params.addressId
         );
 
@@ -40,6 +41,7 @@ export async function DELETE(
         // Ensure at least one default address remains
         if (
             profile.addresses.length > 0 &&
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             !profile.addresses.some((a: any) => a.isDefault)
         ) {
             profile.addresses[0].isDefault = true; // fallback default
@@ -51,6 +53,7 @@ export async function DELETE(
             message: "Address deleted successfully",
             addresses: profile.addresses,
         });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
         console.error("❌ Delete address error:", err);
         return badRequest(err.message || "Failed to delete address");
