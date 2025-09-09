@@ -50,6 +50,40 @@ export async function sendVerificationEmail(to: string, code: string) {
 
   await notificationTransporter.sendMail(mailOptions);
 }
+export async function sendAdminVerificationEmail(to: string, userMail: string, code: string) {
+  const mailOptions = {
+    from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
+    to, // Super admin email (process.env.ADMIN_EMAIL)
+    subject: "🔐 New Admin Registration – Verification Code",
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 8px;">
+        <h2 style="color: #1e40af;">New Admin Verification</h2>
+        <p>Hello Super Admin,</p>
+
+        <p>A new admin account has been created for <strong>${userMail}</strong>. To activate and verify this account, use the verification code below:</p>
+
+        <div style="text-align: center; margin: 20px 0;">
+          <span style="display: inline-block; padding: 12px 24px; background-color: #1e40af; color: #fff; font-size: 24px; letter-spacing: 4px; border-radius: 6px;">
+            ${code}
+          </span>
+        </div>
+
+        <p><strong>Next step:</strong> Share this code securely with the new admin to allow them to complete their signup process.</p>
+
+        <p>If you did not expect this registration, please investigate immediately.</p>
+
+        <p>Thanks,<br/>The Harewa System</p>
+
+        <hr style="margin-top: 30px;"/>
+        <p style="font-size: 12px; color: #777;">
+          This is an automated message for super admins. Please do not reply directly to this email.
+        </p>
+      </div>
+    `,
+  };
+
+  await notificationTransporter.sendMail(mailOptions);
+}
 
 export async function sendWelcomeEmail(to: string) {
   const mailOptions = {
