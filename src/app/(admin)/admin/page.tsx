@@ -1,4 +1,4 @@
-import AdminDashboard from '@/components/protected/admin/pages/AdminDashboard';
+import AdminDashboard from '@/components/Protected/admin/pages/AdminDashboard';
 
 export default function AdminPage() {
   return <AdminDashboard />;

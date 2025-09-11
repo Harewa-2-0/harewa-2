@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
-import { ToastType } from '@/hooks/use-toast';
+import { ToastType } from '@/contexts/toast-context';
 
 interface ToastProps {
   toast: ToastType;
