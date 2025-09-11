@@ -36,16 +36,25 @@ export const ToastProvider = ({ children }: ToastProviderProps) => {
   const addToast = useCallback((message: string, type: ToastType['type'] = 'info') => {
     const id = Date.now() + Math.random();
     
-    // Remove duplicate messages to prevent spam
-    setToasts(prev => prev.filter(t => t.message !== message));
+    // Clear all existing toasts to ensure only one is displayed at a time
+    setToasts(prev => {
+      // Clear all existing timeouts
+      prev.forEach(toast => {
+        const timeout = timeoutRefs.current.get(toast.id);
+        if (timeout) {
+          clearTimeout(timeout);
+          timeoutRefs.current.delete(toast.id);
+        }
+      });
+      // Return only the new toast
+      return [{ id, message, type }];
+    });
     
-    setToasts(prev => [...prev, { id, message, type }]);
-    
-    // Auto-remove after 3 seconds
+    // Auto-remove after 2 seconds
     const timeout = setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
       timeoutRefs.current.delete(id);
-    }, 3000);
+    }, 2000);
     
     timeoutRefs.current.set(id, timeout);
     

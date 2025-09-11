@@ -1,11 +1,24 @@
 'use client';
 
-export default function AdminHeader() {
+interface AdminHeaderProps {
+  onMenuToggle: () => void;
+}
+
+export default function AdminHeader({ onMenuToggle }: AdminHeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
-        {/* Left side - Empty for now */}
-        <div></div>
+        {/* Left side - Mobile Menu Button */}
+        <div className="flex items-center">
+          <button
+            onClick={onMenuToggle}
+            className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
 
         {/* Right side - Icons */}
         <div className="flex items-center space-x-4">

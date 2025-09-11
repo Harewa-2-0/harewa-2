@@ -104,7 +104,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${mulish.variable}`}
     >
-      <body data-gramm="false" className="antialiased font-sans">
+      <body data-gramm="false" className="antialiased font-sans ">
         <ToastProvider>
           <AuthBootstrap />
           <CartHydrationWithErrorBoundary />

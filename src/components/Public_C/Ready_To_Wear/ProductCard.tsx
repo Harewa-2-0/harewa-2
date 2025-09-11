@@ -31,9 +31,11 @@ export interface Product {
 }
 
 interface ProductCardProps {
-  product: Product;
+  product: Product | null | undefined;
   toggleLike: (id: string) => void;
-  isLoggedIn?: boolean; // Add this prop to check if user is logged in
+  isLoggedIn?: boolean;
+  /** Optional: show a gold ring spinner while products load */
+  isLoading?: boolean;
 }
 
 const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
@@ -47,37 +49,47 @@ const renderStars = (rating: number = 4) => (
   ))
 );
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, isLoggedIn = false }) => {
-  const [imageError, setImageError] = useState(false);
+/** Gold ring spinner (for loading products) */
+const GoldRingSpinner: React.FC = () => (
+  <div className="w-full flex items-center justify-center py-10">
+    <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
+
+const ProductCard: React.FC<ProductCardProps> = ({
+  product,
+  toggleLike,
+  isLoggedIn = false,
+  isLoading = false,
+}) => {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
-  const { addToCart: addToCartAction, isAuthenticated } = useAuthAwareCartActions();
+  const { addToCart: addToCartAction } = useAuthAwareCartActions();
   const { addToast } = useToast();
 
-  // Get the first image or use a placeholder
-  const imageUrl =
-    product.images && product.images.length > 0
-      ? product.images[0]
-      : '/placeholder.png';
+  // Loading state (gold ring spinner)
+  if (isLoading) {
+    return <GoldRingSpinner />;
+  }
 
-  // Fallback for missing data
-  const displayName = product.name || 'Product Name';
-  const displayPrice = product.price || 0;
-  const displayRating = product.rating || 4;
+  // No product available — say nothing in store
+  if (!product || !product._id) {
+    return <div className="text-center text-sm text-gray-500 py-6">Nothing in store</div>;
+  }
+
+  const imageUrl = product.images?.[0] || '';
+  const displayName = product.name;
+  const displayPrice = product.price;
+  const displayRating = product.rating ?? 4; // keep star UI consistent
   const isLiked = product.isLiked || false;
-  const remainingInStock =
-    product.remainingInStock ?? product.quantity ?? 0;
+  const remainingInStock = product.remainingInStock ?? product.quantity ?? 0;
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
-    e.stopPropagation(); // don't trigger Link/navigation
-    
-    // Prevent double-submit
+    e.stopPropagation();
     if (isAddingToCart) return;
 
     setIsAddingToCart(true);
-    
     try {
-      // Use the centralized cart hook - handles optimistic update, server sync, and error handling
       await addToCartAction({
         id: product._id,
         quantity: 1,
@@ -85,12 +97,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, isLogged
         name: product.name,
         image: imageUrl,
       });
-      
-      // Show success toast
-      addToast("Item added to cart successfully", "success");
+      addToast('Item added to cart successfully', 'success');
     } catch (error) {
-      // Show error toast - the hook already handled rollback
-      addToast("Failed to add item to cart", "error");
+      addToast('Failed to add item to cart', 'error');
       console.error('Failed to add item to cart:', error);
     } finally {
       setIsAddingToCart(false);
@@ -99,14 +108,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, isLogged
 
   return (
     <>
-      <Link href={`/shop/${product._id}`} className="block">
+      <Link href={`/shop/${product._id}`} className="block w-full">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden group hover:shadow-md transition-shadow">
           <div className="relative">
             <img
-              src={imageError ? '/placeholder.png' : imageUrl}
+              src={imageUrl}
               alt={displayName}
-              className="w-full h-64 sm:h-80 object-cover"
-              onError={() => setImageError(true)}
+              className="w-full h-36 sm:h-40 object-cover"  /* reduced height further */
             />
             <button
               onClick={(e) => {
@@ -120,23 +128,21 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, isLogged
               />
             </button>
           </div>
-          <div className="p-4">
-            <h4 className="text-sm text-gray-800 mb-2 line-clamp-2">
-              {displayName}
-            </h4>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-lg font-semibold text-gray-900">
+          <div className="p-2.5"> {/* tighter padding */}
+            <h4 className="text-sm text-gray-800 mb-1 line-clamp-2">{displayName}</h4>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-sm font-semibold text-gray-900">
                 {formatPrice(displayPrice)}
               </span>
               <button
                 onClick={handleAddToCart}
                 disabled={isAddingToCart}
                 className={`p-2 transition-all duration-200 rounded-full ${
-                  isAddingToCart 
-                    ? 'bg-gray-100 cursor-not-allowed opacity-60' 
+                  isAddingToCart
+                    ? 'bg-gray-100 cursor-not-allowed opacity-60'
                     : 'text-gray-600 hover:text-yellow-400 hover:bg-yellow-50 cursor-pointer'
                 }`}
-                aria-label={isAddingToCart ? "Adding to cart..." : "Add to cart"}
+                aria-label={isAddingToCart ? 'Adding to cart...' : 'Add to cart'}
               >
                 {isAddingToCart ? (
                   <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
@@ -149,15 +155,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, isLogged
               <div className="flex items-center space-x-1">
                 {renderStars(displayRating)}
               </div>
-              <span className="text-sm text-gray-500">
-                ({remainingInStock})
-              </span>
+              <span className="text-xs text-gray-500">({remainingInStock})</span>
             </div>
           </div>
         </div>
       </Link>
-
-      {/* Toast notifications are now handled globally by ToastContainer */}
     </>
   );
 };

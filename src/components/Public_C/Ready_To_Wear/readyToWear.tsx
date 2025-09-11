@@ -386,14 +386,15 @@ const ReadyToWearPage: React.FC = () => {
           {/* Product Grid */}
           <div className="flex-1">
             {loading ? (
-              <div className="text-center py-20 text-gray-500">
-                Loading products...
-              </div>
+              <div className="w-full flex items-center justify-center py-10">
+              <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+            </div>
             ) : error ? (
               <div className="text-center py-20 text-red-500">{error}</div>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+
                   {paginatedItems.map((product) => (
                     <ProductCard
                       key={product._id}

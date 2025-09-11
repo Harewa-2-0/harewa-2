@@ -402,7 +402,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
         updateQuantityOptimistic(id, qty);
         addToast(`Quantity updated to ${qty}`, "success");
       }
-      addToast("Changes saved locally. Sign in to sync across devices.", "info");
+      addToast("Cart updated. Sign in to sync.", "error");
     }
   };
 
@@ -457,7 +457,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
         });
       }, 300);
       addToast("Item removed from cart", "success");
-      addToast("Changes saved locally. Sign in to sync across devices.", "info");
+      addToast("Added to cart. Sign in to sync.", "error");
     }
   };
 

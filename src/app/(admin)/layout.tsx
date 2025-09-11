@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import AdminLayout from '@/components/protected/admin/layout/AdminLayout';
+import AdminLayout from '@/components/Protected/admin/layout/AdminLayout';
 
 interface AdminLayoutProps {
   children: ReactNode;
