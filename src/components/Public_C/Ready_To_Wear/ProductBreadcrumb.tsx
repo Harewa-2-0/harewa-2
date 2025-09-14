@@ -8,7 +8,7 @@ interface ProductBreadcrumbProps {
 
 const ProductBreadcrumb: React.FC<ProductBreadcrumbProps> = ({ productName, gender }) => {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
+    <div className="max-w-7xl hidden md:block pt-20 mx-auto px-4 sm:px-6 lg:px-8  pb-8">
       <nav className="flex text-sm text-gray-500">
         <Link href="/" className="hover:underline">Home</Link>
         <span className="mx-2">›</span>

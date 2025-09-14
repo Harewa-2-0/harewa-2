@@ -52,7 +52,7 @@ export default function Header() {
         }}
       >
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/">
+          <Link href="/home">
             <Image src="/logo.webp" alt="Harewa Logo" width={120} height={40} priority />
           </Link>
 
