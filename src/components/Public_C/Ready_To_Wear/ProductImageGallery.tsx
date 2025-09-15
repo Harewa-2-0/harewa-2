@@ -66,7 +66,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
       </div>
 
       {/* Mobile Layout */}
-      <div className="lg:hidden">
+      <div className="lg:hidden pt-24">
         {/* Main Image First */}
         <div className="mb-6">
           <img

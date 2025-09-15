@@ -7,6 +7,17 @@ interface UIState {
   toggleMobileNav: () => void
   closeMobileNav: () => void
   
+  // Announcement Bar
+  isAnnouncementVisible: boolean
+  hideAnnouncement: () => void
+  showAnnouncement: () => void
+  resetAnnouncement: () => void
+  
+  // Scroll-based announcement visibility
+  isAnnouncementHiddenByScroll: boolean
+  hideAnnouncementByScroll: () => void
+  showAnnouncementByScroll: () => void
+  
   // Theme Mode
   theme: 'light' | 'dark'
   toggleTheme: () => void
@@ -23,6 +34,17 @@ export const useUIStore = create<UIState>()(
       })),
       closeMobileNav: () => set({ isMobileNavOpen: false }),
       
+      // Announcement Bar
+      isAnnouncementVisible: true,
+      hideAnnouncement: () => set({ isAnnouncementVisible: false }),
+      showAnnouncement: () => set({ isAnnouncementVisible: true }),
+      resetAnnouncement: () => set({ isAnnouncementVisible: true }),
+      
+      // Scroll-based announcement visibility
+      isAnnouncementHiddenByScroll: false,
+      hideAnnouncementByScroll: () => set({ isAnnouncementHiddenByScroll: true }),
+      showAnnouncementByScroll: () => set({ isAnnouncementHiddenByScroll: false }),
+      
       // Theme Mode
       theme: 'light',
       toggleTheme: () => set((state) => ({ 
@@ -32,7 +54,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'ui-store',
-      partialize: (state) => ({ theme: state.theme }), // Only persist theme
+      partialize: (state) => ({ theme: state.theme }), // Only persist theme, not announcement state
     }
   )
 ) 

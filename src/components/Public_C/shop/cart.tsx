@@ -4,9 +4,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { X, Minus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { useCartStore, useCartTotalItems } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
-import useToast from "@/hooks/use-toast";
+import { useToast } from "@/contexts/toast-context";
 import { addToMyCart, removeProductFromCartNew } from "@/services/cart";
 
 interface CartUIProps {
@@ -29,7 +30,7 @@ declare global {
 
 const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const router = useRouter();
-  const { addToast, toasts, setToasts } = useToast();
+  const { addToast, clearToasts } = useToast();
   
   // Optimistic state for cart clearing
   const [isClearingCart, setIsClearingCart] = useState(false);
@@ -37,6 +38,8 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const [isCartLoading, setIsCartLoading] = useState(false);
   // Track pending operations per product to prevent double-submit
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
+  // Track items being removed for animation
+  const [removingItems, setRemovingItems] = useState<Set<string>>(new Set());
   
   const items = useCartStore((s) => s.items);
   const cartId = useCartStore((s) => s.cartId);
@@ -48,6 +51,11 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const clearCart = useCartStore((s) => s.clearCart);
   const isLoading = useCartStore((s) => s.isLoading);
   const error = useCartStore((s) => s.error);
+  
+  // Optimistic functions for immediate UI updates
+  const updateQuantityOptimistic = useCartStore((s) => s.updateQuantityOptimistic);
+  const removeItemOptimistic = useCartStore((s) => s.removeItemOptimistic);
+  const replaceCart = useCartStore((s) => s.replaceCart);
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
@@ -57,8 +65,14 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   // Force refresh cart when drawer opens to ensure UI shows current server state
   useEffect(() => {
     if (isOpen && isAuthenticated) {
-      // Use centralized hydration method with force: true to ensure fresh data
-      useCartStore.getState().ensureHydrated(true);
+      // OPTIMIZATION: Only hydrate if not recently synced or if forced
+      const lastSynced = useCartStore.getState().lastSyncedAt;
+      const now = Date.now();
+      
+      if (!lastSynced || (now - lastSynced) > 60000) { // 1 minute threshold
+        // Use centralized hydration method with force: true to ensure fresh data
+        useCartStore.getState().ensureHydrated(true);
+      }
     }
   }, [isOpen, isAuthenticated]);
 
@@ -129,6 +143,13 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     // and the new sync functions in the cart store
   }, []);
 
+  // Clear all toasts when cart opens to prevent spam
+  useEffect(() => {
+    if (isOpen) {
+      clearToasts();
+    }
+  }, [isOpen, clearToasts]);
+
   // Show error toasts when cart errors occur
   useEffect(() => {
     if (error) {
@@ -136,29 +157,8 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     }
   }, [error, addToast]);
 
-  // Show success toast when cart is loaded with items
-  useEffect(() => {
-    if (items.length > 0 && !isLoading && !isClearingCart && lastSyncedAt) {
-      // Only show toast when items are first loaded, not on every render
-      const hasShownToast = sessionStorage.getItem('cartLoadedToast');
-      if (!hasShownToast) {
-        addToast(`Cart loaded with ${items.length} item${items.length === 1 ? '' : 's'}`, "success");
-        sessionStorage.setItem('cartLoadedToast', 'true');
-      }
-    }
-  }, [items.length, isLoading, isClearingCart, lastSyncedAt, addToast]);
-
-  // Show success toast when cart is successfully synced
-  useEffect(() => {
-    if (lastSyncedAt && !isLoading && !isClearingCart) {
-      // Only show sync success toast once per session
-      const hasShownSyncToast = sessionStorage.getItem('cartSyncToast');
-      if (!hasShownSyncToast && items.length > 0) {
-        addToast("Cart synchronized successfully", "success");
-        sessionStorage.setItem('cartSyncToast', 'true');
-      }
-    }
-  }, [lastSyncedAt, isLoading, isClearingCart, items.length, addToast]);
+  // Remove all the other toast effects that cause spam
+  // The cart actions will handle their own success/error toasts
 
   // Show toast when user signs in and cart is synced
   useEffect(() => {
@@ -280,56 +280,102 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     // Prevent double-submit for this product
     if (pendingOperations.has(id)) return;
     
+    // Find current item to get existing quantity
+    const currentItem = items.find(item => item.id === id);
+    if (!currentItem) return;
+    
+    const currentQty = currentItem.quantity;
+    const newQty = qty;
+    
     if (isAuthenticated && cartId) {
       try {
         // Mark operation as pending
         setPendingOperations(prev => new Set(prev).add(id));
         
-        // Find current item to get existing quantity
-        const currentItem = items.find(item => item.id === id);
-        if (!currentItem) return;
+        // Step 1: Immediate optimistic update for ALL users
+        if (newQty === 0) {
+          // Start removal animation
+          setRemovingItems(prev => new Set(prev).add(id));
+          // Delay actual removal to allow animation
+          setTimeout(() => {
+            removeItemOptimistic(id);
+            setRemovingItems(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(id);
+              return newSet;
+            });
+          }, 300); // Match animation duration
+        } else {
+          updateQuantityOptimistic(id, newQty);
+        }
         
-        const currentQty = currentItem.quantity;
-        const newQty = qty;
-        
-        // Don't do optimistic updates - let server be the source of truth
+        // Step 2: Server sync
         if (newQty > currentQty) {
           // Increment: POST to increase quantity
-          await addToMyCart({
+          const updatedCart = await addToMyCart({
             productId: id,
             quantity: newQty - currentQty, // Send delta
             price: currentItem.price
           });
           
-          // Refresh cart from server to get accurate state
-          await useCartStore.getState().ensureHydrated();
+          // Step 3: Reconcile with server truth
+          if (updatedCart) {
+            const serverId = String(updatedCart.id ?? updatedCart._id ?? "") || null;
+            const serverLines = updatedCart.products?.map((p: any) => ({
+              id: p.product,
+              quantity: p.quantity,
+              price: p.price,
+            })) || [];
+            
+            useCartStore.getState().setCartId(serverId);
+            replaceCart(serverLines);
+          }
+          
           addToast(`Quantity increased to ${newQty}`, "success");
         } else if (newQty < currentQty) {
-          // Decrement: handle based on new quantity
           if (newQty === 0) {
             // Remove item completely
             await removeProductFromCartNew(cartId, id);
             addToast("Item removed from cart", "success");
           } else {
-            // Decrease quantity - for now, remove and re-add with new quantity
+            // Decrease quantity - remove and re-add with new quantity
             await removeProductFromCartNew(cartId, id);
-            await addToMyCart({
+            const updatedCart = await addToMyCart({
               productId: id,
               quantity: newQty,
               price: currentItem.price
             });
+            
+            // Reconcile with server truth
+            if (updatedCart) {
+              const serverId = String(updatedCart.id ?? updatedCart._id ?? "") || null;
+              const serverLines = updatedCart.products?.map((p: any) => ({
+                id: p.product,
+                quantity: p.quantity,
+                price: p.price,
+              })) || [];
+              
+              useCartStore.getState().setCartId(serverId);
+              replaceCart(serverLines);
+            }
+            
             addToast(`Quantity decreased to ${newQty}`, "success");
           }
-          
-          // Refresh cart from server to get accurate state
-          await useCartStore.getState().ensureHydrated();
         }
       } catch (error) {
+        // Step 4: Rollback on error - restore previous state
         addToast("Failed to update quantity. Please try again.", "error");
         console.error("Failed to update quantity:", error);
         
-        // Refresh cart from server to ensure consistency
-        await useCartStore.getState().ensureHydrated();
+        // Rollback to previous state
+        if (newQty === 0) {
+          // Restore the item that was optimistically removed
+          const updatedItems = [...items, currentItem];
+          replaceCart(updatedItems);
+        } else {
+          // Restore previous quantity
+          updateQuantityOptimistic(id, currentQty);
+        }
       } finally {
         // Clear pending operation
         setPendingOperations(prev => {
@@ -339,38 +385,79 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
         });
       }
     } else {
-      // For guest users, just update locally
+      // For guest users, just update locally with optimistic updates
       if (qty <= 0) {
-        // Remove item for guest users
-        const updatedItems = items.filter(i => i.id !== id);
-        useCartStore.getState().replaceCart(updatedItems);
+        // Start removal animation for guests too
+        setRemovingItems(prev => new Set(prev).add(id));
+        setTimeout(() => {
+          removeItemOptimistic(id);
+          setRemovingItems(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(id);
+            return newSet;
+          });
+        }, 300);
         addToast("Item removed from cart", "success");
       } else {
-        // Update quantity for guest users
-        const updatedItems = items.map(i => i.id === id ? { ...i, quantity: qty } : i);
-        useCartStore.getState().replaceCart(updatedItems);
+        updateQuantityOptimistic(id, qty);
         addToast(`Quantity updated to ${qty}`, "success");
       }
-      addToast("Changes saved locally. Sign in to sync across devices.", "info");
+      addToast("Cart updated. Sign in to sync.", "error");
     }
   };
 
   const onRemove = async (id: string) => {
     if (isAuthenticated && cartId) {
       try {
-        // Use the new sync function
+        // Step 1: Start removal animation
+        setRemovingItems(prev => new Set(prev).add(id));
+        
+        // Step 2: Server sync
         await removeItemAndSync(id);
+        
+        // Step 3: Complete removal after animation
+        setTimeout(() => {
+          removeItemOptimistic(id);
+          setRemovingItems(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(id);
+            return newSet;
+          });
+        }, 300);
+        
         addToast("Item removed from cart", "success");
       } catch (error) {
+        // Step 4: Rollback on error
         addToast("Failed to remove item. Please try again.", "error");
         console.error("Failed to remove item:", error);
+        
+        // Stop animation and restore item
+        setRemovingItems(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(id);
+          return newSet;
+        });
+        
+        // Restore the item that was optimistically removed
+        const currentItem = items.find(item => item.id === id);
+        if (currentItem) {
+          const updatedItems = [...items, currentItem];
+          replaceCart(updatedItems);
+        }
       }
     } else {
-      // For guest users, remove locally
-      const updatedItems = items.filter(i => i.id !== id);
-      useCartStore.getState().replaceCart(updatedItems);
+      // For guest users, remove locally with optimistic updates and animation
+      setRemovingItems(prev => new Set(prev).add(id));
+      setTimeout(() => {
+        removeItemOptimistic(id);
+        setRemovingItems(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(id);
+          return newSet;
+        });
+      }, 300);
       addToast("Item removed from cart", "success");
-      addToast("Changes saved locally. Sign in to sync across devices.", "info");
+      addToast("Added to cart. Sign in to sync.", "error");
     }
   };
 
@@ -558,14 +645,33 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                 )}
               </div>
             ) : (
-              uniqueItems.map((item) => {
-                // Use enriched product details
-                const name = item.name || 'Product Name';
-                const image = item.image || '/placeholder.png';
-                const hasMeta = Boolean(name) && Boolean(image);
+              <AnimatePresence mode="popLayout">
+                {uniqueItems.map((item) => {
+                  // Use enriched product details
+                  const name = item.name || 'Product Name';
+                  const image = item.image || '/placeholder.png';
+                  const hasMeta = Boolean(name) && Boolean(image);
+                  const isRemoving = removingItems.has(item.id);
 
-                return (
-                  <div key={item.id} className="p-3 border-b border-gray-100">
+                  return (
+                    <motion.div
+                      key={item.id}
+                      layout
+                      initial={{ opacity: 1, x: 0, scale: 1 }}
+                      animate={{ 
+                        opacity: isRemoving ? 0 : 1, 
+                        x: isRemoving ? -300 : 0,
+                        scale: isRemoving ? 0.8 : 1
+                      }}
+                      exit={{ 
+                        opacity: 0, 
+                        x: -300, 
+                        scale: 0.8,
+                        transition: { duration: 0.3, ease: "easeInOut" }
+                      }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      className="p-3 border-b border-gray-100"
+                    >
                     <div className="flex gap-2.5">
                       <div className="w-20 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
                         <img
@@ -613,9 +719,10 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             )}
           </div>
 
@@ -651,61 +758,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
         </div>
       </div>
 
-      {/* Toast Notifications */}
-      <div className="fixed top-4 right-4 z-[60] space-y-2">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`p-4 rounded-lg shadow-lg text-white max-w-sm flex items-center gap-3 relative overflow-hidden ${
-              toast.type === "success"
-                ? "bg-[#fdc713] text-black"
-                : toast.type === "error"
-                ? "bg-red-500 text-white"
-                : "bg-blue-500 text-white"
-            }`}
-          >
-            <div className="flex-shrink-0">
-              {toast.type === "success" ? (
-                <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              ) : toast.type === "error" ? (
-                <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              ) : (
-                <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              )}
-            </div>
-            <span className="text-sm font-medium flex-1">{toast.message}</span>
-            <button
-              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-              className="ml-2 text-gray-600 hover:text-gray-800 text-lg font-bold flex-shrink-0"
-            >
-              ×
-            </button>
-            
-            {/* Running line animation */}
-            <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full">
-              <div className="h-full bg-white/60 animate-[progress_3s_linear_forwards]"></div>
-              <style jsx>{`
-                @keyframes progress {
-                  from { width: 100%; }
-                  to { width: 0%; }
-                }
-              `}</style>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Toast notifications are now handled globally by ToastContainer */}
     </div>
   );
 };

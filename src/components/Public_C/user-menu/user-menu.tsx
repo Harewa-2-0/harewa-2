@@ -169,7 +169,7 @@ export default function UserMenu({
               ×
             </button>
             <Link
-              href="/user/profile"
+              href="/profile"
               className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black rounded-t-lg"
               onClick={() => setOpen(false)}
             >

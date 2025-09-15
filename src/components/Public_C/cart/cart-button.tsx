@@ -3,27 +3,10 @@
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import CartUI from '../shop/cart';
-import { useCartActions, useCartCount, useCartOpen } from '@/hooks/use-cart';
-import { useCartHasHydrated, useCartStore } from '@/store/cartStore';
+import { useCartActions, useCartOpen } from '@/hooks/use-cart';
+import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
-import { useAuthCartSync } from '@/hooks/use-auth-cart-sync';
-import { useCallback, useEffect } from 'react';
-import { getMe } from '@/services/auth';
-
-// Global throttle for auth preflight across all CartButtons
-let lastPreflightAt = 0;
-let inflightPreflight: Promise<void> | null = null;
-async function runPreflight(throttleMs: number) {
-  const now = Date.now();
-  if (now - lastPreflightAt < throttleMs && inflightPreflight === null) return;
-  if (!inflightPreflight) {
-    inflightPreflight = getMe().then(() => {}).catch(() => {}).finally(() => {
-      lastPreflightAt = Date.now();
-      inflightPreflight = null;
-    });
-  }
-  return inflightPreflight;
-}
+import { useShallow } from 'zustand/react/shallow';
 
 type CartButtonProps = {
   size?: number;
@@ -42,35 +25,26 @@ export default function CartButton({
   preflight = true,
   preflightIntervalMs = 60_000, // 1 minute
 }: CartButtonProps) {
-  const count = useCartCount();
+  // Get count immediately from store - no hydration dependency
+  const { count } = useCartStore(
+    useShallow((s) => ({
+      count: s.items.reduce((n, i) => n + i.quantity, 0),
+    }))
+  );
+  
   const isOpen = useCartOpen();
   const { openCart, closeCart, openCartForGuest } = useCartActions();
-  const hydrated = useCartHasHydrated();
   const { isAuthenticated } = useAuthStore();
-
-  // Sync cart with authentication state changes
-  useAuthCartSync();
 
   const iconSrc = getCartIconUrl ? getCartIconUrl() : '/cartt.png';
 
-  const doPreflight = useCallback(async () => {
-    if (!preflight) return;
-    await runPreflight(preflightIntervalMs);
-  }, [preflight, preflightIntervalMs]);
-
-  useEffect(() => { void doPreflight(); }, [doPreflight]);
-
-  const handleOpen = useCallback(async () => {
-    await doPreflight();
-    
+  const handleOpen = () => {
     if (isAuthenticated) {
-      // Open drawer only - hydration will be handled by CartUI
       openCart();
     } else {
-      // Guest users - just open drawer with local storage items
       openCartForGuest();
     }
-  }, [doPreflight, isAuthenticated, openCart, openCartForGuest]);
+  };
 
   return (
     <>
@@ -87,11 +61,10 @@ export default function CartButton({
           height={size}
           className="object-contain"
         />
-        {hydrated && count > 0 && (
-          <span className="absolute -top-2 -right-2 bg-[#FDC713] text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white shadow">
-            {count}
-          </span>
-        )}
+        {/* Show count always - even when 0 - no hydration dependency */}
+        <span className="absolute -top-2 -right-2 bg-[#FDC713] text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white shadow">
+          {count}
+        </span>
       </motion.button>
 
       {isOpen && (
@@ -101,7 +74,6 @@ export default function CartButton({
             isOpen={isOpen}
             setIsOpen={(v: boolean) => {
               if (v) {
-                // When opening, just open the drawer
                 if (isAuthenticated) {
                   openCart();
                 } else {

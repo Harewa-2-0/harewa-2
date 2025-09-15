@@ -39,7 +39,7 @@ export default function MyInfoSection() {
       {/* Header: avatar + greeting */}
       <div className="bg-white border rounded-lg p-6 flex items-center gap-4">
         <AvatarUpload
-          src={profileData?.user.avatar}
+          src={profileData?.profilePicture}
           size={72}
           onUpload={changeAvatar}
         />

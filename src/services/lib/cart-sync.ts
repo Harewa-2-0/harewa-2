@@ -73,7 +73,6 @@ export function bindCartFocusRevalidate() {
     ensureCartHydrated({ force: false, enrich: true });
   });
 }
-
 /** Fill in missing name/image/slug (and price fallback) using product summaries */
 async function enrichMissingMeta() {
   const state = useCartStore.getState();
@@ -123,3 +122,4 @@ async function enrichMissingMeta() {
     // ignore; show placeholders until next refresh
   }
 }
+

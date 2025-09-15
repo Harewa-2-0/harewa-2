@@ -31,6 +31,9 @@ export default function Header() {
   useAuthCartSync();
 
   useEffect(() => {
+    // If you want the announcement to *disappear* when mobile nav opens, keep this true.
+    // If you want it to remain stacked above the header even when the menu is open,
+    // set this to false (or remove this effect entirely).
     setHideAnnouncement(isMobileNavOpen);
   }, [isMobileNavOpen]);
 
@@ -40,9 +43,16 @@ export default function Header() {
     <>
       {!hideAnnouncement && <AnnouncementBar />}
 
-      <header className="w-full bg-black border-b border-gray-700 sticky top-0 z-40">
+      {/* Header sits just below the announcement bar */}
+      <header
+        className="w-full bg-black border-b border-gray-700 sticky z-40"
+        style={{
+          top: 'var(--announcement-height, 0px)',
+          transition: 'top 250ms ease',
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/">
+          <Link href="/home">
             <Image src="/logo.webp" alt="Harewa Logo" width={120} height={40} priority />
           </Link>
 
@@ -85,17 +95,13 @@ export default function Header() {
             )}
 
             {/* Cart after avatar/name — with extra space */}
-            <CartButton
-              size={32}
-              getCartIconUrl={getCartUrl}
-              className="ml-8" 
-            />
+            <CartButton size={32} getCartIconUrl={getCartUrl} className="ml-8" />
           </div>
 
           {/* Mobile Right (Avatar circle first, then Cart) */}
           <div className="md:hidden flex items-center gap-3">
             {hasHydratedAuth && user && <UserMenu desktop={false} />}
-            <CartButton size={24} getCartIconUrl={getCartUrl} />
+            <CartButton size={24} getCartIconUrl={getCartUrl} preflight={false} />
             <button
               onClick={toggleMobileNav}
               className="md:hidden text-white"
@@ -110,13 +116,18 @@ export default function Header() {
         <AnimatePresence>
           {isMobileNavOpen && (
             <motion.div
-              className="md:hidden fixed w-full bg-black px-4 pt-14 pb-8 text-white text-base font-medium border-t border-gray-700 min-h-screen flex flex-col"
+              className="md:hidden fixed left-0 right-0 w-full bg-black px-4 pb-8 text-white text-base font-medium border-t border-gray-700 min-h-screen flex flex-col z-30"
+              style={{
+                // Dropdown starts below announcement + header (~64px)
+                top: 'calc(var(--announcement-height, 0px) + 64px)',
+                transition: 'top 250ms ease',
+              }}
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -20, opacity: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex flex-col space-y-8">
+              <div className="flex flex-col space-y-8 pt-6">
                 {navItems.map(({ label, href }) => (
                   <Link key={label} href={href} onClick={closeMobileNav} className="block hover:text-[#FFE181]">
                     {label}
