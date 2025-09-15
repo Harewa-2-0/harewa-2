@@ -32,35 +32,41 @@ export function CartHydration() {
     if (!hasHydratedAuth) return;
 
     if (isAuthenticated) {
-      // User is logged in
+      // User is logged in - always ensure cart is hydrated
       if (isGuestCart && items.length > 0 && !hasSyncedGuestCart) {
         // User has guest cart items - sync them to server first
         syncGuestCartToServer().then(() => {
           setHasSyncedGuestCart(true);
-          // After syncing guest cart, ensure cart is hydrated (force: false for TTL)
+          // After syncing guest cart, ensure cart is hydrated
           ensureHydrated(false).catch((error) => {
             console.error('Failed to hydrate cart after guest cart sync:', error);
           });
         }).catch((error) => {
           console.error('Failed to sync guest cart:', error);
-          // Even if sync fails, try to hydrate cart (force: false for TTL)
+          // Even if sync fails, try to hydrate cart
           ensureHydrated(false).catch(console.error);
         });
       } else {
-        // No guest cart items or already synced - hydrate cart normally (force: false for TTL)
-        ensureHydrated(false).catch((error) => {
-          console.error('Failed to hydrate cart during hydration:', error);
-          
-          // If it's an auth error, try to refresh token and retry once
-          if (error.message?.includes('expired') || error.message?.includes('jwt expired')) {
-            setTimeout(() => {
-              if (retryCount < 1) {
-                setRetryCount(prev => prev + 1);
-                ensureHydrated(false).catch(console.error);
-              }
-            }, 2000); // Wait 2 seconds before retry
-          }
-        });
+        // No guest cart items or already synced - hydrate cart
+        // OPTIMIZATION: Only hydrate if not recently synced (within 10 seconds for login scenarios)
+        const lastSynced = useCartStore.getState().lastSyncedAt;
+        const now = Date.now();
+        
+        if (!lastSynced || (now - lastSynced) > 10000) { // 10 second threshold for faster updates on login
+          ensureHydrated(false).catch((error) => {
+            console.error('Failed to hydrate cart during hydration:', error);
+            
+            // If it's an auth error, try to refresh token and retry once
+            if (error.message?.includes('expired') || error.message?.includes('jwt expired')) {
+              setTimeout(() => {
+                if (retryCount < 1) {
+                  setRetryCount(prev => prev + 1);
+                  ensureHydrated(false).catch(console.error);
+                }
+              }, 2000); // Wait 2 seconds before retry
+            }
+          });
+        }
       }
     } else {
       // User is not logged in - DON'T clear cart, just reset flags

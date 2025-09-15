@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Toast from "@/components/Public_C/common/toast";
+// Toast notifications are now handled globally by ToastContainer
 import useSignupHandlers from "@/hooks/use-signup-handler";
 import usePasswordStrength from "@/hooks/use-password-strength";
 import { useRouter } from "next/navigation";
@@ -12,8 +12,6 @@ export default function SignupScreen() {
     handleInputChange,
     handleSubmit,
     isLoading,
-    toasts,
-    setToasts,
     showUserExistsModal,
     setShowUserExistsModal,
   } = useSignupHandlers();
@@ -25,14 +23,7 @@ export default function SignupScreen() {
 
   return (
     <div className="flex min-h-screen overflow-hidden">
-      {/* Toasts */}
-      {toasts.map((toast) => (
-        <Toast
-          key={toast.id}
-          toast={toast}
-          onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-        />
-      ))}
+      {/* Toast notifications are now handled globally by ToastContainer */}
 
       {/* Left Image */}
       <div className="hidden lg:flex lg:flex-1 relative">

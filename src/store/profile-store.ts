@@ -22,6 +22,7 @@ export type ProfileData = {
   lastName: string;
   phone?: string;
   bio?: string;
+  profilePicture?: string;
   addresses: ProfileAddress[];
 };
 
@@ -103,6 +104,7 @@ export const useProfileStore = create<State>()(
             lastName: response.profile.lastName || '',
             phone: response.profile.user.phoneNumber || '',
             bio: response.profile.bio || '',
+            profilePicture: response.profile.profilePicture || '',
             addresses: response.profile.addresses || []
           };
           
@@ -207,13 +209,33 @@ export const useProfileStore = create<State>()(
     async changeAvatar(file) {
       set({ savingUser: true });
       try {
-        await uploadAvatar(file);
-        // Invalidate cache and refetch for avatar changes
+        // Upload the new avatar
+        const response = await uploadAvatar(file);
+        
+        // Update local state with the new profile picture
+        if (response.profilePicture) {
+          set(state => ({
+            profileData: state.profileData ? {
+              ...state.profileData,
+              profilePicture: response.profilePicture
+            } : undefined,
+            // Update cache with new data
+            profileCache: state.profileData ? {
+              data: {
+                ...state.profileData,
+                profilePicture: response.profilePicture
+              },
+              timestamp: Date.now()
+            } : null
+          }));
+        }
+        
+        // Invalidate cache to ensure fresh data on next fetch
         get().invalidateCache();
-        await get().fetchProfile(true);
       } catch (error) {
         console.error('Failed to upload avatar:', error);
-        throw error;
+        // Show user-friendly error message
+        throw new Error('Failed to upload profile picture. Please try again.');
       } finally {
         set({ savingUser: false });
       }

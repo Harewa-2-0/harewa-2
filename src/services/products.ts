@@ -6,18 +6,45 @@ export type Product = {
   _id?: string;
   id?: string;
   name: string;
-  price: number;
-  images?: string[];     // <- optional; many UIs expect this
-  image?: string;        // <- some backends send a single image
+  description: string;
+  price: string | number;         // <- API can return either string or number
+  quantity: string | number;
+  remainingInStock: string | number;
+  location: string;
+  images: string[];      // <- required array of image URLs
+  sizes: string[];       // <- array of available sizes
+  gender: 'male' | 'female' | 'unisex';
+  category: string | { _id: string; id: string; name: string; description: string; }; // <- can be string or object
+  fabricType: string | { _id: string; name: string; type: string; color: string; pattern: string; weight: number; width: number; composition: string; supplier: string; pricePerMeter: number; inStock: boolean; createdAt: string; updatedAt: string; __v: number; } | null;
+  seller: string;
+  shop: string;
   slug?: string;         // <- optional but useful for links
+  createdAt?: string;
+  updatedAt?: string;
+  __v?: number;
+  favourite?: boolean;
   [k: string]: Json | undefined;
 };
 
-export type CreateProductInput = Omit<Product, "_id" | "id"> & {
-  // add required fields from your backend here (e.g. shopId, sellerId, images, etc.)
+export type CreateProductInput = Omit<Product, "_id" | "id">;
+
+export type AdminProductInput = {
+  name: string;
+  description: string;
+  price: string;
+  quantity: string;
+  remainingInStock: string;
+  location: string;
+  images: string[];
+  sizes: string[];
+  gender: 'male' | 'female' | 'unisex';
+  category: string;
+  fabricType: string;
+  seller: string;
+  shop: string;
 };
 
-export type UpdateProductInput = Partial<CreateProductInput> & {
+export type UpdateProductInput = Partial<AdminProductInput> & {
   id: string; // or _id, adjust to your backend
 };
 
@@ -32,6 +59,15 @@ const paths = {
   byId: (id: string) => `${BASE}/${id}`,         // GET /api/product/:id
   byShop: (shopId: string) => `${BASE}/shop/${shopId}`,       // GET /api/product/shop/:shopId
   bySeller: (sellerId: string) => `${BASE}/seller/${sellerId}`, // GET /api/product/seller/:sellerId
+};
+
+/** ---------- Admin Product Management Endpoints ---------- */
+const ADMIN_PATHS = {
+  add: BASE,                                     // POST {{host}}product
+  update: (id: string) => `${BASE}/${id}`,       // PUT {{host}}product/{{product_Id}}
+  delete: (id: string) => `${BASE}/${id}`,       // DELETE {{host}}product/{{product_Id}}
+  list: BASE,                                    // GET {{host}}product
+  byId: (id: string) => `${BASE}/${id}`,         // GET {{host}}product/{{product_Id}}
 };
 
 /** ---------- Helpers ---------- */
@@ -60,6 +96,55 @@ export async function addProduct(payload: CreateProductInput) {
     credentials: "include",
   });
   return unwrap<Product>(raw);
+}
+
+/** ---------- ADMIN PRODUCT MANAGEMENT ---------- */
+
+// Admin: Create product with full structure
+export async function adminAddProduct(payload: AdminProductInput) {
+  const raw = await api<MaybeWrapped<Product>>(ADMIN_PATHS.add, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    credentials: "include",
+  });
+  return unwrap<Product>(raw);
+}
+
+// Admin: Update product
+export async function adminUpdateProduct(id: string, payload: Partial<AdminProductInput>) {
+  const raw = await api<MaybeWrapped<Product>>(ADMIN_PATHS.update(id), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    credentials: "include",
+  });
+  return unwrap<Product>(raw);
+}
+
+// Admin: Delete product
+export async function adminDeleteProduct(id: string) {
+  const raw = await api<MaybeWrapped<{ deleted: boolean }>>(ADMIN_PATHS.delete(id), {
+    method: "DELETE",
+    credentials: "include",
+  });
+  return unwrap<{ deleted: boolean }>(raw);
+}
+
+// Admin: Get all products (for admin dashboard)
+export async function adminGetProducts(params?: Record<string, string | number | boolean | undefined>) {
+  const raw = await api<MaybeWrapped<Product[] | { items: Product[] }>>(
+    `${ADMIN_PATHS.list}${toQS(params)}`
+  );
+  const data = unwrap<Product[] | { items: Product[] }>(raw);
+  return Array.isArray(data) ? data : data?.items ?? [];
+}
+
+// Admin: Get product by ID
+export async function adminGetProductById(id: string) {
+  const raw = await api<MaybeWrapped<Product>>(ADMIN_PATHS.byId(id));
+  const data = unwrap<Product>(raw);
+  return data ?? null;
 }
 
 // Create many

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Heart, ShoppingCart, Star } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthAwareCartActions } from '@/hooks/use-cart';
-import useToast from '@/hooks/use-toast';
+import { useToast } from '@/contexts/toast-context';
 
 export interface Product {
   _id: string;
@@ -31,9 +31,11 @@ export interface Product {
 }
 
 interface ProductCardProps {
-  product: Product;
+  product: Product | null | undefined;
   toggleLike: (id: string) => void;
-  isLoggedIn?: boolean; // Add this prop to check if user is logged in
+  isLoggedIn?: boolean;
+  /** Optional: show a gold ring spinner while products load */
+  isLoading?: boolean;
 }
 
 const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
@@ -47,37 +49,47 @@ const renderStars = (rating: number = 4) => (
   ))
 );
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, isLoggedIn = false }) => {
-  const [imageError, setImageError] = useState(false);
+/** Gold ring spinner (for loading products) */
+const GoldRingSpinner: React.FC = () => (
+  <div className="w-full flex items-center justify-center py-10">
+    <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
+
+const ProductCard: React.FC<ProductCardProps> = ({
+  product,
+  toggleLike,
+  isLoggedIn = false,
+  isLoading = false,
+}) => {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
-  const { addToCart: addToCartAction, isAuthenticated } = useAuthAwareCartActions();
-  const { addToast, toasts, setToasts } = useToast();
+  const { addToCart: addToCartAction } = useAuthAwareCartActions();
+  const { addToast } = useToast();
 
-  // Get the first image or use a placeholder
-  const imageUrl =
-    product.images && product.images.length > 0
-      ? product.images[0]
-      : '/placeholder.png';
+  // Loading state (gold ring spinner)
+  if (isLoading) {
+    return <GoldRingSpinner />;
+  }
 
-  // Fallback for missing data
-  const displayName = product.name || 'Product Name';
-  const displayPrice = product.price || 0;
-  const displayRating = product.rating || 4;
+  // No product available — say nothing in store
+  if (!product || !product._id) {
+    return <div className="text-center text-sm text-gray-500 py-6">Nothing in store</div>;
+  }
+
+  const imageUrl = product.images?.[0] || '';
+  const displayName = product.name;
+  const displayPrice = product.price;
+  const displayRating = product.rating ?? 4; // keep star UI consistent
   const isLiked = product.isLiked || false;
-  const remainingInStock =
-    product.remainingInStock ?? product.quantity ?? 0;
+  const remainingInStock = product.remainingInStock ?? product.quantity ?? 0;
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
-    e.stopPropagation(); // don't trigger Link/navigation
-    
-    // Prevent double-submit
+    e.stopPropagation();
     if (isAddingToCart) return;
 
     setIsAddingToCart(true);
-    
     try {
-      // Use the centralized cart hook - handles optimistic update, server sync, and error handling
       await addToCartAction({
         id: product._id,
         quantity: 1,
@@ -85,12 +97,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, isLogged
         name: product.name,
         image: imageUrl,
       });
-      
-      // Show success toast
-      addToast("Item added to cart successfully", "success");
+      addToast('Item added to cart successfully', 'success');
     } catch (error) {
-      // Show error toast - the hook already handled rollback
-      addToast("Failed to add item to cart", "error");
+      addToast('Failed to add item to cart', 'error');
       console.error('Failed to add item to cart:', error);
     } finally {
       setIsAddingToCart(false);
@@ -99,14 +108,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, isLogged
 
   return (
     <>
-      <Link href={`/shop/${product._id}`} className="block">
+      <Link href={`/shop/${product._id}`} className="block w-full">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden group hover:shadow-md transition-shadow">
           <div className="relative">
             <img
-              src={imageError ? '/placeholder.png' : imageUrl}
+              src={imageUrl}
               alt={displayName}
-              className="w-full h-64 sm:h-80 object-cover"
-              onError={() => setImageError(true)}
+              className="w-full h-36 sm:h-40 object-cover"  /* reduced height further */
             />
             <button
               onClick={(e) => {
@@ -120,84 +128,38 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, toggleLike, isLogged
               />
             </button>
           </div>
-          <div className="p-4">
-            <h4 className="text-sm text-gray-800 mb-2 line-clamp-2">
-              {displayName}
-            </h4>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-lg font-semibold text-gray-900">
+          <div className="p-2.5"> {/* tighter padding */}
+            <h4 className="text-sm text-gray-800 mb-1 line-clamp-2">{displayName}</h4>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-sm font-semibold text-gray-900">
                 {formatPrice(displayPrice)}
               </span>
               <button
                 onClick={handleAddToCart}
                 disabled={isAddingToCart}
-                className="p-2 transition-colors cursor-pointer text-gray-600 hover:text-yellow-400"
-                aria-label="Add to cart"
+                className={`p-2 transition-all duration-200 rounded-full ${
+                  isAddingToCart
+                    ? 'bg-gray-100 cursor-not-allowed opacity-60'
+                    : 'text-gray-600 hover:text-yellow-400 hover:bg-yellow-50 cursor-pointer'
+                }`}
+                aria-label={isAddingToCart ? 'Adding to cart...' : 'Add to cart'}
               >
-                <ShoppingCart className={`w-5 h-5 ${isAddingToCart ? 'animate-pulse' : ''}`} />
+                {isAddingToCart ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                ) : (
+                  <ShoppingCart className="w-5 h-5" />
+                )}
               </button>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-1">
                 {renderStars(displayRating)}
               </div>
-              <span className="text-sm text-gray-500">
-                ({remainingInStock})
-              </span>
+              <span className="text-xs text-gray-500">({remainingInStock})</span>
             </div>
           </div>
         </div>
       </Link>
-
-      {/* Toast Notifications */}
-      <div className="fixed top-4 right-4 z-[60] space-y-2">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`p-4 rounded-lg shadow-lg text-white max-w-sm flex items-center gap-3 relative overflow-hidden ${
-              toast.type === "success"
-                ? "bg-[#fdc713] text-black"
-                : toast.type === "error"
-                ? "bg-red-500 text-white"
-                : "bg-blue-500 text-white"
-            }`}
-          >
-            <div className="flex-shrink-0">
-              {toast.type === "success" ? (
-                <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              ) : toast.type === "error" ? (
-                <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              ) : (
-                <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              )}
-            </div>
-            <span className="text-sm font-medium flex-1">{toast.message}</span>
-            <button
-              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-              className="ml-2 text-gray-600 hover:text-gray-800 text-lg font-bold flex-shrink-0"
-            >
-              ×
-            </button>
-            
-            {/* Running line animation */}
-            <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full">
-              <div className="h-full bg-white/60 animate-[progress_3s_linear_forwards]"></div>
-            </div>
-          </div>
-        ))}
-      </div>
     </>
   );
 };

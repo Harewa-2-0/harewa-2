@@ -21,41 +21,8 @@ export type Cart = {
   updatedAt?: string;
 } & Record<string, unknown>;
 
-export type ProductDetails = {
-  _id: string;
-  name: string;
-  price: number;
-  images: string[];
-  description?: string;
-  rating?: number;
-  reviews?: number;
-  sizes?: string[];
-  gender?: string;
-  category?: string;
-  style?: string;
-  fitType?: string;
-  color?: string;
-};
-
-export type EnrichedCartItem = {
-  id: string;
-  quantity: number;
-  price?: number;
-  name?: string;
-  image?: string;
-  description?: string;
-  rating?: number;
-  reviews?: number;
-  sizes?: string[];
-  gender?: string;
-  category?: string;
-  style?: string;
-  fitType?: string;
-  color?: string;
-};
-
 export type CreateCartInput = {
-  // not used for "my" cart creation; backend infers from auth
+  // Used for adding products to existing cart via POST /api/cart/me
   products: Array<{ productId: string; quantity?: number; price?: number }>;
 } & Record<string, unknown>;
 
@@ -70,22 +37,21 @@ export type AddToMyCartInput = {
   price?: number;
 } & Record<string, unknown>;
 
-/** ---------- Paths (updated to use external cart API) ---------- */
+/** ---------- Paths (external cart API) ---------- */
 const BASE = `${process.env.NEXT_PUBLIC_API_BASE_URL || ""}/api/cart`;
 const paths = {
-  add: `${BASE}/me`,                                   // POST /api/cart/me (append/create authed user's cart)
-  update: (id: string) => `${BASE}/${id}`,     // PUT /api/cart/:id (replace products array)
-  delete: (id: string) => `${BASE}/${id}`,     // DELETE /api/cart/:id (delete whole cart)
-  byId: (id: string) => `${BASE}/${id}`,       // GET /api/cart/:id
-  listMine: `${BASE}/me`,                               // GET /api/cart/me (get user's cart)
-  me: `${BASE}/me`,                             // preferred endpoint for user's cart
-  // New endpoints for individual product operations
-  addProduct: (cartId: string, productId: string) => `${BASE}/${cartId}/product/${productId}`, // POST /api/cart/:cartId/product/:productId
-  removeProduct: (cartId: string, productId: string) => `${BASE}/${cartId}/product/${productId}`, // DELETE /api/cart/:cartId/product/:productId
+  add: `${BASE}/me`,                                  // POST /api/cart/me (add products to user's cart)
+  update: (id: string) => `${BASE}/${id}`,            // PUT /api/cart/:id (replace products array)
+  delete: (id: string) => `${BASE}/${id}`,            // DELETE /api/cart/:id (delete whole cart)
+  byId: (id: string) => `${BASE}/${id}`,              // GET /api/cart/:id
+  listMine: `${BASE}/me`,                             // GET /api/cart/me (get user's cart)
+  me: `${BASE}/me`,                                   // preferred endpoint for user's cart
+  // Endpoints for individual product operations
+  addProduct: (cartId: string, productId: string) =>
+    `${BASE}/${cartId}/product/${productId}`,         // POST /api/cart/:cartId/product/:productId
+  removeProduct: (cartId: string, productId: string) =>
+    `${BASE}/${cartId}/product/${productId}`,         // DELETE /api/cart/:cartId/product/:productId
 };
-
-/** ---------- Product Service Paths ---------- */
-const PRODUCT_BASE = `${process.env.NEXT_PUBLIC_API_BASE_URL || ""}/api/product`;
 
 /** ---------- Internals ---------- */
 function toBackendLine(i: { productId: string; quantity?: number; price?: number }) {
@@ -110,17 +76,16 @@ function toCartArray(data: any): Cart[] {
  */
 export function mapServerCartToStoreItems(server: Cart) {
   const lines = Array.isArray(server?.products) ? server.products : [];
-  
+
   // Create a map to deduplicate by product ID and merge quantities
   const productMap = new Map<string, { id: string; quantity: number; price?: number }>();
-  
+
   lines.forEach((l) => {
     const productId = String(l.product);
     const quantity = Number.isFinite(l.quantity as number) ? (l.quantity as number) : 1;
     const price = typeof l.price === "number" ? l.price : undefined;
-    
+
     if (productMap.has(productId)) {
-      // Product already exists - merge quantities
       const existing = productMap.get(productId)!;
       productMap.set(productId, {
         ...existing,
@@ -129,16 +94,10 @@ export function mapServerCartToStoreItems(server: Cart) {
         price: existing.price ?? price,
       });
     } else {
-      // New product - add to map
-      productMap.set(productId, {
-        id: productId,
-        quantity,
-        price,
-      });
+      productMap.set(productId, { id: productId, quantity, price });
     }
   });
-  
-  // Convert map back to array
+
   return Array.from(productMap.values());
 }
 
@@ -153,129 +112,28 @@ function pickActiveCart(list: Cart[] | any): Cart | null {
   return sorted[0] ?? null;
 }
 
-/** ---------- Product Enrichment ---------- */
-
-/** Fetch product details by ID */
-async function fetchProductDetails(productId: string): Promise<ProductDetails | null> {
-  try {
-    const response = await fetch(`${PRODUCT_BASE}/${productId}`);
-    if (!response.ok) {
-      console.warn(`Failed to fetch product ${productId}:`, response.status);
-      return null;
-    }
-    
-    const data = await response.json();
-    // Handle different response formats
-    if (data.success && data.data) {
-      return data.data;
-    } else if (data._id) {
-      return data;
-    }
-    return null;
-  } catch (error) {
-    console.warn(`Error fetching product ${productId}:`, error);
-    return null;
-  }
-}
-
-/** Enrich cart items with product details */
-export async function enrichCartItems(cartItems: Array<{ id: string; quantity: number; price?: number }>): Promise<EnrichedCartItem[]> {
-  // First, deduplicate items to ensure unique product IDs
-  const deduplicatedItems = deduplicateCartItems(cartItems);
-  
-  // Fetch product details for each cart item
-  const productPromises = deduplicatedItems.map(async (item) => {
-    const productDetails = await fetchProductDetails(item.id);
-    
-    if (productDetails) {
-      return {
-        ...item,
-        name: productDetails.name,
-        image: productDetails.images?.[0] || '/placeholder.png',
-        description: productDetails.description,
-        rating: productDetails.rating,
-        reviews: productDetails.reviews,
-        sizes: productDetails.sizes,
-        gender: productDetails.gender,
-        category: productDetails.category,
-        style: productDetails.style,
-        fitType: productDetails.fitType,
-        color: productDetails.color,
-        // Use product price if cart price is not available
-        price: item.price ?? productDetails.price,
-      };
-    } else {
-      // Return item without enrichment if product fetch fails
-      return {
-        ...item,
-        name: 'Product not found',
-        image: '/placeholder.png',
-      };
-    }
-  });
-  
-  // Wait for all product details to be fetched
-  const results = await Promise.all(productPromises);
-  
-  // Return enriched items (already deduplicated)
-  return results;
-}
-
 /** ---------- Mutations ---------- */
 
-/** Smart add to cart with proper deduplication:
- * 1. Fetch current cart if not in memory
- * 2. Coalesce products by product ID (merge duplicates)
- * 3. PUT full coalesced array to server
- * 4. Return updated cart from server response
- */
+/** Add product to cart using POST /api/cart/me endpoint */
 export async function addToMyCart(item: AddToMyCartInput) {
   try {
-    // First, get the current cart
-    const currentCart = await getMyCart();
-    
-    if (currentCart && currentCart.id) {
-      // Cart exists - use new endpoint to add/update product
-      const cartId = currentCart.id;
-      const productId = item.productId;
-      
-      // POST to add/update product quantity
-      const response = await fetch(paths.addProduct(cartId, productId), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          quantity: item.quantity || 1,
-          price: item.price
-        }),
-        credentials: "include",
-        cache: "no-store",
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to add product to cart: ${response.status}`);
-      }
-      
-      // Return updated cart
-      return await getMyCart();
-    } else {
-      // No cart exists - create new one
-      const body = [toBackendLine(item)]; // array per backend contract
-      const raw = await api<MaybeWrapped<Cart>>(paths.add, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        credentials: "include",
-        cache: "no-store",
-      });
-      return unwrap<Cart>(raw);
-    }
+    // Use the simple POST /api/cart/me endpoint
+    const body = [toBackendLine(item)]; // array per backend contract
+    const raw = await api<MaybeWrapped<Cart>>(paths.add, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      credentials: "include",
+      cache: "no-store",
+    });
+    return unwrap<Cart>(raw);
   } catch (error) {
-    console.error('Failed to add to cart:', error);
+    console.error("Failed to add to cart:", error);
     throw error;
   }
 }
 
-/** POST multiple lines at once (recommended on first create) */
+/** Add multiple products to cart using POST /api/cart/me endpoint */
 export async function addLinesToMyCart(
   items: Array<{ productId: string; quantity?: number; price?: number }>
 ) {
@@ -330,15 +188,15 @@ export async function removeProductFromCartNew(cartId: string, productId: string
       credentials: "include",
       cache: "no-store",
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to remove product from cart: ${response.status}`);
     }
-    
+
     // Return updated cart
     return await getMyCart();
   } catch (error) {
-    console.error('Failed to remove product from cart:', error);
+    console.error("Failed to remove product from cart:", error);
     throw error;
   }
 }
@@ -364,11 +222,34 @@ export async function getCartById(id: string) {
   return unwrap<Cart>(raw);
 }
 
+/** ---------- Helpers for hydration/sync ---------- */
+
+// OPTIMIZATION: Request deduplication to prevent multiple simultaneous calls
+const pendingRequests = new Map<string, Promise<any>>();
+
 /** Get my most recent/active cart (scoped to current user if possible).
  * Uses /api/cart/me endpoint which requires authentication.
  * Returns null if user is not logged in or cart doesn't exist.
  */
 export async function getMyCart(userId?: string) {
+  const requestKey = `getMyCart-${userId || "current"}`;
+
+  if (pendingRequests.has(requestKey)) {
+    return pendingRequests.get(requestKey);
+  }
+
+  const requestPromise = performGetMyCart(userId);
+  pendingRequests.set(requestKey, requestPromise);
+
+  try {
+    const result = await requestPromise;
+    return result;
+  } finally {
+    pendingRequests.delete(requestKey);
+  }
+}
+
+async function performGetMyCart(userId?: string) {
   try {
     const raw = await api<MaybeWrapped<Cart | Cart[] | { data: Cart[] }>>(paths.me, {
       credentials: "include",
@@ -379,24 +260,23 @@ export async function getMyCart(userId?: string) {
     const picked = pickActiveCart(list);
     return picked;
   } catch (error: any) {
-    // Check if it's a token expiration error from the backend
-    if (error.status === 401 || 
-        error.message?.includes('expired') || 
-        error.message?.includes('jwt expired') ||
-        error.message?.includes('TokenExpiredError')) {
-      
+    // Token expiration handling
+    if (
+      error?.status === 401 ||
+      error?.message?.includes("expired") ||
+      error?.message?.includes("jwt expired") ||
+      error?.message?.includes("TokenExpiredError")
+    ) {
       console.warn("Token expired while fetching cart, attempting refresh...");
-      
+
       try {
-        // Attempt to refresh the token
-        const refreshResponse = await fetch('/api/auth/refresh', {
-          method: 'POST',
-          credentials: 'include',
-          cache: 'no-store',
+        const refreshResponse = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+          cache: "no-store",
         });
-        
+
         if (refreshResponse.ok) {
-          // Token refreshed, try the cart request again
           const raw = await api<MaybeWrapped<Cart | Cart[] | { data: Cart[] }>>(paths.me, {
             credentials: "include",
             cache: "no-store",
@@ -410,39 +290,33 @@ export async function getMyCart(userId?: string) {
         console.error("Failed to refresh token:", refreshError);
       }
     }
-    
-    // Return null if user is not authenticated or cart doesn't exist
+
     console.warn("Failed to fetch user cart:", error);
     return null;
   }
 }
-
-/** ---------- Helpers for hydration/sync ---------- */
 
 /** Deduplicate cart items by product ID and merge quantities */
 export function deduplicateCartItems<T extends { id: string; quantity: number; price?: number }>(
   items: T[]
 ): T[] {
   const productMap = new Map<string, T>();
-  
+
   items.forEach((item) => {
     if (!item || !item.id) return;
-    
+
     const productId = String(item.id);
     const quantity = Number.isFinite(item.quantity) ? item.quantity : 1;
     const price = typeof item.price === "number" ? item.price : undefined;
-    
+
     if (productMap.has(productId)) {
-      // Product already exists - merge quantities
       const existing = productMap.get(productId)!;
       productMap.set(productId, {
         ...existing,
         quantity: existing.quantity + quantity,
-        // Keep the first price encountered, or use the new one if existing is undefined
         price: existing.price ?? price,
       });
     } else {
-      // New product - add to map
       productMap.set(productId, {
         ...item,
         quantity,
@@ -450,14 +324,12 @@ export function deduplicateCartItems<T extends { id: string; quantity: number; p
       });
     }
   });
-  
+
   return Array.from(productMap.values());
 }
 
 export function buildBackendLinesFromStoreItems(
   items: Array<{ id: string; quantity: number; price?: number }>
 ) {
-  return items.map((i) =>
-    toBackendLine({ productId: i.id, quantity: i.quantity, price: i.price })
-  );
+  return items.map((i) => toBackendLine({ productId: i.id, quantity: i.quantity, price: i.price }));
 }

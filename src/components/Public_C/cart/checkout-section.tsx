@@ -3,14 +3,14 @@
 import React, { useState, useMemo } from 'react';
 import { useCartStore } from '@/store/cartStore';
 import { useRouter } from 'next/navigation';
-import useToast from '@/hooks/use-toast';
+import { useToast } from '@/contexts/toast-context';
 import { useAuthCartSync } from '@/hooks/use-auth-cart-sync';
 
 export default function CheckoutSection() {
   const [promoCode, setPromoCode] = useState('');
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
-  const { addToast, toasts, setToasts } = useToast();
+  const { addToast } = useToast();
   const router = useRouter();
   
   // Sync cart with authentication state changes
@@ -193,61 +193,7 @@ export default function CheckoutSection() {
         </button>
       </div>
 
-      {/* Toast Notifications */}
-      <div className="fixed top-4 right-4 z-[60] space-y-2">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`p-4 rounded-lg shadow-lg text-white max-w-sm flex items-center gap-3 relative overflow-hidden ${
-              toast.type === "success"
-                ? "bg-[#fdc713] text-black"
-                : toast.type === "error"
-                ? "bg-red-500 text-white"
-                : "bg-blue-500 text-white"
-            }`}
-          >
-            <div className="flex-shrink-0">
-              {toast.type === "success" ? (
-                <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              ) : toast.type === "error" ? (
-                <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              ) : (
-                <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              )}
-            </div>
-            <span className="text-sm font-medium flex-1">{toast.message}</span>
-            <button
-              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-              className="ml-2 text-gray-600 hover:text-gray-800 text-lg font-bold flex-shrink-0"
-            >
-              ×
-            </button>
-            
-            {/* Running line animation */}
-            <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full">
-              <div className="h-full bg-white/60 animate-[progress_3s_linear_forwards]"></div>
-              <style jsx>{`
-                @keyframes progress {
-                  from { width: 100%; }
-                  to { width: 0%; }
-                }
-              `}</style>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Toast notifications are now handled globally by ToastContainer */}
     </div>
   );
 }
