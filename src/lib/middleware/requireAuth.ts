@@ -19,6 +19,26 @@ export function requireAuth(req: NextRequest) {
   }
 }
 
+export function requireAdmin(req: NextRequest) {
+  const decoded = requireAuth(req);
+  
+  if (decoded.role !== "admin") {
+    throw new Error("Admin access required");
+  }
+  
+  return decoded;
+}
+
+export function requireClient(req: NextRequest) {
+  const decoded = requireAuth(req);
+  
+  if (decoded.role !== "client") {
+    throw new Error("Client access required");
+  }
+  
+  return decoded;
+}
+
 export function validatorAccess(req: NextRequest) {
   const token = req.cookies.get("validatorToken")?.value;
 

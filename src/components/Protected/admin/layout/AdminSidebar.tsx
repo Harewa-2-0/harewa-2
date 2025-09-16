@@ -46,6 +46,15 @@ const navigationItems = [
     ),
   },
   {
+    name: 'Fabrics',
+    href: '/admin/fabrics',
+    icon: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M4 3a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V9l-4-4H4zm7 1.414L16.586 10A2 2 0 0117 11.414V16a2 2 0 01-2 2h-1v-1h1a1 1 0 001-1v-4.586a1 1 0 00-.293-.707L11.707 8H11V4.414z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
+  {
     name: 'Deliveries',
     href: '/admin/deliveries',
     icon: (
