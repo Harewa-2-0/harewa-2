@@ -76,10 +76,15 @@ export default function useAuthHandlers() {
         loginError: null,
       });
 
-      // Redirect after short delay
+      // Redirect after short delay based on user role
       setTimeout(() => {
         setAuthState((prev) => ({ ...prev, isRedirecting: true }));
-        router.push("/home");
+        // Route based on user role
+        if (user.role === "admin") {
+          router.push("/admin");
+        } else {
+          router.push("/home");
+        }
       }, 800);
     },
     [formData, router, setUser]
