@@ -21,6 +21,14 @@ export default function VerifyEmailPage({ email: emailProp }: VerifyEmailPagePro
   const emailFromUrl = searchParams.get('email');
   const email = emailFromStore || emailFromUrl || emailProp || '';
   
+  // Check if user signed up as admin
+  const [signupRole, setSignupRole] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const role = localStorage.getItem('signupRole');
+    setSignupRole(role);
+  }, []);
+  
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [verifying, setVerifying] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
@@ -78,7 +86,10 @@ export default function VerifyEmailPage({ email: emailProp }: VerifyEmailPagePro
       const response = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otp: otp.join('') }),
+        body: JSON.stringify({ 
+          otp: otp.join(''),
+          email: email
+        }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
@@ -109,21 +120,26 @@ export default function VerifyEmailPage({ email: emailProp }: VerifyEmailPagePro
               };
               setUser(userData, "localStorage");
               
-              // Clear verification email
+              // Clear verification email and signup role
               setEmailForVerification('');
+              localStorage.removeItem('signupRole');
               
-              // Redirect to home after user data is set
+              // Redirect based on user role after user data is set
               setTimeout(() => {
-                router.push('/');
+                if (userData.role === "admin") {
+                  router.push('/admin');
+                } else {
+                  router.push('/');
+                }
               }, 1000);
             } else {
-              // Fallback: redirect anyway
+              // Fallback: redirect to home
               router.push('/');
             }
           })
           .catch(err => {
             console.error('Failed to fetch user data:', err);
-            // Fallback: redirect anyway
+            // Fallback: redirect to home
             router.push('/');
           });
       }, 1500);
@@ -193,9 +209,25 @@ export default function VerifyEmailPage({ email: emailProp }: VerifyEmailPagePro
             Verify your email
           </h2>
           <div className="text-gray-600 mb-8 space-y-1">
-            <p>
-              <span className="text-black font-semibold">We sent a code to {email}.</span> Check your inbox or spam to verify your account.
-            </p>
+            {signupRole === "admin" ? (
+              <>
+                <p>
+                  <span className="text-black font-semibold">
+                    We have sent a message to your admin.
+                  </span> Contact them for the OTP.
+                </p>
+                <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
+                  <strong>Admin Account:</strong> The verification code was sent to the admin email. 
+                  Please contact the admin to get your verification code.
+                </p>
+              </>
+            ) : (
+              <p>
+                <span className="text-black font-semibold">
+                  We sent a code to {email}.
+                </span> Check your inbox or spam to verify your account.
+              </p>
+            )}
           </div>
 
           {/* Success Message */}
