@@ -4,6 +4,7 @@ import { Mail } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '../../../store/authStore';
 import { useToast } from '@/contexts/toast-context';
+import { getMe } from '@/services/auth';
 
 // Toast notifications are now handled globally by ToastContainer
 
@@ -92,6 +93,8 @@ export default function VerifyEmailPage({ email: emailProp }: VerifyEmailPagePro
         }),
       });
       const data = await response.json();
+      console.log('📧 Verify API response:', data);
+      
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Invalid or expired OTP');
       }
@@ -100,49 +103,89 @@ export default function VerifyEmailPage({ email: emailProp }: VerifyEmailPagePro
       setVerificationSuccess(true);
       addToast('Verification successful! Logging you in...', 'success');
 
-      // Wait a moment for user to see success message
-      setTimeout(() => {
-        setIsRedirecting(true);
+      // Check if we have user data in the response
+      if (data.data && data.data.profile && data.data.profile.user) {
+        console.log('📊 Using user data from verify response:', data.data.profile.user);
         
-        // Fetch user info after verification
-        fetch('/api/auth/me')
-          .then(meRes => meRes.json())
-          .then(meData => {
-            if (meData.user) {
-              // Set user data in auth store
-              const userData = {
-                id: meData.user.id || 'local',
-                email: email,
-                fullName: meData.user.fullName || undefined,
-                name: meData.user.name || meData.user.fullName || undefined,
-                role: meData.user.role || 'user',
-                avatar: meData.user.avatar || undefined,
-              };
-              setUser(userData, "localStorage");
-              
-              // Clear verification email and signup role
-              setEmailForVerification('');
-              localStorage.removeItem('signupRole');
-              
-              // Redirect based on user role after user data is set
-              setTimeout(() => {
-                if (userData.role === "admin") {
-                  router.push('/admin');
-                } else {
-                  router.push('/');
-                }
-              }, 1000);
-            } else {
-              // Fallback: redirect to home
+        // Map backend role to frontend role
+        const backendRole = data.data.profile.user.role || 'client';
+        const frontendRole = backendRole === 'client' ? 'user' : backendRole;
+        
+        const userData = {
+          id: data.data.profile._id || 'local',
+          email: email,
+          fullName: data.data.profile.firstName || undefined,
+          name: data.data.profile.user.username || data.data.profile.firstName || undefined,
+          role: frontendRole,
+          avatar: undefined,
+        };
+        
+        console.log('👤 User data to be set:', userData);
+        setUser(userData, "localStorage");
+        
+        // Clear verification email and signup role
+        setEmailForVerification('');
+        localStorage.removeItem('signupRole');
+        
+        // Set redirecting state and redirect after short delay (like signin flow)
+        setTimeout(() => {
+          setIsRedirecting(true);
+          console.log('🚀 Redirecting user with role:', userData.role);
+          if (userData.role === "admin") {
+            console.log('👑 Admin user - redirecting to /admin');
+            router.push('/admin');
+          } else {
+            console.log('👤 Regular user - redirecting to /home');
+            router.push('/home');
+          }
+        }, 800);
+      } else {
+        // Fallback: try to fetch user data using getMe after a delay
+        console.log('🔄 No user data in verify response, trying getMe after delay...');
+        setTimeout(() => {
+          getMe()
+            .then(({ user }) => {
+              console.log('📊 User data received from getMe:', user);
+              if (user) {
+                const userData = {
+                  id: user.id || 'local',
+                  email: email,
+                  fullName: user.fullName || undefined,
+                  name: user.name || user.fullName || undefined,
+                  role: user.role || 'user',
+                  avatar: user.avatar || undefined,
+                };
+                console.log('👤 User data to be set from getMe:', userData);
+                setUser(userData, "localStorage");
+                
+                // Clear verification email and signup role
+                setEmailForVerification('');
+                localStorage.removeItem('signupRole');
+                
+                // Redirect based on role
+                setTimeout(() => {
+                  setIsRedirecting(true);
+                  console.log('🚀 Redirecting user with role:', userData.role);
+                  if (userData.role === "admin") {
+                    console.log('👑 Admin user - redirecting to /admin');
+                    router.push('/admin');
+                  } else {
+                    console.log('👤 Regular user - redirecting to /home');
+                    router.push('/home');
+                  }
+                }, 500);
+              } else {
+                console.log('❌ No user data from getMe, redirecting to home');
+                router.push('/');
+              }
+            })
+            .catch(err => {
+              console.error('❌ Failed to fetch user data from getMe:', err);
+              console.log('🔄 Fallback: redirecting to home page');
               router.push('/');
-            }
-          })
-          .catch(err => {
-            console.error('Failed to fetch user data:', err);
-            // Fallback: redirect to home
-            router.push('/');
-          });
-      }, 1500);
+            });
+        }, 1000); // Wait 1 second for cookies to be set
+      }
       
     } catch (err) {
       const error = err as Error;
@@ -230,12 +273,6 @@ export default function VerifyEmailPage({ email: emailProp }: VerifyEmailPagePro
             )}
           </div>
 
-          {/* Success Message */}
-          {verificationSuccess && (
-            <div className="w-full text-center font-medium mb-4 animate-fade-in text-[#11E215] bg-green-50 border border-green-200 rounded-lg py-3 px-4">
-              ✅ {isRedirecting ? 'Verification successful! Redirecting to home page...' : 'Verification successful! Preparing to redirect...'}
-            </div>
-          )}
 
           {/* OTP Input */}
           <div className="space-y-6">
