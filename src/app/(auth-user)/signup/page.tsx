@@ -158,10 +158,10 @@ export default function SignupScreen() {
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
                 <div className="flex flex-col">
                   <span className="text-sm font-medium text-gray-900">
-                    {formData.role === "client" ? "Client Account" : "Admin Account"}
+                    {formData.role === "user" ? "User Account" : "Admin Account"}
                   </span>
                   <span className="text-xs text-gray-500">
-                    {formData.role === "client" 
+                    {formData.role === "user" 
                       ? "Access to shopping and user features" 
                       : "Access to admin dashboard and management"}
                   </span>
