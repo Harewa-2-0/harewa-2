@@ -28,8 +28,19 @@ export async function POST(req: Request) {
 
     const newWallet = new Wallet({
       user: user.id,
+      transactions: [
+        {
+          reference: `init-${Date.now()}`,
+          amount: 0,
+          type: "credit",
+          status: "success",
+          gateway: "system",
+          narration: "Initial wallet setup",
+        },
+      ],
     });
     await newWallet.save();
+    console.log("✅ New wallet created for user:", newWallet.u);
 
     const accessCookie = serialize("access-token", accessToken, {
       httpOnly: true,
