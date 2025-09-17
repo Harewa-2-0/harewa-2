@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       verificationCode,
       isVerified: false,
       joinedAt,
-      role: role == "admin" ? "admin" : "user",
+      role: role == "admin" ? "admin" : "client",
     });
 
     await newUser.save();
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Sign-Up Error:", error);
+    console.log("Sign-Up Error:", error);
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

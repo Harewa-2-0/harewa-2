@@ -3,6 +3,7 @@ import dbConnect from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/middleware/requireAuth";
 import { User } from "@/lib/models/User";
+import { Wallet } from "@/lib/models/Wallet";
 
 // GET user profile
 export async function GET(req: NextRequest) {
@@ -42,6 +43,9 @@ export async function DELETE(req: NextRequest) {
 
     // Delete the profile first (if exists)
     await Profile.findOneAndDelete({ user: decoded.sub });
+
+    // delete associated wallet
+    await Wallet.findOneAndDelete({ user: decoded.sub });
 
     // Delete the user
     const deletedUser = await User.findByIdAndDelete(decoded.sub);
