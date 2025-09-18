@@ -13,7 +13,7 @@ export interface CategoryFormData {
 interface AddCategoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (category: CategoryFormData) => void;
+  onSuccess?: (category: any) => void; // The created category from API
 }
 
 export default function AddCategoryModal({ isOpen, onClose, onSuccess }: AddCategoryModalProps) {
@@ -80,18 +80,27 @@ export default function AddCategoryModal({ isOpen, onClose, onSuccess }: AddCate
       const created = await createCategory(payload);
       addToast('Category created successfully!', 'success');
 
-      // Notify parent (keep current contract)
-      onSuccess?.(formData);
+      // Notify parent with the created category data
+      onSuccess?.(created);
 
       onClose();
     } catch (err: any) {
-      // Try to surface backend message (e.g., E11000 duplicate key)
-      const backendMsg =
-        err?.error ||
-        err?.message ||
-        (typeof err === 'string' ? err : 'Failed to create category. Please try again.');
       console.error('Error creating category:', err);
-      addToast(String(backendMsg), 'error');
+      
+      // Handle different types of errors with user-friendly messages
+      let errorMessage = 'Failed to create category. Please try again.';
+      
+      if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
+        errorMessage = 'Request failed. Please check your network connection and try again.';
+      } else if (err?.error?.includes('E11000') || err?.message?.includes('duplicate')) {
+        errorMessage = 'A category with this name already exists. Please choose a different name.';
+      } else if (err?.error) {
+        errorMessage = err.error;
+      } else if (err?.message && !err.message.includes('aborted')) {
+        errorMessage = err.message;
+      }
+      
+      addToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -148,7 +157,7 @@ export default function AddCategoryModal({ isOpen, onClose, onSuccess }: AddCate
                 value={formData.name}
                 onChange={handleInputChange}
                 placeholder="Enter category name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] disabled:bg-gray-50 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] disabled:bg-gray-50 disabled:cursor-not-allowed text-black"
                 disabled={isLoading}
                 required
               />
@@ -166,7 +175,7 @@ export default function AddCategoryModal({ isOpen, onClose, onSuccess }: AddCate
                 onChange={handleInputChange}
                 placeholder="Enter category description"
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] disabled:bg-gray-50 disabled:cursor-not-allowed resize-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] disabled:bg-gray-50 disabled:cursor-not-allowed resize-none text-black"
                 disabled={isLoading}
                 required
               />

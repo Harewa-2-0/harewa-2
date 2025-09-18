@@ -54,12 +54,22 @@ export default function DeleteCategoryModal({ isOpen, onClose, category, onSucce
       onClose();
     } catch (err: any) {
       console.error('Error deleting category:', err);
-      const msg =
-        err?.error ||
-        err?.message ||
-        'Failed to delete category. Please try again.';
-      setError(String(msg));
-      addToast(String(msg), 'error');
+      
+      // Handle different types of errors with user-friendly messages
+      let errorMessage = 'Failed to delete category. Please try again.';
+      
+      if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
+        errorMessage = 'Request failed. Please check your network connection and try again.';
+      } else if (err?.error?.includes('constraint') || err?.message?.includes('constraint')) {
+        errorMessage = 'Cannot delete this category because it contains products. Please remove all products first.';
+      } else if (err?.error) {
+        errorMessage = err.error;
+      } else if (err?.message && !err.message.includes('aborted')) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      addToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }
