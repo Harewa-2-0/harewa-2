@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { adminUpdateProduct } from '@/services/products';
+import { getCategories, type ProductCategory } from '@/services/product-category';
+import { getFabrics, type Fabric } from '@/services/fabric';
 
 interface Product {
   id?: string;
@@ -25,13 +27,11 @@ interface EditProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
-  onSuccess?: () => void;
+  onSuccess?: (updatedProduct?: any) => void;
 }
 
-const categories = ['Dresses', 'Tops', 'Accessories', 'Shoes', 'Bags', 'Jewelry'];
 const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const genders = ['male', 'female', 'unisex'];
-const fabricTypes = ['Ankara', 'Cotton', 'Silk', 'Linen', 'Chiffon', 'Lace'];
 
 export default function EditProductModal({
   isOpen,
@@ -60,6 +60,49 @@ export default function EditProductModal({
   const overlayRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [fabrics, setFabrics] = useState<Fabric[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [isLoadingFabrics, setIsLoadingFabrics] = useState(true);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [fabricsError, setFabricsError] = useState<string | null>(null);
+
+  // Fetch categories and fabrics on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch categories
+        setIsLoadingCategories(true);
+        setCategoriesError(null);
+        const categoriesData = await getCategories();
+        setCategories(categoriesData);
+        console.log('✅ EditProductModal: Categories fetched:', categoriesData.length);
+      } catch (error) {
+        console.error('❌ EditProductModal: Error fetching categories:', error);
+        setCategoriesError('Failed to load categories');
+      } finally {
+        setIsLoadingCategories(false);
+      }
+
+      try {
+        // Fetch fabrics
+        setIsLoadingFabrics(true);
+        setFabricsError(null);
+        const fabricsData = await getFabrics();
+        setFabrics(fabricsData);
+        console.log('✅ EditProductModal: Fabrics fetched:', fabricsData.length);
+      } catch (error) {
+        console.error('❌ EditProductModal: Error fetching fabrics:', error);
+        setFabricsError('Failed to load fabrics');
+      } finally {
+        setIsLoadingFabrics(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchData();
+    }
+  }, [isOpen]);
 
   // Initialize form data when product changes
   useEffect(() => {
@@ -69,11 +112,11 @@ export default function EditProductModal({
       // Extract ObjectIds from nested objects
       const categoryId = typeof product.category === 'object' && product.category?._id 
         ? product.category._id 
-        : product.category || '';
+        : (typeof product.category === 'string' ? product.category : '');
         
-      const fabricTypeId = typeof product.fabricType === 'object' && product.fabricType?._id 
-        ? product.fabricType._id 
-        : product.fabricType || '';
+      const fabricTypeId = typeof product.fabricType === 'object' && (product.fabricType as any)?._id 
+        ? (product.fabricType as any)._id 
+        : (typeof product.fabricType === 'string' ? product.fabricType : '');
       
       // Ensure we always have 3 image slots
       const images = product.images || [];
@@ -204,13 +247,14 @@ export default function EditProductModal({
       };
 
       // Include ObjectId fields - let the backend handle validation
-      if (formData.category && formData.category.trim() !== '') {
+      const categoryValue = typeof formData.category === 'string' ? formData.category : '';
+      if (categoryValue && categoryValue.trim() !== '') {
         // Check if it looks like an ObjectId (24 hex characters)
-        if (formData.category.match(/^[0-9a-fA-F]{24}$/)) {
-          updatePayload.category = formData.category;
-          console.log('Adding valid ObjectId category to payload:', formData.category);
+        if (categoryValue.match(/^[0-9a-fA-F]{24}$/)) {
+          updatePayload.category = categoryValue;
+          console.log('Adding valid ObjectId category to payload:', categoryValue);
         } else {
-          console.error('Category is not a valid ObjectId, skipping:', formData.category);
+          console.error('Category is not a valid ObjectId, skipping:', categoryValue);
           setError('Category must be a valid ObjectId (24 characters)');
           return;
         }
@@ -220,17 +264,30 @@ export default function EditProductModal({
         return;
       }
       
-      if (formData.fabricType && formData.fabricType.trim() !== '') {
-        updatePayload.fabricType = formData.fabricType;
+      const fabricTypeValue = typeof formData.fabricType === 'string' ? formData.fabricType : '';
+      if (fabricTypeValue && fabricTypeValue.trim() !== '') {
+        // Check if it looks like an ObjectId (24 hex characters)
+        if (fabricTypeValue.match(/^[0-9a-fA-F]{24}$/)) {
+          updatePayload.fabricType = fabricTypeValue;
+          console.log('Adding valid ObjectId fabricType to payload:', fabricTypeValue);
+        } else {
+          console.error('FabricType is not a valid ObjectId, skipping:', fabricTypeValue);
+          setError('Fabric Type must be a valid ObjectId (24 characters)');
+          return;
+        }
+      } else {
+        console.log('No fabricType value to send');
+        setError('Fabric Type is required');
+        return;
       }
       
-      if (formData.seller && formData.seller.trim() !== '') {
-        updatePayload.seller = formData.seller;
-      }
+      // if (formData.seller && formData.seller.trim() !== '') {
+      //   updatePayload.seller = formData.seller;
+      // }
       
-      if (formData.shop && formData.shop.trim() !== '') {
-        updatePayload.shop = formData.shop;
-      }
+      // if (formData.shop && formData.shop.trim() !== '') {
+      //   updatePayload.shop = formData.shop;
+      // }
       
       console.log('Sending update payload:', updatePayload);
       await adminUpdateProduct(productId, updatePayload);
@@ -238,7 +295,13 @@ export default function EditProductModal({
       
       // Call success callback to refresh the list
       if (onSuccess) {
-        onSuccess();
+        // Construct the updated product object
+        const updatedProduct = {
+          ...product,
+          ...updatePayload,
+          _id: productId
+        };
+        onSuccess(updatedProduct); // Pass the updated product
       }
       
       // Close modal
@@ -313,6 +376,32 @@ export default function EditProductModal({
               <p className="text-sm text-red-600">{error}</p>
             </div>
           )}
+
+          {/* API Error Messages */}
+          {categoriesError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{categoriesError}</p>
+            </div>
+          )}
+          {fabricsError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{fabricsError}</p>
+            </div>
+          )}
+
+          {/* Warning if no categories or fabrics available */}
+          {!isLoadingCategories && !isLoadingFabrics && (categories.length === 0 || fabrics.length === 0) && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                {categories.length === 0 && fabrics.length === 0 
+                  ? "No categories or fabrics available. Please create categories and fabrics first."
+                  : categories.length === 0 
+                    ? "No categories available. Please create categories first."
+                    : "No fabrics available. Please create fabrics first."
+                }
+              </p>
+            </div>
+          )}
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -333,15 +422,23 @@ export default function EditProductModal({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Category <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 name="category"
-                value={formData.category}
+                value={typeof formData.category === 'string' ? formData.category : ''}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent text-gray-900"
-                placeholder="Category ObjectId (e.g., 686bc7bde8d24e06b2323d1f)"
                 required
-              />
+                disabled={isLoadingCategories}
+              >
+                <option value="">
+                  {isLoadingCategories ? "Loading categories..." : "Select category"}
+                </option>
+                {categories.map(category => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
               <p className="text-xs text-gray-500 mt-1">
                 Current category: {typeof product?.category === 'object' ? product.category.name : product?.category || 'N/A'}
               </p>
@@ -428,16 +525,25 @@ export default function EditProductModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fabric Type
+                Fabric Type <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 name="fabricType"
                 value={formData.fabricType}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent text-gray-900"
-                placeholder="Fabric Type ObjectId (optional)"
-              />
+                required
+                disabled={isLoadingFabrics}
+              >
+                <option value="">
+                  {isLoadingFabrics ? "Loading fabrics..." : "Select fabric"}
+                </option>
+                {fabrics.map(fabric => (
+                  <option key={fabric._id} value={fabric._id}>
+                    {fabric.name} {fabric.type && `(${fabric.type})`}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -534,8 +640,8 @@ export default function EditProductModal({
                       </div>
                     )}
                     
-                    {/* Update Overlay */}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 h-[90%] transition-opacity duration-200 flex items-center justify-center rounded-lg">
+                    {/* Update Overlay - Always visible for better UX */}
+                    <div className="absolute inset-0 bg-black/30 h-[90%] flex items-center justify-center rounded-lg">
                       <button
                         type="button"
                         onClick={() => {
@@ -555,7 +661,7 @@ export default function EditProductModal({
                           };
                           input.click();
                         }}
-                        className="bg-white/90 hover:bg-white text-gray-800 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 cursor-pointer"
+                        className="bg-white/90 hover:bg-white text-gray-800 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 cursor-pointer shadow-lg"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
