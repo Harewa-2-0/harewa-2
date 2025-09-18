@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/contexts/toast-context';
 import { type Fabric } from './FabricsTable';
+import { deleteFabric } from '@/services/fabric';
 
 interface DeleteFabricModalProps {
   isOpen: boolean;
@@ -31,14 +32,23 @@ export default function DeleteFabricModal({ isOpen, onClose, fabric, onSuccess }
     setError(null);
     try {
       if (!fabric?._id) throw new Error('Missing fabric identifier (_id).');
-      // UI-only: simulate success
-      addToast('Fabric deleted (UI only).', 'success');
+      const result = await deleteFabric(fabric._id);
+      addToast('Fabric deleted successfully!', 'success');
       onSuccess?.(fabric._id);
       onClose();
     } catch (err: any) {
-      const msg = err?.message || 'Failed to delete fabric. Please try again.';
-      setError(String(msg));
-      addToast(String(msg), 'error');
+      let errorMessage = 'Failed to delete fabric. Please try again.';
+      if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
+        errorMessage = 'Request failed. Please check your network connection and try again.';
+      } else if (err?.error?.includes('constraint') || err?.message?.includes('constraint')) {
+        errorMessage = 'Cannot delete this fabric because it is being used by products. Please remove all products first.';
+      } else if (err?.error) {
+        errorMessage = err.error;
+      } else if (err?.message && !err.message.includes('aborted')) {
+        errorMessage = err.message;
+      }
+      setError(errorMessage);
+      addToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }

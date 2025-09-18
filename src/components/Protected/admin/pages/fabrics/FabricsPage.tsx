@@ -7,7 +7,7 @@ import AddFabricModal from './AddFabricModal';
 export default function FabricsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [fabricCount, setFabricCount] = useState(0);
-  const tableRef = useRef<{ refresh: () => void } | null>(null);
+  const tableRef = useRef<{ refresh: () => void; addFabric: (fabric: any) => void } | null>(null);
 
   return (
     <div className="space-y-6">
@@ -44,9 +44,9 @@ export default function FabricsPage() {
         <AddFabricModal
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
-            if (tableRef.current?.refresh) {
-              tableRef.current.refresh();
+          onSuccess={(newFabric) => {
+            if (tableRef.current?.addFabric) {
+              tableRef.current.addFabric(newFabric);
             }
           }}
         />

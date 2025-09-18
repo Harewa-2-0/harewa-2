@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DataTable, TableColumn } from '../components/shared';
 import DeleteProductModal from './DeleteProductModal';
 import EditProductModal from './EditProductModal';
@@ -12,9 +12,26 @@ type Product = ApiProduct & { id?: string };
 interface ProductsTableProps {
   genderFilter: string;
   onProductCountChange?: (count: number) => void;
+  refreshTrigger?: number; // Add this to trigger refresh from parent
+  products?: Product[]; // Products from parent
+  onProductsChange?: (products: Product[]) => void; // Update products in parent
+  onProductAdded?: (product: Product) => void; // For optimistic updates
+  onProductUpdated?: (product: Product) => void; // For optimistic updates
+  onProductDeleted?: (productId: string) => void; // For optimistic updates
+  isLoading?: boolean; // Loading state from parent
 }
 
-export default function ProductsTable({ genderFilter, onProductCountChange }: ProductsTableProps) {
+export default function ProductsTable({ 
+  genderFilter, 
+  onProductCountChange, 
+  refreshTrigger,
+  products: parentProducts,
+  onProductsChange,
+  onProductAdded,
+  onProductUpdated,
+  onProductDeleted,
+  isLoading: parentIsLoading
+}: ProductsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -23,10 +40,27 @@ export default function ProductsTable({ genderFilter, onProductCountChange }: Pr
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
 
-  // Fetch products from API
+  // Use parent products if available, otherwise use local state
+  const currentProducts = parentProducts || products;
+  const setCurrentProducts = onProductsChange || setProducts;
+  const currentIsLoading = parentIsLoading !== undefined ? parentIsLoading : isLoading;
+
+  // Fetch products from API (only if not using parent products)
   useEffect(() => {
+    // Skip fetching if we have parent products
+    if (parentProducts) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Prevent duplicate calls (React Strict Mode protection)
+    if (isFetchingRef.current) return;
+    
     const fetchProducts = async () => {
+      isFetchingRef.current = true;
       try {
         setIsLoading(true);
         setError(null);
@@ -34,17 +68,19 @@ export default function ProductsTable({ genderFilter, onProductCountChange }: Pr
         setProducts(data);
       } catch (err) {
         console.error('Error fetching products:', err);
-        setError('Failed to fetch products');
+        setError('Failed to fetch products. Please check your connection and try again.');
+        // Don't clear products array on error - keep existing data if available
       } finally {
         setIsLoading(false);
+        isFetchingRef.current = false;
       }
     };
 
     fetchProducts();
-  }, []);
+  }, [refreshTrigger, parentProducts]); // Add parentProducts as dependency
 
   // Filter products based on gender
-  const filteredProducts = products.filter(product => {
+  const filteredProducts = currentProducts.filter(product => {
     if (!genderFilter) return true;
     return product.gender === genderFilter || product.gender === 'unisex';
   });
@@ -55,6 +91,54 @@ export default function ProductsTable({ genderFilter, onProductCountChange }: Pr
       onProductCountChange(filteredProducts.length);
     }
   }, [filteredProducts.length, onProductCountChange]);
+
+  // Handle optimistic product addition
+  useEffect(() => {
+    if (onProductAdded) {
+      // This will be called when a product is successfully created
+      // The actual optimistic update happens in the parent component
+    }
+  }, [onProductAdded]);
+
+  // Optimistic update functions
+  const handleOptimisticAdd = (newProduct: Product) => {
+    if (onProductsChange) {
+      onProductsChange([newProduct, ...currentProducts]);
+    } else {
+      setProducts((prev: Product[]) => [newProduct, ...prev]);
+    }
+  };
+
+  const handleOptimisticUpdate = (updatedProduct: Product) => {
+    const updatedProducts = currentProducts.map((product: Product) => 
+      product._id === updatedProduct._id || product.id === updatedProduct.id 
+        ? updatedProduct 
+        : product
+    );
+    
+    if (onProductsChange) {
+      onProductsChange(updatedProducts);
+    } else {
+      setProducts(updatedProducts);
+    }
+  };
+
+  const handleOptimisticDelete = (productId: string) => {
+    setDeletingProductId(productId);
+    // Add slide-out animation delay
+    setTimeout(() => {
+      const filteredProducts = currentProducts.filter((product: Product) => 
+        product._id !== productId && product.id !== productId
+      );
+      
+      if (onProductsChange) {
+        onProductsChange(filteredProducts);
+      } else {
+        setProducts(filteredProducts);
+      }
+      setDeletingProductId(null);
+    }, 300); // 300ms for slide-out animation
+  };
 
   // Calculate pagination
   const totalItems = filteredProducts.length;
@@ -122,7 +206,14 @@ export default function ProductsTable({ genderFilter, onProductCountChange }: Pr
         if (typeof product.category === 'object' && product.category?.name) {
           return <span className="text-gray-900">{product.category.name}</span>;
         }
-        return <span className="text-gray-900">{String(product.category || 'N/A')}</span>;
+        // If category is a string (ID), show a truncated version
+        const categoryStr = String(product.category || 'N/A');
+        const displayText = categoryStr.length > 12 ? `${categoryStr.substring(0, 12)}...` : categoryStr;
+        return (
+          <span className="text-gray-900" title={categoryStr}>
+            {displayText}
+          </span>
+        );
       },
       sortable: true
     },
@@ -197,26 +288,25 @@ export default function ProductsTable({ genderFilter, onProductCountChange }: Pr
     setShowDeleteModal(true);
   };
 
-  const handleEditSuccess = async () => {
-    // Refresh products list after successful update
-    try {
-      const data = await adminGetProducts();
-      setProducts(data);
-    } catch (error) {
-      console.error('Error refreshing products after update:', error);
-      setError('Product updated but failed to refresh list');
-    }
+  const handleEditSuccess = (updatedProduct: Product) => {
+    // Optimistically update the product in the table
+    handleOptimisticUpdate(updatedProduct);
+    setError(null); // Clear any previous errors
   };
 
-  const handleDeleteSuccess = async () => {
-    // Refresh products list after successful deletion
-    try {
-      const data = await adminGetProducts();
-      setProducts(data);
-    } catch (error) {
-      console.error('Error refreshing products after deletion:', error);
-      setError('Product deleted but failed to refresh list');
-    }
+  const handleDeleteSuccess = (productId: string) => {
+    // Optimistically remove the product from the table with animation
+    handleOptimisticDelete(productId);
+    setError(null); // Clear any previous errors
+  };
+
+  // Get row classes with animation support
+  const getRowClasses = (product: Product) => {
+    const baseClasses = "transition-all duration-300 ease-in-out";
+    const deletingClasses = deletingProductId === (product._id || product.id) 
+      ? "opacity-0 transform translate-x-full" 
+      : "opacity-100 transform translate-x-0";
+    return `${baseClasses} ${deletingClasses}`;
   };
 
   // Loading spinner component
@@ -257,7 +347,7 @@ export default function ProductsTable({ genderFilter, onProductCountChange }: Pr
 
   return (
     <>
-      {isLoading ? (
+      {currentIsLoading ? (
         <div className="bg-white rounded-lg shadow">
           <LoadingSpinner />
         </div>
@@ -266,6 +356,7 @@ export default function ProductsTable({ genderFilter, onProductCountChange }: Pr
           data={paginatedProducts}
           columns={columns}
           emptyMessage="No products found"
+          rowClassName={getRowClasses}
           pagination={{
             currentPage,
             totalPages,
@@ -288,7 +379,7 @@ export default function ProductsTable({ genderFilter, onProductCountChange }: Pr
         }}
         productId={selectedProduct?.id || selectedProduct?._id || ''}
         productName={selectedProduct?.name || ''}
-        onSuccess={handleDeleteSuccess}
+        onSuccess={() => handleDeleteSuccess(selectedProduct?.id || selectedProduct?._id || '')}
       />
 
       {/* Edit Product Modal */}

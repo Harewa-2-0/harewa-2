@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/contexts/toast-context';
-import { adminAddProduct } from '@/services/products';
+import { adminAddProduct, type AdminProductInput } from '@/services/products';
 import ProductInformationStep from './ProductInformationStep';
 import ImageUploadStep from './ImageUploadStep';
-import { AddProductModalProps, FormDataPayload, BackendProductPayload } from './types';
+import { AddProductModalProps, FormDataPayload } from './types';
 
 // Helper function to convert File to base64 URL (temporary solution)
 const fileToBase64 = (file: File): Promise<string> => {
@@ -17,17 +17,21 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-export default function AddProductModal({ isOpen, onClose, onSubmit }: AddProductModalProps) {
+export default function AddProductModal({ isOpen, onClose, onSubmit, onSuccess }: AddProductModalProps) {
   const { addToast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<FormDataPayload>({
     name: '',
-    manufacturer: '',
-    category: '',
-    size: '',
-    quantity: '',
     description: '',
+    price: '',
+    quantity: '',
+    remainingInStock: '',
+    location: '',
+    category: '',
+    fabricType: '',
+    sizes: [],
+    gender: 'unisex',
     images: [],
   });
 
@@ -49,11 +53,15 @@ export default function AddProductModal({ isOpen, onClose, onSubmit }: AddProduc
       setCurrentStep(1);
       setFormData({
         name: '',
-        manufacturer: '',
-        category: '',
-        size: '',
-        quantity: '',
         description: '',
+        price: '',
+        quantity: '',
+        remainingInStock: '',
+        location: '',
+        category: '',
+        fabricType: '',
+        sizes: [],
+        gender: 'unisex',
         images: [],
       });
     }
@@ -66,7 +74,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit }: AddProduc
   const handleNext = () => {
     if (currentStep === 1) {
       // Validate step 1 fields
-      if (!formData.name || !formData.manufacturer || !formData.category || !formData.size || !formData.quantity || !formData.description) {
+      if (!formData.name || !formData.description || !formData.price || !formData.quantity || !formData.remainingInStock || !formData.location || !formData.category || !formData.fabricType || formData.sizes.length === 0 || !formData.gender) {
         addToast('Please fill in all required fields.', 'error');
         return;
       }
@@ -82,7 +90,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit }: AddProduc
     e.preventDefault();
 
     // Final validation before submission
-    if (!formData.name || !formData.manufacturer || !formData.category || !formData.size || !formData.quantity || !formData.description) {
+    if (!formData.name || !formData.description || !formData.price || !formData.quantity || !formData.remainingInStock || !formData.location || !formData.category || !formData.fabricType || formData.sizes.length === 0 || !formData.gender) {
       addToast('Please fill in all required fields.', 'error');
       return;
     }
@@ -101,23 +109,21 @@ export default function AddProductModal({ isOpen, onClose, onSubmit }: AddProduc
       );
 
       // Transform form data to match backend structure
-      const backendPayload: BackendProductPayload = {
+      const backendPayload: AdminProductInput = {
         name: formData.name,
         description: formData.description,
-        price: '0', // Default value
+        price: formData.price,
         quantity: formData.quantity,
-        remainingInStock: formData.quantity, // Assuming same as quantity for new products
-        location: 'Lagos, Nigeria', // Default value
+        remainingInStock: formData.remainingInStock,
+        location: formData.location,
         images: imageUrls,
-        sizes: [formData.size], // Convert single size to array
-        gender: 'unisex', // Default value
-        category: formData.category,
-        fabricType: 'cotton', // Default value
-        seller: 'default-seller-id', // Default value
-        shop: 'default-shop-id', // Default value
+        sizes: formData.sizes,
+        gender: formData.gender,
+        category: formData.category, // Now uses actual category ID
+        fabricType: formData.fabricType, // Now uses actual fabric ID
+        // seller: 'default-seller-id', // Default value
+        // shop: 'default-shop-id', // Default value
       };
-
-      console.log('Sending product data to backend:', backendPayload);
 
       // Call the backend API
       const result = await adminAddProduct(backendPayload);
@@ -130,6 +136,11 @@ export default function AddProductModal({ isOpen, onClose, onSubmit }: AddProduc
         onSubmit(formData);
       }
 
+      // Trigger table refresh
+      if (onSuccess) {
+        onSuccess(result); // Pass the created product
+      }
+
       // Close modal
       onClose();
     } catch (error) {
@@ -139,11 +150,13 @@ export default function AddProductModal({ isOpen, onClose, onSubmit }: AddProduc
       
       if (error instanceof Error) {
         if (error.name === 'AbortError' || error.message.includes('aborted')) {
-          errorMessage = 'Request was cancelled. Please try again.';
+          errorMessage = 'Request was cancelled or timed out. Please check your connection and try again.';
         } else if (error.message.includes('timeout')) {
           errorMessage = 'Request timed out. Please check your connection and try again.';
-        } else if (error.message.includes('network')) {
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
           errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+          errorMessage = 'Server error. Please check the data and try again.';
         } else {
           errorMessage = error.message;
         }
