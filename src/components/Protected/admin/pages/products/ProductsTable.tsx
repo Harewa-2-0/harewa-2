@@ -5,6 +5,7 @@ import { DataTable, TableColumn } from '../components/shared';
 import DeleteProductModal from './DeleteProductModal';
 import EditProductModal from './EditProductModal';
 import { adminGetProducts, adminUpdateProduct, type Product as ApiProduct } from '@/services/products';
+import { TableSpinner } from '../../components/Spinner';
 
 // Use the API Product type with flexible id field
 type Product = ApiProduct & { id?: string };
@@ -110,15 +111,42 @@ export default function ProductsTable({
   };
 
   const handleOptimisticUpdate = (updatedProduct: Product) => {
-    const updatedProducts = currentProducts.map((product: Product) => 
-      product._id === updatedProduct._id || product.id === updatedProduct.id 
-        ? updatedProduct 
-        : product
-    );
+    console.log('ProductsTable: handleOptimisticUpdate called with:', updatedProduct);
+    console.log('ProductsTable: updatedProduct._id:', updatedProduct._id);
+    console.log('ProductsTable: updatedProduct.id:', updatedProduct.id);
+    console.log('ProductsTable: currentProducts before update:', currentProducts.map(p => ({ name: p.name, _id: p._id, id: p.id })));
+    
+    // Validate that we have an ID to match against
+    if (!updatedProduct._id && !updatedProduct.id) {
+      console.error('ProductsTable: Updated product has no ID field! Cannot update.');
+      return;
+    }
+    
+    let matchFound = false;
+    const updatedProducts = currentProducts.map((product: Product) => {
+      const isMatch = product._id === updatedProduct._id;
+      console.log(`ProductsTable: Comparing product "${product.name}" (${product._id}) with updated product (${updatedProduct._id}) - Match: ${isMatch}`);
+      
+      if (isMatch) {
+        matchFound = true;
+      }
+      return isMatch ? updatedProduct : product;
+    });
+    
+    if (!matchFound) {
+      console.error('ProductsTable: No matching product found! This could cause all products to be replaced.');
+      console.log('ProductsTable: Available product IDs:', currentProducts.map(p => ({ name: p.name, _id: p._id, id: p.id })));
+      console.log('ProductsTable: Looking for ID:', updatedProduct._id || updatedProduct.id);
+      return; // Don't update if no match found
+    }
+    
+    console.log('ProductsTable: updatedProducts after update:', updatedProducts.map(p => ({ name: p.name, _id: p._id, id: p.id })));
     
     if (onProductsChange) {
+      console.log('ProductsTable: Calling onProductsChange with updated products');
       onProductsChange(updatedProducts);
     } else {
+      console.log('ProductsTable: Setting local products state');
       setProducts(updatedProducts);
     }
   };
@@ -289,8 +317,16 @@ export default function ProductsTable({
   };
 
   const handleEditSuccess = (updatedProduct: Product) => {
-    // Optimistically update the product in the table
-    handleOptimisticUpdate(updatedProduct);
+    console.log('ProductsTable: handleEditSuccess called with:', updatedProduct);
+    // Call the parent's onProductUpdated callback if available
+    if (onProductUpdated) {
+      console.log('ProductsTable: Calling parent onProductUpdated');
+      onProductUpdated(updatedProduct);
+    } else {
+      console.log('ProductsTable: No onProductUpdated callback available, using local update');
+      // Only update local state if no parent callback is available
+      handleOptimisticUpdate(updatedProduct);
+    }
     setError(null); // Clear any previous errors
   };
 
@@ -309,15 +345,6 @@ export default function ProductsTable({
     return `${baseClasses} ${deletingClasses}`;
   };
 
-  // Loading spinner component
-  const LoadingSpinner = () => (
-    <div className="flex items-center justify-center py-12">
-      <div className="relative">
-        <div className="w-12 h-12 border-4 border-gray-200 rounded-full"></div>
-        <div className="absolute top-0 left-0 w-12 h-12 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    </div>
-  );
 
   // Error state
   if (error) {
@@ -349,7 +376,7 @@ export default function ProductsTable({
     <>
       {currentIsLoading ? (
         <div className="bg-white rounded-lg shadow">
-          <LoadingSpinner />
+          <TableSpinner />
         </div>
       ) : (
         <DataTable

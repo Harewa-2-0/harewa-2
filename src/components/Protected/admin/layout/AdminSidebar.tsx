@@ -13,27 +13,21 @@ const navigationItems = [
     name: 'Dashboard',
     href: '/admin',
     icon: (
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-        <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-      </svg>
+      <img src="/dashboard.png" alt="Dashboard" className="w-5 h-5 transition-all duration-200" />
     ),
   },
   {
     name: 'Products',
     href: '/admin/products',
     icon: (
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 2L3 7v11a1 1 0 001 1h12a1 1 0 001-1V7l-7-5zM8 15V9h4v6H8z" clipRule="evenodd" />
-      </svg>
+      <img src="/products.png" alt="Products" className="w-5 h-5 transition-all duration-200" />
     ),
   },
   {
     name: 'Orders',
     href: '/admin/orders',
     icon: (
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 2L3 7v11a1 1 0 001 1h12a1 1 0 001-1V7l-7-5zM8 15V9h4v6H8z" clipRule="evenodd" />
-      </svg>
+      <img src="/elements.png" alt="Orders" className="w-5 h-5 transition-all duration-200" />
     ),
   },
   {
@@ -49,9 +43,7 @@ const navigationItems = [
     name: 'Fabrics',
     href: '/admin/fabrics',
     icon: (
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M4 3a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V9l-4-4H4zm7 1.414L16.586 10A2 2 0 0117 11.414V16a2 2 0 01-2 2h-1v-1h1a1 1 0 001-1v-4.586a1 1 0 00-.293-.707L11.707 8H11V4.414z" clipRule="evenodd" />
-      </svg>
+      <img src="/Subtract.png" alt="Fabrics" className="w-5 h-5 transition-all duration-200" />
     ),
   },
   {
@@ -90,19 +82,16 @@ export default function AdminSidebar({ isOpen = true, onClose }: AdminSidebarPro
         isOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0`}>
         {/* Logo Section */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-black">
+          <div className="flex items-center w-full">
             {/* HAREWA Logo */}
-            <div className="w-8 h-8 bg-[#D4AF37] rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">H</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900">HAREWA</span>
+            <img src="/logo.webp" alt="HAREWA Logo" className="w-full h-12 rounded-lg object-contain" />
           </div>
           
           {/* Close button for mobile */}
           <button
             onClick={onClose}
-            className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+            className="lg:hidden p-2 text-white hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -112,7 +101,7 @@ export default function AdminSidebar({ isOpen = true, onClose }: AdminSidebarPro
 
       {/* Greeting */}
       <div className="px-6 py-4">
-        <p className="text-sm text-gray-600">Hello HAREWA</p>
+        <p className="text-sm text-gray-600">Hello Admin</p>
       </div>
 
       {/* Navigation */}
@@ -132,7 +121,18 @@ export default function AdminSidebar({ isOpen = true, onClose }: AdminSidebarPro
                   }`}
                 >
                   <span className={`${isActive ? 'text-[#D4AF37]' : 'text-gray-400'}`}>
-                    {item.icon}
+                    {item.name === 'Dashboard' || item.name === 'Products' || item.name === 'Orders' || item.name === 'Fabrics' ? (
+                      <div className={`w-5 h-5 ${isActive ? 'brightness-0 saturate-100' : 'brightness-0 saturate-100 opacity-60'}`} 
+                           style={{ 
+                             filter: isActive 
+                               ? 'brightness(0) saturate(100%) invert(67%) sepia(95%) saturate(7500%) hue-rotate(45deg) brightness(102%) contrast(101%)' 
+                               : 'brightness(0) saturate(100%) invert(40%) sepia(8%) saturate(1070%) hue-rotate(202deg) brightness(95%) contrast(86%)'
+                           }}>
+                        {item.icon}
+                      </div>
+                    ) : (
+                      item.icon
+                    )}
                   </span>
                   <span>{item.name}</span>
                 </Link>

@@ -34,14 +34,42 @@ export default function ProductsPage() {
   };
 
   const handleProductUpdated = (updatedProduct: any) => {
+    console.log('ProductsPage: handleProductUpdated called with:', updatedProduct);
+    console.log('ProductsPage: updatedProduct._id:', updatedProduct._id);
+    console.log('ProductsPage: updatedProduct.id:', updatedProduct.id);
+    
+    // Validate that we have an ID to match against
+    if (!updatedProduct._id && !updatedProduct.id) {
+      console.error('ProductsPage: Updated product has no ID field! Cannot update.');
+      return;
+    }
+    
     // Optimistically update the product in the state
-    setProducts(prev => 
-      prev.map(product => 
-        product._id === updatedProduct._id || product.id === updatedProduct.id 
-          ? updatedProduct 
-          : product
-      )
-    );
+    setProducts(prev => {
+      console.log('ProductsPage: Current products before update:', prev.map(p => ({ name: p.name, _id: p._id, id: p.id })));
+      
+      let matchFound = false;
+      const updated = prev.map(product => {
+        const isMatch = product._id === updatedProduct._id;
+        console.log(`ProductsPage: Comparing product "${product.name}" (${product._id}) with updated product (${updatedProduct._id}) - Match: ${isMatch}`);
+        
+        if (isMatch) {
+          matchFound = true;
+          console.log('ProductsPage: Updating product:', product.name, 'with:', updatedProduct);
+        }
+        return isMatch ? updatedProduct : product;
+      });
+      
+      if (!matchFound) {
+        console.error('ProductsPage: No matching product found! This could cause all products to be replaced.');
+        console.log('ProductsPage: Available product IDs:', prev.map(p => ({ name: p.name, _id: p._id, id: p.id })));
+        console.log('ProductsPage: Looking for ID:', updatedProduct._id || updatedProduct.id);
+        return prev; // Don't update if no match found
+      }
+      
+      console.log('ProductsPage: Updated products array:', updated.map(p => ({ name: p.name, _id: p._id, id: p.id })));
+      return updated;
+    });
   };
 
   const handleProductDeleted = (productId: string) => {

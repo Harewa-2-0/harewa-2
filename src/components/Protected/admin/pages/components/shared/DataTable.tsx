@@ -61,7 +61,6 @@ export default function DataTable<T = any>({
       <div className="bg-white rounded-lg shadow">
         <div className="p-8 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D4AF37] mx-auto"></div>
-          <p className="mt-2 text-gray-500">Loading...</p>
         </div>
       </div>
     );

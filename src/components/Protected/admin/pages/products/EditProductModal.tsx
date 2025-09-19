@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useToast } from '@/contexts/toast-context';
 import { adminUpdateProduct } from '@/services/products';
 import { getCategories, type ProductCategory } from '@/services/product-category';
 import { getFabrics, type Fabric } from '@/services/fabric';
+import { ButtonSpinner } from '../../components/Spinner';
 
 interface Product {
   id?: string;
@@ -39,6 +41,7 @@ export default function EditProductModal({
   product,
   onSuccess
 }: EditProductModalProps) {
+  const { addToast } = useToast();
   const [formData, setFormData] = useState<Product>({
     id: '',
     _id: '',
@@ -290,18 +293,15 @@ export default function EditProductModal({
       // }
       
       console.log('Sending update payload:', updatePayload);
-      await adminUpdateProduct(productId, updatePayload);
-      console.log('Product updated successfully');
+      const updatedProduct = await adminUpdateProduct(productId, updatePayload);
+      console.log('Product updated successfully:', updatedProduct);
+      
+      // Show success toast
+      addToast('Product updated successfully!', 'success');
       
       // Call success callback to refresh the list
       if (onSuccess) {
-        // Construct the updated product object
-        const updatedProduct = {
-          ...product,
-          ...updatePayload,
-          _id: productId
-        };
-        onSuccess(updatedProduct); // Pass the updated product
+        onSuccess(updatedProduct); // Pass the actual API response
       }
       
       // Close modal
@@ -324,6 +324,7 @@ export default function EditProductModal({
       }
       
       setError(errorMessage);
+      addToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -431,7 +432,7 @@ export default function EditProductModal({
                 disabled={isLoadingCategories}
               >
                 <option value="">
-                  {isLoadingCategories ? "Loading categories..." : "Select category"}
+                  {isLoadingCategories ? "Loading..." : "Select category"}
                 </option>
                 {categories.map(category => (
                   <option key={category._id} value={category._id}>
@@ -536,7 +537,7 @@ export default function EditProductModal({
                 disabled={isLoadingFabrics}
               >
                 <option value="">
-                  {isLoadingFabrics ? "Loading fabrics..." : "Select fabric"}
+                  {isLoadingFabrics ? "Loading..." : "Select fabric"}
                 </option>
                 {fabrics.map(fabric => (
                   <option key={fabric._id} value={fabric._id}>
@@ -730,13 +731,7 @@ export default function EditProductModal({
             disabled={isLoading}
             className="px-4 py-2 text-sm font-medium text-white bg-[#D4AF37] rounded-lg hover:bg-[#D4AF37]/90 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
           >
-            {isLoading && (
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            )}
-            <span>{isLoading ? 'Updating...' : 'Update Product'}</span>
+            {isLoading ? <ButtonSpinner /> : <span>Update Product</span>}
           </button>
         </div>
       </div>

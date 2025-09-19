@@ -217,7 +217,7 @@ export default function ProductInformationStep({ formData, onFormDataChange, onN
             disabled={!canProceed || isLoadingCategories}
           >
             <option value="">
-              {isLoadingCategories ? "Loading categories..." : "Select category"}
+              {isLoadingCategories ? "Loading..." : "Select category"}
             </option>
             {categories.map(category => (
               <option key={category._id} value={category._id}>
@@ -240,7 +240,7 @@ export default function ProductInformationStep({ formData, onFormDataChange, onN
             disabled={!canProceed || isLoadingFabrics}
           >
             <option value="">
-              {isLoadingFabrics ? "Loading fabrics..." : "Select fabric"}
+              {isLoadingFabrics ? "Loading..." : "Select fabric"}
             </option>
             {fabrics.map(fabric => (
               <option key={fabric._id} value={fabric._id}>
