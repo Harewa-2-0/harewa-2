@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuthStore } from '@/store/authStore';
+import { useToast } from '@/contexts/toast-context';
 
 interface AdminSidebarProps {
   isOpen?: boolean;
@@ -46,24 +48,40 @@ const navigationItems = [
       <img src="/Subtract.png" alt="Fabrics" className="w-5 h-5 transition-all duration-200" />
     ),
   },
-  {
-    name: 'Deliveries',
-    href: '/admin/deliveries',
-    icon: (
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-        <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-        <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1V8a1 1 0 00-1-1h-3z" />
-      </svg>
-    ),
-  },
+  // {
+  //   name: 'Deliveries',
+  //   href: '/admin/deliveries',
+  //   icon: (
+  //     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+  //       <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+  //       <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1V8a1 1 0 00-1-1h-3z" />
+  //     </svg>
+  //   ),
+  // },
 ];
 
 export default function AdminSidebar({ isOpen = true, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuthStore();
+  const { addToast } = useToast();
 
   const handleLinkClick = () => {
     if (onClose) {
       onClose();
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      addToast('Logout successful!', 'success');
+      router.push('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      addToast('Logout failed, but redirecting...', 'error');
+      // Still redirect even if logout fails
+      router.push('/');
     }
   };
 
@@ -143,9 +161,12 @@ export default function AdminSidebar({ isOpen = true, onClose }: AdminSidebarPro
       </nav>
 
         {/* Logout Section */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-          <button className="flex items-center space-x-3 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors w-full">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-black border-t border-gray-700">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center space-x-3 px-3 py-2 text-sm font-medium text-white hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-all duration-200 w-full cursor-pointer group"
+          >
+            <svg className="w-5 h-5 transition-transform duration-200 group-hover:translate-x-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
             </svg>
             <span>Log out</span>

@@ -77,7 +77,7 @@ export default function useAuthHandlers() {
       // Redirect after short delay based on user role
       setTimeout(() => {
         setAuthState((prev) => ({ ...prev, isRedirecting: true }));
-        // Route based on user role
+        // Route based on user role - complete app separation
         if (user.role === "admin") {
           router.push("/admin");
         } else {

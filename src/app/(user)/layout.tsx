@@ -16,8 +16,8 @@ export default function UserPagesLayout({ children }: { children: React.ReactNod
     // Use role information immediately if available (from login), don't wait for hydration
     if (user) {
       if (user.role === 'admin') {
-        // Admin trying to access user pages - redirect to admin unauthorized page immediately
-        router.push('/403/admin');
+        // Admin trying to access user pages - redirect to admin dashboard immediately
+        router.push('/admin');
         return;
       }
       
