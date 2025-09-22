@@ -15,6 +15,7 @@ interface CategoriesTableProps {
 
 export interface CategoriesTableRef {
   refresh: () => void;
+  addCategory: (category: Category) => void;
 }
 
 const CategoriesTable = forwardRef<CategoriesTableRef, CategoriesTableProps>(({ onCategoryCountChange }, ref) => {
@@ -46,9 +47,12 @@ const CategoriesTable = forwardRef<CategoriesTableRef, CategoriesTableProps>(({ 
     fetchCategories();
   }, []);
 
-  // Expose refresh method to parent component
+  // Expose methods to parent component
   useImperativeHandle(ref, () => ({
-    refresh: fetchCategories
+    refresh: fetchCategories,
+    addCategory: (newCategory: Category) => {
+      setCategories(prev => [newCategory, ...prev]);
+    }
   }));
 
   // Update category count when data changes
@@ -75,14 +79,14 @@ const CategoriesTable = forwardRef<CategoriesTableRef, CategoriesTableProps>(({ 
 
   const handleEditSuccess = (updatedCategory: Category) => {
     setCategories(prev => 
-      prev.map(cat => cat.slug === updatedCategory.slug ? updatedCategory : cat)
+      prev.map(cat => cat._id === updatedCategory._id ? updatedCategory : cat)
     );
     setShowEditModal(false);
     setSelectedCategory(null);
   };
 
-  const handleDeleteSuccess = (categorySlug: string) => {
-    setCategories(prev => prev.filter(cat => cat.slug !== categorySlug));
+  const handleDeleteSuccess = (categoryId: string) => {
+    setCategories(prev => prev.filter(cat => cat._id !== categoryId));
     setShowDeleteModal(false);
     setSelectedCategory(null);
   };
@@ -103,26 +107,11 @@ const CategoriesTable = forwardRef<CategoriesTableRef, CategoriesTableProps>(({ 
       render: (category) => (
         <div className="flex items-center space-x-3">
           <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                      <img
-                        src={category.image}
-                        alt={category.name}
-                        className="w-10 h-10 rounded-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const fallback = target.nextElementSibling as HTMLElement;
-                          if (fallback) {
-                            fallback.style.display = 'flex';
-                          }
-                        }}
-                      />
-                      <div className="w-10 h-10 bg-gray-300 rounded-full items-center justify-center" style={{ display: 'none' }}>
-                        <span className="text-gray-600 text-sm font-medium">
-                          {category.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
+            <div className="w-10 h-10 bg-[#D4AF37]/10 rounded-full flex items-center justify-center">
+              <span className="text-[#D4AF37] text-sm font-semibold">
+                {category.name.charAt(0).toUpperCase()}
+              </span>
+            </div>
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">
@@ -140,7 +129,7 @@ const CategoriesTable = forwardRef<CategoriesTableRef, CategoriesTableProps>(({ 
       label: 'Date',
       render: (category) => (
         <div className="text-sm text-gray-900">
-          {formatDate(category.createdAt)}
+          {category.createdAt ? formatDate(category.createdAt) : 'N/A'}
         </div>
       ),
     },
@@ -196,7 +185,7 @@ const CategoriesTable = forwardRef<CategoriesTableRef, CategoriesTableProps>(({ 
         columns={columns}
         loading={isLoading}
         emptyMessage="No categories found"
-        getRowId={(item) => item.slug}
+        getRowId={(item) => (item.slug || item._id) as string}
         pagination={{
           currentPage,
           totalPages,

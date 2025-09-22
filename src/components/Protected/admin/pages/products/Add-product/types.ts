@@ -1,10 +1,14 @@
 export type FormDataPayload = {
   name: string;
-  manufacturer: string;
-  category: string;
-  size: string;
-  quantity: string;
   description: string;
+  price: string;
+  quantity: string;
+  remainingInStock: string;
+  location: string;
+  category: string;
+  fabricType: string;
+  sizes: string[];
+  gender: 'male' | 'female' | 'unisex';
   images: File[];
 };
 
@@ -20,8 +24,8 @@ export type BackendProductPayload = {
   gender: 'male' | 'female' | 'unisex';
   category: string;
   fabricType: string;
-  seller: string;
-  shop: string;
+  seller?: string;
+  shop?: string;
 };
 
 export interface StepProps {
@@ -36,4 +40,5 @@ export interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit?: (data: FormDataPayload) => void;
+  onSuccess?: (product?: any) => void; // Accept the created product
 }

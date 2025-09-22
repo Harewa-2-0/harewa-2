@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { loginWithEmail, getMe, GOOGLE_OAUTH_URL } from "@/services/auth";
+import { useToast } from "@/contexts/toast-context";
 
 interface FormData {
   email: string;
@@ -15,6 +16,7 @@ interface FormData {
 export default function useAuthHandlers() {
   const router = useRouter();
   const { setEmailForVerification, setUser } = useAuthStore();
+  const { addToast } = useToast();
 
   const [formData, setFormData] = useState<FormData>({
     email: "",
@@ -26,9 +28,7 @@ export default function useAuthHandlers() {
   const [authState, setAuthState] = useState({
     isLoading: false,
     isGoogleLoading: false,
-    showSuccess: false,
     isRedirecting: false,
-    loginError: null as string | null,
   });
 
   /** ✅ Input Change Handler */
@@ -39,11 +39,8 @@ export default function useAuthHandlers() {
         ...prev,
         [name]: type === "checkbox" ? checked : value,
       }));
-      if (authState.loginError) {
-        setAuthState((prev) => ({ ...prev, loginError: null }));
-      }
     },
-    [authState.loginError]
+    []
   );
 
   /** ✅ Common Success Handler */
@@ -71,15 +68,16 @@ export default function useAuthHandlers() {
       setAuthState({
         isLoading: false,
         isGoogleLoading: false,
-        showSuccess: true,
         isRedirecting: false,
-        loginError: null,
       });
+
+      // Show success toast
+      addToast("Login successful! Redirecting...", "success");
 
       // Redirect after short delay based on user role
       setTimeout(() => {
         setAuthState((prev) => ({ ...prev, isRedirecting: true }));
-        // Route based on user role
+        // Route based on user role - complete app separation
         if (user.role === "admin") {
           router.push("/admin");
         } else {
@@ -87,7 +85,7 @@ export default function useAuthHandlers() {
         }
       }, 800);
     },
-    [formData, router, setUser]
+    [formData, router, setUser, addToast]
   );
 
   /** ✅ Common Error Handler */
@@ -107,12 +105,13 @@ export default function useAuthHandlers() {
       setAuthState({
         isLoading: false,
         isGoogleLoading: false,
-        showSuccess: false,
         isRedirecting: false,
-        loginError: msg,
       });
+
+      // Show error toast
+      addToast(msg, "error");
     },
-    [formData.email, router, setEmailForVerification]
+    [formData.email, router, setEmailForVerification, addToast]
   );
 
   /** ✅ Email Login (via service) */
@@ -120,14 +119,11 @@ export default function useAuthHandlers() {
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!formData.email || !formData.password) {
-        setAuthState((prev) => ({
-          ...prev,
-          loginError: "Please fill in all required fields.",
-        }));
+        addToast("Please fill in all required fields.", "error");
         return;
       }
 
-      setAuthState((prev) => ({ ...prev, isLoading: true, loginError: null }));
+      setAuthState((prev) => ({ ...prev, isLoading: true }));
 
       try {
         const { user } = await loginWithEmail({
@@ -139,7 +135,7 @@ export default function useAuthHandlers() {
         handleAuthError(err);
       }
     },
-    [formData, handleAuthError, handleAuthSuccess]
+    [formData, handleAuthError, handleAuthSuccess, addToast]
   );
 
   /** ➊ Listen for postMessage from the Google popup */
@@ -166,7 +162,6 @@ export default function useAuthHandlers() {
     setAuthState((prev) => ({
       ...prev,
       isGoogleLoading: true,
-      loginError: null,
     }));
 
     const popup = window.open(

@@ -40,8 +40,8 @@ export type AdminProductInput = {
   gender: 'male' | 'female' | 'unisex';
   category: string;
   fabricType: string;
-  seller: string;
-  shop: string;
+  seller?: string;
+  shop?: string;
 };
 
 export type UpdateProductInput = Partial<AdminProductInput> & {
@@ -107,7 +107,8 @@ export async function adminAddProduct(payload: AdminProductInput) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
     credentials: "include",
-  });
+  }, { timeout: 30000 }); // 30 second timeout for product creation
+  
   return unwrap<Product>(raw);
 }
 
@@ -133,11 +134,39 @@ export async function adminDeleteProduct(id: string) {
 
 // Admin: Get all products (for admin dashboard)
 export async function adminGetProducts(params?: Record<string, string | number | boolean | undefined>) {
-  const raw = await api<MaybeWrapped<Product[] | { items: Product[] }>>(
-    `${ADMIN_PATHS.list}${toQS(params)}`
-  );
-  const data = unwrap<Product[] | { items: Product[] }>(raw);
-  return Array.isArray(data) ? data : data?.items ?? [];
+  // Add populate parameter to get category names
+  const paramsWithPopulate = {
+    ...params,
+    populate: 'category,fabricType' // Populate both category and fabricType
+  };
+  const url = `${ADMIN_PATHS.list}${toQS(paramsWithPopulate)}`;
+  
+  try {
+    const raw = await api<MaybeWrapped<Product[] | { items: Product[] }>>(
+      url,
+      { 
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include' // Ensure cookies are sent
+      },
+      { timeout: 30000 } // 30 second timeout for fetching products
+    );
+    const data = unwrap<Product[] | { items: Product[] }>(raw);
+    return Array.isArray(data) ? data : data?.items ?? [];
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    
+    // Check if it's an authentication error
+    if (error instanceof Error && (error.message.includes('Token') || error.message.includes('Unauthorized'))) {
+      // Return empty array for auth errors - user might not be logged in
+      return [];
+    }
+    
+    // If the main endpoint fails, try to return empty array instead of throwing
+    return [];
+  }
 }
 
 // Admin: Get product by ID

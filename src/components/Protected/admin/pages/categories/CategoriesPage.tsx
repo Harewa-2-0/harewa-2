@@ -44,10 +44,10 @@ export default function CategoriesPage() {
         <AddCategoryModal
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
-            // Refresh the table after successful creation
-            if (tableRef.current?.refresh) {
-              tableRef.current.refresh();
+          onSuccess={(newCategory) => {
+            // Add the new category to the table without refreshing
+            if (tableRef.current?.addCategory) {
+              tableRef.current.addCategory(newCategory);
             }
           }}
         />
