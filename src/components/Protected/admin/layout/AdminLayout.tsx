@@ -29,8 +29,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     // Use role information immediately if available (from login), don't wait for hydration
     if (user) {
       if (user.role !== 'admin') {
-        // Not admin - redirect to unauthorized page immediately
-        router.push('/403');
+        // Not admin - redirect to user homepage immediately
+        router.push('/home');
         return;
       }
       

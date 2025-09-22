@@ -11,12 +11,12 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, hasHydratedAuth } = useAuthStore();
 
-  // Check if admin is trying to access non-admin pages
+  // Check if admin is trying to access user/public pages
   useEffect(() => {
     // Use role information immediately if available (from login), don't wait for hydration
     if (user?.role === 'admin') {
-      // Admin trying to access public pages - redirect to admin unauthorized page immediately
-      router.push('/403/admin');
+      // Admin trying to access user/public pages - redirect to admin dashboard immediately
+      router.push('/admin');
     }
   }, [user, router, pathname]);
 
@@ -30,5 +30,5 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
 }
 export const metadata = {
   title: 'HAREWA - Public Pages',
-  description: 'Public pages of HAREWA',
+  description: ' Your One Stop Fashion House',
 };

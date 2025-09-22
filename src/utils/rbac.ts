@@ -48,56 +48,35 @@ export const RBAC_CONFIG: RBACConfig = {
       allowedRoles: ['client'],
       description: 'Client dashboard'
     },
+    // Client-only routes (authenticated users only)
     {
       pattern: '/cart/**',
       allowedRoles: ['client'],
       description: 'Shopping cart'
     },
-    
-    // Public routes (accessible by all authenticated users)
     {
-      pattern: '/home/**',
+      pattern: '/checkout/**',
       allowedRoles: ['client'],
-      description: 'Home page for regular clients'
-    },
-    {
-      pattern: '/shop/**',
-      allowedRoles: ['client'],
-      description: 'Shop and product pages'
-    },
-    {
-      pattern: '/fabrics/**',
-      allowedRoles: ['client'],
-      description: 'Fabric gallery'
+      description: 'Checkout process'
     },
     {
       pattern: '/customize/**',
       allowedRoles: ['client'],
       description: 'Customization tools'
-    },
-    {
-      pattern: '/trends/**',
-      allowedRoles: ['client'],
-      description: 'Trending styles'
-    },
-    {
-      pattern: '/sales/**',
-      allowedRoles: ['client'],
-      description: 'Clearance and sales'
-    },
-    {
-      pattern: '/about/**',
-      allowedRoles: ['client'],
-      description: 'About page'
     }
   ],
 
   // Default role for new users
   defaultRole: 'client',
 
-  // Routes that don't require authentication
+  // Routes that don't require authentication (accessible to everyone except admins)
   publicRoutes: [
     '/',
+    '/home',
+    '/shop',
+    '/fabrics',
+    '/trends',
+    '/about',
     '/signin',
     '/signup',
     '/verify-email',
