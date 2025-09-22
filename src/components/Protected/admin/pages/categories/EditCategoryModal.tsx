@@ -5,6 +5,7 @@ import { useToast } from '@/contexts/toast-context';
 import { Category } from './CategoriesTable';
 import { updateCategory } from '@/services/product-category';
 import { generateSlug } from './utils';
+import { ButtonSpinner } from '../../components/Spinner';
 
 interface EditCategoryModalProps {
   isOpen: boolean;
@@ -92,8 +93,9 @@ export default function EditCategoryModal({ isOpen, onClose, category, onSuccess
 
       const updatedCategory: Category = {
         ...category,
-        // keep both the backend slug field and any local alias you use
-        id: slug as any,
+        // Preserve the original _id and slug
+        _id: category._id,
+        slug: category.slug,
         name,
         description,
         updatedAt: new Date().toISOString(),
@@ -103,8 +105,21 @@ export default function EditCategoryModal({ isOpen, onClose, category, onSuccess
       onClose();
     } catch (error: any) {
       console.error('Error updating category:', error);
-      const msg = error?.error || error?.message || 'Failed to update category. Please try again.';
-      addToast(String(msg), 'error');
+      
+      // Handle different types of errors with user-friendly messages
+      let errorMessage = 'Failed to update category. Please try again.';
+      
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        errorMessage = 'Request failed. Please check your network connection and try again.';
+      } else if (error?.error?.includes('E11000') || error?.message?.includes('duplicate')) {
+        errorMessage = 'A category with this name already exists. Please choose a different name.';
+      } else if (error?.error) {
+        errorMessage = error.error;
+      } else if (error?.message && !error.message.includes('aborted')) {
+        errorMessage = error.message;
+      }
+      
+      addToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -161,7 +176,7 @@ export default function EditCategoryModal({ isOpen, onClose, category, onSuccess
                 value={formData.name}
                 onChange={handleInputChange}
                 placeholder="Enter category name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] disabled:bg-gray-50 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] disabled:bg-gray-50 disabled:cursor-not-allowed text-black"
                 disabled={isLoading}
                 required
               />
@@ -179,7 +194,7 @@ export default function EditCategoryModal({ isOpen, onClose, category, onSuccess
                 onChange={handleInputChange}
                 placeholder="Enter category description"
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] disabled:bg-gray-50 disabled:cursor-not-allowed resize-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] disabled:bg-gray-50 disabled:cursor-not-allowed resize-none text-black"
                 disabled={isLoading}
                 required
               />
@@ -218,13 +233,7 @@ export default function EditCategoryModal({ isOpen, onClose, category, onSuccess
               disabled={isLoading}
               className="px-6 py-2 bg-[#D4AF37] text-white text-sm font-medium rounded-lg hover:bg-[#D4AF37]/90 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
-              {isLoading && (
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              )}
-              <span>{isLoading ? 'Updating...' : 'Update Category'}</span>
+              {isLoading ? <ButtonSpinner /> : <span>Update Category</span>}
             </button>
           </div>
         </form>

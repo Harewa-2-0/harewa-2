@@ -42,7 +42,9 @@ function toUserProfile(payload: any): UserProfile {
     cleanStr(userNode?._id) ??
     "";
 
-  const role = cleanStr(userNode?.role) ?? "user";
+  // Map backend roles to frontend roles
+  const backendRole = cleanStr(userNode?.role) ?? "client";
+  const role = backendRole === "client" ? "user" : backendRole;
 
   return {
     id,

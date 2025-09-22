@@ -14,7 +14,7 @@ export default function useSignupHandlers() {
     email: "",
     password: "",
     rememberMe: false,
-    role: "client", // Default to client, can be toggled to "admin"
+    role: "user", // Default to user, can be toggled to "admin"
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +31,7 @@ export default function useSignupHandlers() {
   const handleRoleToggle = () => {
     setFormData((prev) => ({
       ...prev,
-      role: prev.role === "client" ? "admin" : "client",
+      role: prev.role === "user" ? "admin" : "user",
     }));
   };
 
