@@ -55,7 +55,7 @@ function toUserProfile(payload: any): UserProfile {
       cleanStr(userNode?.username) ??
       compositeFull,
     role,
-    avatar: cleanStr(userNode?.avatar) ?? cleanStr(userNode?.picture),
+    avatar: cleanStr(userNode?.avatar) ?? cleanStr(userNode?.picture) ?? cleanStr(profile?.profilePicture),
     isVerified:
       typeof userNode?.isVerified === "boolean"
         ? userNode.isVerified

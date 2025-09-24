@@ -44,7 +44,7 @@ const renderStars = (rating: number = 4) => (
   Array.from({ length: 5 }, (_, index) => (
     <Star
       key={index}
-      className={`w-4 h-4 ${index < rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+      className={`w-4 h-4 ${index < rating ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-gray-300'}`}
     />
   ))
 );
@@ -52,7 +52,7 @@ const renderStars = (rating: number = 4) => (
 /** Gold ring spinner (for loading products) */
 const GoldRingSpinner: React.FC = () => (
   <div className="w-full flex items-center justify-center py-10">
-    <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+    <div className="w-10 h-10 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
   </div>
 );
 
@@ -140,7 +140,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 className={`p-2 transition-all duration-200 rounded-full ${
                   isAddingToCart
                     ? 'bg-gray-100 cursor-not-allowed opacity-60'
-                    : 'text-gray-600 hover:text-yellow-400 hover:bg-yellow-50 cursor-pointer'
+                    : 'text-gray-600 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 cursor-pointer'
                 }`}
                 aria-label={isAddingToCart ? 'Adding to cart...' : 'Add to cart'}
               >

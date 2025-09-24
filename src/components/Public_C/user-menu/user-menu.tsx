@@ -54,14 +54,8 @@ export default function UserMenu({
   const handleToggle = () => setOpen((v) => !v);
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-    } catch {}
-    if (typeof document !== 'undefined') {
-      document.cookie = 'token=; path=/; max-age=0';
-    }
-    logout();
     setOpen(false);
+    await logout();
   };
 
   return (
@@ -77,7 +71,7 @@ export default function UserMenu({
         >
           {/* Just the bare circular initial OR avatar */}
           <span
-            className="inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none"
+            className="inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 border-[#D4AF37]"
             style={{ width: avatarPx, height: avatarPx }}
           >
             {resolvedAvatarUrl ? (

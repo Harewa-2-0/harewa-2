@@ -40,7 +40,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({ label, value, options, 
           {options.map(option => (
             <div
               key={option}
-              className={`px-4 py-2 cursor-pointer text-base text-black hover:bg-[#FDC713] hover:text-black transition-colors ${value === option ? 'bg-gray-100' : ''}`}
+              className={`px-4 py-2 cursor-pointer text-base text-black hover:bg-[#D4AF37] hover:text-black transition-colors ${value === option ? 'bg-gray-100' : ''}`}
               onClick={() => {
                 onChange(option);
                 setOpen(false);

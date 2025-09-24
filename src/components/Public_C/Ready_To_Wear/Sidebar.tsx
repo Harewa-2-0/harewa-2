@@ -45,8 +45,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           max="500000"
           value={filters.priceRange[1]}
           onChange={e => handleFilterChange('priceRange', [0, parseInt(e.target.value)])}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-[#FDC713]"
-          style={{ accentColor: '#FDC713' }}
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+          style={{ accentColor: '#D4AF37' }}
         />
       </div>
     </div>
@@ -57,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         width: 24px;
         height: 24px;
         border-radius: 50%;
-        background: #FDC713;
+        background: #D4AF37;
         cursor: pointer;
         box-shadow: 0 0 2px rgba(0,0,0,0.1);
         border: none;
@@ -67,7 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         width: 24px;
         height: 24px;
         border-radius: 50%;
-        background: #FDC713;
+        background: #D4AF37;
         cursor: pointer;
         border: none;
       }
@@ -75,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         width: 24px;
         height: 24px;
         border-radius: 50%;
-        background: #FDC713;
+        background: #D4AF37;
         cursor: pointer;
         border: none;
       }
