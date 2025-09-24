@@ -3,6 +3,7 @@
 import { User } from 'lucide-react';
 import { menuItems } from './profile-tabs';
 import { useProfileStore } from '@/store/profile-store';
+import { useAuthStore } from '@/store/authStore';
 
 interface Props {
   activeTab: string;
@@ -11,6 +12,15 @@ interface Props {
 
 export default function DesktopSidebar({ activeTab, onTabChange }: Props) {
   const { profileData } = useProfileStore();
+  const { logout } = useAuthStore();
+
+  const handleItemClick = async (itemId: string) => {
+    if (itemId === 'logout') {
+      await logout();
+    } else {
+      onTabChange(itemId);
+    }
+  };
   
   return (
     <div className="hidden md:block w-64 bg-white border-r min-h-screen fixed left-0 top-16 pt-8 overflow-y-auto">
@@ -32,9 +42,11 @@ export default function DesktopSidebar({ activeTab, onTabChange }: Props) {
             <h2 className="font-semibold text-gray-900 text-lg">
               {profileData?.firstName || profileData?.user.username || 'HAREWA'}
             </h2>
+            {/* 
             <p className="text-sm text-gray-500">
               {profileData?.user.email}
             </p>
+            */}
           </div>
         </div>
       </div>
@@ -44,11 +56,11 @@ export default function DesktopSidebar({ activeTab, onTabChange }: Props) {
         {menuItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => onTabChange(item.id)}
+            onClick={() => handleItemClick(item.id)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left mb-1 transition-colors
               ${activeTab === item.id
                 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                : item.id === 'delete-account'
+                : item.id === 'delete-account' || item.id === 'logout'
                 ? 'text-red-600 hover:bg-red-50'
                 : 'text-gray-700 hover:bg-gray-50'}
             `}

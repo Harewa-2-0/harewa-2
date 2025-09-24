@@ -103,8 +103,8 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="bg-white border-b ">
+        <div className="max-w-7xl mx-auto px-4 py-6 ">
           <nav className="flex items-center space-x-2 text-sm text-gray-500">
             <a href="/" className="hover:text-gray-700">Home</a>
             <span>/</span>

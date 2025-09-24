@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import Image from 'next/image';
 import { Minus, Plus, Trash2, Heart, ChevronDown } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
@@ -19,20 +20,14 @@ export default function CartItems() {
   const isLoading = useCartStore((s) => s.isLoading);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  // Ensure items are deduplicated before rendering
+  // Items should already be deduplicated by the cartStore, but ensure no duplicates
   const uniqueItems = useMemo(() => {
     const productMap = new Map<string, typeof items[0]>();
     items.forEach((item) => {
       if (!item || !item.id) return;
       const productId = String(item.id);
-      if (productMap.has(productId)) {
-        const existing = productMap.get(productId)!;
-        productMap.set(productId, {
-          ...existing,
-          quantity: existing.quantity + item.quantity,
-          price: existing.price ?? item.price,
-        });
-      } else {
+      // If item already exists, keep the existing one (don't add quantities)
+      if (!productMap.has(productId)) {
         productMap.set(productId, { ...item });
       }
     });
@@ -69,7 +64,7 @@ export default function CartItems() {
     try {
       setPendingOperations((prev) => new Set(prev).add(id));
       
-      // Use the new optimistic cart actions
+      // Use the simplified cart actions
       await updateCartQuantity(id, qty);
       
       if (qty === 0) {
@@ -118,15 +113,27 @@ export default function CartItems() {
 
   if (uniqueItems.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Heart className="w-8 h-8 text-gray-400" />
+      <div className=" p-8 text-center">
+        {/* Illustration */}
+        <div className="mx-auto mb-6 flex h-32 w-32 items-center justify-center">
+          <Image
+            src="/unauthorized.png"
+            alt="Empty Cart"
+            width={128}
+            height={128}
+            className=""
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+            priority
+          />
         </div>
+        
         <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
         <p className="text-gray-500 mb-6">Looks like you haven't added any items to your cart yet.</p>
         <a
           href="/shop"
-          className="inline-flex items-center px-6 py-3 bg-[#fdc713] text-black font-medium rounded-lg hover:bg-[#f0c000] transition-colors"
+          className="inline-flex items-center px-6 py-3 bg-[#D4AF37] hover:bg-[#B8941F] text-white font-medium rounded-lg transition-colors"
         >
           Continue Shopping
         </a>

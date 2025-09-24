@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { Loader2 } from 'lucide-react';
 import CartUI from '../shop/cart';
 import { useCartActions, useCartOpen } from '@/hooks/use-cart';
 import { useCartStore } from '@/store/cartStore';
@@ -25,11 +26,12 @@ export default function CartButton({
   preflight = true,
   preflightIntervalMs = 60_000, // 1 minute
 }: CartButtonProps) {
-  // Get count immediately from store - no hydration dependency
-  const { count } = useCartStore(
-    useShallow((s) => ({
-      count: s.items.reduce((n, i) => n + i.quantity, 0),
-    }))
+  // Get count and loading state from store
+  const { count, isLoading } = useCartStore(
+    useShallow((s) => {
+      const calculatedCount = s.items.reduce((n, i) => n + i.quantity, 0);
+      return { count: calculatedCount, isLoading: s.isLoading };
+    })
   );
   
   const isOpen = useCartOpen();
@@ -61,15 +63,19 @@ export default function CartButton({
           height={size}
           className="object-contain"
         />
-        {/* Show count always - even when 0 - no hydration dependency */}
+        {/* Show spinner when loading, count when loaded */}
         <span className="absolute -top-2 -right-2 bg-[#FDC713] text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white shadow">
-          {count}
+          {isLoading ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            count
+          )}
         </span>
       </motion.button>
 
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-40" onClick={closeCart} aria-hidden="true" />
+          <div className="fixed inset-0 z-[99998]" onClick={closeCart} aria-hidden="true" />
           <CartUI
             isOpen={isOpen}
             setIsOpen={(v: boolean) => {

@@ -27,7 +27,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                   <button
                     key={index}
                     onClick={() => onImageSelect(index)}
-                    className={`w-24 h-24 border-2 rounded-lg overflow-hidden ${selectedImageIndex === index ? 'border-yellow-400' : 'border-gray-200'}`}
+                    className={`w-24 h-24 border-2 rounded-lg overflow-hidden ${selectedImageIndex === index ? 'border-[#D4AF37]' : 'border-gray-200'}`}
                   >
                     <img
                       src={image}
@@ -42,7 +42,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
               {images && images.length > 2 && (
                 <button
                   onClick={() => onImageSelect(2)}
-                  className={`w-50 h-24 border-2 rounded-lg overflow-hidden ${selectedImageIndex === 2 ? 'border-yellow-400' : 'border-gray-200'}`}
+                  className={`w-50 h-24 border-2 rounded-lg overflow-hidden ${selectedImageIndex === 2 ? 'border-[#D4AF37]' : 'border-gray-200'}`}
                 >
                   <img
                     src={images[2]}
@@ -82,7 +82,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
             <button
               key={index}
               onClick={() => onImageSelect(index)}
-              className={`flex-1 aspect-square border-2 rounded-lg overflow-hidden ${selectedImageIndex === index ? 'border-yellow-400' : 'border-gray-200'}`}
+              className={`flex-1 aspect-square border-2 rounded-lg overflow-hidden ${selectedImageIndex === index ? 'border-[#D4AF37]' : 'border-gray-200'}`}
             >
               <img
                 src={image}

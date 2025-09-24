@@ -29,7 +29,7 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
       {Array.from({ length: 5 }, (_, index) => (
         <Star
           key={index}
-          className={`w-4 h-4 ${index < rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+          className={`w-4 h-4 ${index < rating ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-gray-300'}`}
         />
       ))}
     </div>
@@ -91,7 +91,7 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
               <button
                 onClick={handleAddToCart}
                 disabled={isAddingToCart}
-                className="p-2 transition-colors cursor-pointer text-gray-600 hover:text-yellow-400 disabled:opacity-50"
+                className="p-2 transition-colors cursor-pointer text-gray-600 hover:text-[#D4AF37] disabled:opacity-50"
                 aria-label="Add to cart"
               >
                 <ShoppingCart className={`w-5 h-5 ${isAddingToCart ? 'animate-pulse' : ''}`} />

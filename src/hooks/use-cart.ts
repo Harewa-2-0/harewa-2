@@ -2,7 +2,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useCartStore } from "@/store/cartStore";
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useAuthStore } from "@/store/authStore";
-import { addToMyCart } from "@/services/cart";
+import { addToMyCart, removeProductFromMyCart, updateProductQuantityInMyCart, mapServerCartToStoreItems } from "@/services/cart";
 
 // Cart drawer state
 export const useCartOpen = () => useCartDrawerStore((s) => s.isOpen);
@@ -18,139 +18,151 @@ export const useCartActions = () =>
     }))
   );
 
-// OPTIMISTIC FOR ALL USERS + SERVER RECONCILIATION
+// SIMPLIFIED CART ACTIONS
 export const useAuthAwareCartActions = () => {
   const { isAuthenticated } = useAuthStore();
   const {
-    // state setters
     addItem,
-    updateQuantityOptimistic,
-    removeItemOptimistic,
+    updateQuantity,
+    removeItem,
     clearCart,
-    replaceCart,
-    setCartId,
-    // you can still keep these, but we'll do our own optimistic then reconcile
-    updateQuantityAndSync,
-    removeItemAndSync,
-    clearCartAndSync,
-    syncGuestCartToServer,
+    syncToServer,
+    fetchCart,
   } = useCartStore();
 
-  // small helper to apply optimistic -> server -> reconcile/rollback
-  const withOptimistic = async <T>(
-    optimisticApply: () => void,
-    serverCall: () => Promise<T> | T,
-    reconcile?: (serverResult: T) => void
-  ): Promise<T> => {
-    const prev = useCartStore.getState().items; // snapshot for rollback
-    try {
-      // 1) Optimistic
-      optimisticApply();
-
-      // 2) Server
-      const res = await serverCall();
-
-      // 3) Reconcile with server truth (if provided)
-      if (reconcile) reconcile(res);
-
-      return res;
-    } catch (err) {
-      // 4) Rollback
-      replaceCart(prev);
-      throw err;
-    }
-  };
-
-  const reconcileServerCart = (updatedCart: any) => {
-    if (!updatedCart) return;
-    const serverId = String(updatedCart.id ?? updatedCart._id ?? "") || null;
-    const serverLines =
-      updatedCart.products?.map((p: any) => ({
-        id: p.product,
-        quantity: p.quantity,
-        price: p.price,
-      })) ?? [];
-    setCartId(serverId);
-    replaceCart(serverLines);
-  };
-
+  // Simple cart actions
   const addToCart = async (
     item: { id: string; quantity?: number; price?: number } & Record<string, unknown>
   ) => {
-    return withOptimistic(
-      () => {
-        // optimistic for ALL users
-        addItem(item);
-      },
-      async () => {
-        // guests have no server; just return a noop payload
-        if (!isAuthenticated) return null;
-        return await addToMyCart({
+    // Update local state immediately
+    addItem(item);
+    
+    // Sync to server if authenticated
+    if (isAuthenticated) {
+      try {
+        const updatedCart = await addToMyCart({
           productId: item.id,
           quantity: item.quantity ?? 1,
           price: item.price,
         });
-      },
-      (serverResult) => {
-        if (isAuthenticated && serverResult) {
-          reconcileServerCart(serverResult);
+        // Update local state with server response, preserving local item data
+        if (updatedCart) {
+          const serverItems = mapServerCartToStoreItems(updatedCart);
+          const currentItems = useCartStore.getState().items;
+          
+          // Merge server data with local data to preserve name, image, etc.
+          const mergedItems = serverItems.map(serverItem => {
+            const localItem = currentItems.find(local => local.id === serverItem.id);
+            return {
+              ...serverItem,
+              // Preserve local data if server doesn't have it
+              name: serverItem.name || localItem?.name,
+              image: serverItem.image || localItem?.image,
+              price: serverItem.price || localItem?.price,
+            };
+          });
+          
+          useCartStore.setState({ 
+            cartId: updatedCart._id || updatedCart.id, 
+            items: mergedItems,
+            isGuestCart: false,
+            error: null
+          });
         }
+      } catch (error) {
+        console.error('Failed to add to cart:', error);
       }
-    );
+    }
   };
 
   const updateCartQuantity = async (productId: string, quantity: number) => {
-    return withOptimistic(
-      () => {
-        updateQuantityOptimistic(productId, quantity);
-      },
-      async () => {
-        if (!isAuthenticated) return null;
-        // if your existing action returns the full updated cart, great; if not,
-        // you can fetch the cart here or adjust to your API.
-        return await updateQuantityAndSync(productId, quantity);
-      },
-      (serverResult) => {
-        if (isAuthenticated && serverResult) {
-          // if updateQuantityAndSync returns a full cart, reconcile it:
-          reconcileServerCart(serverResult);
+    // Update local state immediately
+    updateQuantity(productId, quantity);
+    
+    // Sync to server if authenticated
+    if (isAuthenticated) {
+      try {
+        const updatedCart = await updateProductQuantityInMyCart(productId, quantity);
+        // Update local state with server response, preserving local item data
+        if (updatedCart) {
+          const serverItems = mapServerCartToStoreItems(updatedCart);
+          const currentItems = useCartStore.getState().items;
+          
+          // Merge server data with local data to preserve name, image, etc.
+          const mergedItems = serverItems.map(serverItem => {
+            const localItem = currentItems.find(local => local.id === serverItem.id);
+            return {
+              ...serverItem,
+              // Preserve local data if server doesn't have it
+              name: serverItem.name || localItem?.name,
+              image: serverItem.image || localItem?.image,
+              price: serverItem.price || localItem?.price,
+            };
+          });
+          
+          useCartStore.setState({ 
+            cartId: updatedCart._id || updatedCart.id, 
+            items: mergedItems,
+            isGuestCart: false,
+            error: null
+          });
         }
+      } catch (error) {
+        console.error('Failed to update cart quantity:', error);
       }
-    );
+    }
   };
 
   const removeFromCart = async (productId: string) => {
-    return withOptimistic(
-      () => {
-        removeItemOptimistic(productId);
-      },
-      async () => {
-        if (!isAuthenticated) return null;
-        return await removeItemAndSync(productId);
-      },
-      (serverResult) => {
-        if (isAuthenticated && serverResult) {
-          reconcileServerCart(serverResult);
+    // Update local state immediately
+    removeItem(productId);
+    
+    // Sync to server if authenticated
+    if (isAuthenticated) {
+      try {
+        const updatedCart = await removeProductFromMyCart(productId);
+        // Update local state with server response, preserving local item data
+        if (updatedCart) {
+          const serverItems = mapServerCartToStoreItems(updatedCart);
+          const currentItems = useCartStore.getState().items;
+          
+          // Merge server data with local data to preserve name, image, etc.
+          const mergedItems = serverItems.map(serverItem => {
+            const localItem = currentItems.find(local => local.id === serverItem.id);
+            return {
+              ...serverItem,
+              // Preserve local data if server doesn't have it
+              name: serverItem.name || localItem?.name,
+              image: serverItem.image || localItem?.image,
+              price: serverItem.price || localItem?.price,
+            };
+          });
+          
+          useCartStore.setState({ 
+            cartId: updatedCart._id || updatedCart.id, 
+            items: mergedItems,
+            isGuestCart: false,
+            error: null
+          });
         }
+      } catch (error) {
+        console.error('Failed to remove from cart:', error);
       }
-    );
+    }
   };
 
   const clearUserCart = async () => {
-    return withOptimistic(
-      () => {
-        clearCart();
-      },
-      async () => {
-        if (!isAuthenticated) return null;
-        return await clearCartAndSync();
-      },
-      (serverResult) => {
-        if (isAuthenticated && serverResult) {
-          reconcileServerCart(serverResult);
-        }
+    // Update local state immediately
+    clearCart();
+    
+    // Sync to server if authenticated
+    if (isAuthenticated) {
+      try {
+        await syncToServer();
+      } catch (error) {
+        console.error('Failed to sync cart to server:', error);
       }
-    );
+    }
   };
 
   return {
@@ -158,7 +170,6 @@ export const useAuthAwareCartActions = () => {
     updateCartQuantity,
     removeFromCart,
     clearUserCart,
-    syncGuestCartToServer,
     isAuthenticated,
   };
 };
@@ -177,5 +188,4 @@ export const useCartTotal = () =>
     }, 0)
   );
 
-// Cart hydration status
-export const useCartHasHydrated = () => useCartStore((s) => s._hasHydrated);
+// Cart hydration status - removed as it's no longer needed
