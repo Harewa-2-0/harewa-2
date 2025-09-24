@@ -45,7 +45,7 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
       {Array.from({ length: 5 }, (_, index) => (
         <Star
           key={index}
-          className={`w-4 h-4 ${index < rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+          className={`w-4 h-4 ${index < rating ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-gray-300'}`}
         />
       ))}
     </div>
@@ -113,15 +113,15 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
             <button
               onClick={handleAddToCart}
               disabled={isAddingToCartLocal}
-              className={`flex-1 py-3 bg-yellow-600 text-white rounded-lg font-medium transition-colors text-sm ${
+              className={`flex-1 py-3 bg-[#D4AF37] text-white rounded-lg font-medium transition-colors text-sm ${
                 isAddingToCartLocal
                   ? 'opacity-50 cursor-not-allowed'
-                  : 'hover:bg-yellow-700'
+                  : 'hover:bg-[#B8941F]'
               }`}
             >
               {isAddingToCartLocal ? (
                 <div className="flex justify-center items-center">
-                  <svg className="animate-spin h-5 w-5 text-[#fdc713]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-5 w-5 text-[#D4AF37]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
