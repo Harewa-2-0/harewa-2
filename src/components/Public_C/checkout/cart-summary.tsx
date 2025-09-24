@@ -1,11 +1,17 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useCartStore } from '@/store/cartStore';
+import { useAuthStore } from '@/store/authStore';
 import { X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '@/contexts/toast-context';
 
 export default function CartSummary() {
-  const { items, removeItemAndSync } = useCartStore();
+  const { items, removeItem, fetchCart, cartId } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
+  const { addToast } = useToast();
+  const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
 
   const orderSummary = useMemo(() => {
     const uniqueItems = items.reduce((acc, item) => {
@@ -35,11 +41,32 @@ export default function CartSummary() {
 
   const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
 
-  const handleRemoveItem = async (productId: string) => {
+  const handleRemoveItem = async (id: string) => {
     try {
-      await removeItemAndSync(productId);
+      // Update local state immediately for optimistic UI
+      removeItem(id);
+      
+      // Show success toast immediately
+      addToast("Item removed from cart", "success");
+      
+      // Sync to server in background if authenticated
+      if (isAuthenticated && cartId) {
+        try {
+          // Use the optimistic DELETE endpoint that doesn't fetch cart first
+          const { removeProductFromCartById } = await import('@/services/cart');
+          await removeProductFromCartById(cartId, id);
+          // Don't refetch cart - trust the delete operation succeeded
+        } catch (serverError) {
+          console.error('Failed to remove item from server:', serverError);
+          // Revert the local state on server error
+          addToast("Failed to remove item from server. Please try again.", "error");
+          // Re-add the item to local state by refetching cart
+          await fetchCart();
+        }
+      }
     } catch (error) {
-      console.error('Failed to remove item:', error);
+      addToast("Failed to remove item. Please try again.", "error");
+      console.error("Failed to remove item:", error);
     }
   };
 
@@ -49,48 +76,60 @@ export default function CartSummary() {
 
       {/* Cart Items */}
       <div className="space-y-4 mb-6">
-        {items.map((item) => {
-          const name = item.name || 'Product Name';
-          const image = item.image || '/placeholder.png';
-          const itemTotal =
-            typeof item.price === 'number' ? item.price * item.quantity : 0;
+        <AnimatePresence>
+          {items.map((item) => {
+            const name = item.name || 'Product Name';
+            const image = item.image || '/placeholder.png';
+            const itemTotal =
+              typeof item.price === 'number' ? item.price * item.quantity : 0;
+            const isPending = pendingOperations.has(item.id);
 
-          return (
-            <div
-              key={item.id}
-              className="relative flex gap-3 p-4 rounded-xl border border-gray-100 bg-white shadow-sm"
-            >
-              {/* Floating delete button (top-right) */}
-              <button
-                onClick={() => handleRemoveItem(item.id)}
-                aria-label="Remove item"
-                                 className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-[#D4AF37] text-white flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 transition"
+            return (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ 
+                  opacity: 0, 
+                  x: 300,
+                  transition: { duration: 0.3, ease: "easeInOut" }
+                }}
+                transition={{ duration: 0.2 }}
+                className="relative flex gap-3 p-4 rounded-xl border border-gray-100 bg-white shadow-sm"
               >
-                <X size={16} />
-              </button>
+                {/* Floating delete button (top-right) */}
+                <button
+                  onClick={() => handleRemoveItem(item.id)}
+                  disabled={isPending}
+                  aria-label="Remove item"
+                  className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-[#D4AF37] text-white flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <X size={16} />
+                </button>
 
-              {/* Product Image */}
-              <div className="w-16 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                <img src={image} alt={name} className="w-full h-full object-cover" />
-              </div>
-
-              {/* Product Details */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 pr-3">
-                    <h3 className="text-sm font-medium text-gray-900 mb-1 line-clamp-2">
-                      {name} x{item.quantity}
-                    </h3>
-                    <p className="text-xs text-gray-500">Color: Pink</p>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
-                    {formatPrice(itemTotal)}
-                  </span>
+                {/* Product Image */}
+                <div className="w-16 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                  <img src={image} alt={name} className="w-full h-full object-cover" />
                 </div>
-              </div>
-            </div>
-          );
-        })}
+
+                {/* Product Details */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-3">
+                      <h3 className="text-sm font-medium text-gray-900 mb-1 line-clamp-2">
+                        {name} x{item.quantity}
+                      </h3>
+                      <p className="text-xs text-gray-500">Color: Pink</p>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                      {formatPrice(itemTotal)}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
 
       {/* Order Summary */}

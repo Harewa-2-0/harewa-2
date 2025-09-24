@@ -13,9 +13,17 @@ export type Cart = {
   _id?: string;
   user?: string;             // backend uses `user`
   products: Array<{
-    product: string;         // backend uses `product` (id)
+    product: string | {      // backend uses `product` (id or full object)
+      _id?: string;
+      id?: string;
+      name?: string;
+      price?: number;
+      images?: string[];
+      [key: string]: any;
+    };
     quantity: number;
     price?: number;
+    _id?: string;
   }>;
   createdAt?: string;
   updatedAt?: string;
@@ -67,35 +75,61 @@ function toCartArray(data: any): Cart[] {
   if (Array.isArray(data)) return data as Cart[];
   if (Array.isArray(data?.data)) return data.data as Cart[];
   if (data && (data.products || data._id || data.id)) return [data as Cart];
+  // Handle { cart: {...} } format
+  if (data?.cart && (data.cart.products || data.cart._id || data.cart.id)) return [data.cart as Cart];
   return [];
 }
 
 /** Convert a server Cart into minimal store-friendly items:
- * Store expects: { id, quantity, price? } where `id` is product id.
- * This function deduplicates items by product ID and merges quantities.
+ * Store expects: { id, quantity, price?, name?, image? } where `id` is product id.
+ * This function ensures no duplicates - each product appears only once.
  */
 export function mapServerCartToStoreItems(server: Cart) {
   const lines = Array.isArray(server?.products) ? server.products : [];
 
-  // Create a map to deduplicate by product ID and merge quantities
-  const productMap = new Map<string, { id: string; quantity: number; price?: number }>();
+  // Create a map to ensure no duplicates - keep the latest quantity for each product
+  const productMap = new Map<string, { 
+    id: string; 
+    quantity: number; 
+    price?: number; 
+    name?: string; 
+    image?: string; 
+  }>();
 
   lines.forEach((l) => {
-    const productId = String(l.product);
-    const quantity = Number.isFinite(l.quantity as number) ? (l.quantity as number) : 1;
-    const price = typeof l.price === "number" ? l.price : undefined;
+    // Handle both formats: product as string ID or full product object
+    let productId: string;
+    let productName: string | undefined;
+    let productImage: string | undefined;
+    let productPrice: number | undefined;
 
-    if (productMap.has(productId)) {
-      const existing = productMap.get(productId)!;
-      productMap.set(productId, {
-        ...existing,
-        quantity: existing.quantity + quantity,
-        // Keep the first price encountered, or use the new one if existing is undefined
-        price: existing.price ?? price,
-      });
+    if (typeof l.product === 'string') {
+      // Old format: product is just an ID string
+      productId = String(l.product);
+    } else if (l.product && typeof l.product === 'object') {
+      // New format: product is a full object
+      productId = String(l.product._id || l.product.id);
+      productName = l.product.name;
+      productImage = Array.isArray(l.product.images) && l.product.images.length > 0 
+        ? l.product.images[0] 
+        : undefined;
+      productPrice = typeof l.product.price === 'number' ? l.product.price : undefined;
     } else {
-      productMap.set(productId, { id: productId, quantity, price });
+      // Fallback
+      productId = String(l.product);
     }
+
+    const quantity = Number.isFinite(l.quantity as number) ? (l.quantity as number) : 1;
+    const price = typeof l.price === "number" ? l.price : productPrice;
+
+    // Always replace - no merging quantities (idempotent behavior)
+    productMap.set(productId, { 
+      id: productId, 
+      quantity, 
+      price,
+      name: productName,
+      image: productImage
+    });
   });
 
   return Array.from(productMap.values());
@@ -114,10 +148,10 @@ function pickActiveCart(list: Cart[] | any): Cart | null {
 
 /** ---------- Mutations ---------- */
 
-/** Add product to cart using POST /api/cart/me endpoint */
+/** Add product to cart using POST /cart/me endpoint */
 export async function addToMyCart(item: AddToMyCartInput) {
   try {
-    // Use the simple POST /api/cart/me endpoint
+    // Use the simple POST /cart/me endpoint - every logged-in user has a cart
     const body = [toBackendLine(item)]; // array per backend contract
     const raw = await api<MaybeWrapped<Cart>>(paths.add, {
       method: "POST",
@@ -180,23 +214,147 @@ export async function removeProductFromCart(cartId: string, productId: string) {
   return unwrap<Cart>(raw);
 }
 
-/** Remove product from cart using new DELETE endpoint */
+/** Remove product from cart using proper DELETE endpoint */
 export async function removeProductFromCartNew(cartId: string, productId: string) {
   try {
-    const response = await fetch(paths.removeProduct(cartId, productId), {
+    const raw = await api<MaybeWrapped<Cart>>(paths.removeProduct(cartId, productId), {
       method: "DELETE",
       credentials: "include",
       cache: "no-store",
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to remove product from cart: ${response.status}`);
-    }
-
-    // Return updated cart
-    return await getMyCart();
+    
+    return unwrap<Cart>(raw);
   } catch (error) {
     console.error("Failed to remove product from cart:", error);
+    throw error;
+  }
+}
+
+/** Remove product from cart using simple approach */
+export async function removeProductFromMyCart(productId: string) {
+  try {
+    // Get current cart
+    const cart = await getMyCart();
+    
+    if (!cart) {
+      throw new Error("No cart found");
+    }
+    
+    // Use _id if available, otherwise fall back to id
+    const cartId = cart._id || cart.id;
+    if (!cartId) {
+      throw new Error("No cart ID found");
+    }
+    
+    // Remove product using proper endpoint
+    return await removeProductFromCartNew(cartId, productId);
+  } catch (error) {
+    console.error("Failed to remove product from cart:", error);
+    throw error;
+  }
+}
+
+/** Remove product from cart using cart ID directly (optimistic approach) */
+export async function removeProductFromCartById(cartId: string, productId: string) {
+  try {
+    // Remove product using proper endpoint without fetching cart first
+    return await removeProductFromCartNew(cartId, productId);
+  } catch (error) {
+    console.error("Failed to remove product from cart:", error);
+    throw error;
+  }
+}
+
+/** Update product quantity in cart using simple approach */
+export async function updateProductQuantityInMyCart(productId: string, quantity: number) {
+  try {
+    // Get current cart
+    const cart = await getMyCart();
+    
+    if (!cart) {
+      throw new Error("No cart found");
+    }
+    
+    // Use _id if available, otherwise fall back to id
+    const cartId = cart._id || cart.id;
+    if (!cartId) {
+      throw new Error("No cart ID found");
+    }
+    
+    // If quantity is 0, remove the product
+    if (quantity <= 0) {
+      return await removeProductFromCartNew(cartId, productId);
+    }
+    
+    // Update quantity by replacing the entire products array
+    const updatedProducts = cart.products.map((p: any) => 
+      p.product === productId 
+        ? { ...p, quantity }
+        : p
+    );
+    
+    return await replaceCartProducts(cartId, updatedProducts.map((p: any) => ({
+      productId: p.product,
+      quantity: p.quantity,
+      price: p.price
+    })));
+  } catch (error) {
+    console.error("Failed to update product quantity:", error);
+    throw error;
+  }
+}
+
+/** Update product quantity in cart using cart ID directly (optimistic approach) */
+export async function updateProductQuantityInCartById(cartId: string, productId: string, quantity: number) {
+  try {
+    // If quantity is 0, remove the product
+    if (quantity <= 0) {
+      return await removeProductFromCartNew(cartId, productId);
+    }
+    
+    // For quantity updates, we need to get the current cart to build the updated products array
+    // But we can optimize this by getting the cart from the store instead of making a new API call
+    const cart = await getMyCart();
+    if (!cart) {
+      throw new Error("No cart found");
+    }
+    
+    // Update quantity by replacing the entire products array
+    const updatedProducts = cart.products.map((p: any) => 
+      p.product === productId 
+        ? { ...p, quantity }
+        : p
+    );
+    
+    return await replaceCartProducts(cartId, updatedProducts.map((p: any) => ({
+      productId: p.product,
+      quantity: p.quantity,
+      price: p.price
+    })));
+  } catch (error) {
+    console.error("Failed to update product quantity:", error);
+    throw error;
+  }
+}
+
+/** Update product quantity in cart using local state (truly optimistic approach) */
+export async function updateProductQuantityOptimistic(cartId: string, productId: string, quantity: number, currentItems: any[]) {
+  try {
+    // If quantity is 0, remove the product
+    if (quantity <= 0) {
+      return await removeProductFromCartNew(cartId, productId);
+    }
+    
+    // Build updated products array from local state instead of fetching from server
+    const updatedProducts = currentItems.map(item => ({
+      productId: item.id,
+      quantity: item.id === productId ? quantity : item.quantity,
+      price: item.price
+    }));
+    
+    return await replaceCartProducts(cartId, updatedProducts);
+  } catch (error) {
+    console.error("Failed to update product quantity:", error);
     throw error;
   }
 }

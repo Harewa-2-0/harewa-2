@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
+import { useCartDrawerStore } from '@/store/cartDrawerStore';
 import { CartErrorBoundary } from './cart-error-boundary';
 
 /**
@@ -18,63 +19,50 @@ import { CartErrorBoundary } from './cart-error-boundary';
 export function CartHydration() {
   const { isAuthenticated, hasHydratedAuth } = useAuthStore();
   const { 
-    ensureHydrated, 
-    clearCart, 
-    syncGuestCartToServer, 
+    fetchCart, 
+    syncToServer, 
     isGuestCart,
     items 
   } = useCartStore();
+  const { isOpen: isCartDrawerOpen } = useCartDrawerStore();
   const [retryCount, setRetryCount] = useState(0);
   const [hasSyncedGuestCart, setHasSyncedGuestCart] = useState(false);
 
   useEffect(() => {
     // Only run after auth has hydrated
-    if (!hasHydratedAuth) return;
+    if (!hasHydratedAuth) {
+      return;
+    }
+
+    // Don't fetch cart if cart drawer is open to prevent GET request before DELETE
+    if (isCartDrawerOpen) {
+      return;
+    }
 
     if (isAuthenticated) {
-      // User is logged in - always ensure cart is hydrated
-      if (isGuestCart && items.length > 0 && !hasSyncedGuestCart) {
-        // User has guest cart items - sync them to server first
-        syncGuestCartToServer().then(() => {
-          setHasSyncedGuestCart(true);
-          // After syncing guest cart, ensure cart is hydrated
-          ensureHydrated(false).catch((error) => {
-            console.error('Failed to hydrate cart after guest cart sync:', error);
-          });
-        }).catch((error) => {
-          console.error('Failed to sync guest cart:', error);
-          // Even if sync fails, try to hydrate cart
-          ensureHydrated(false).catch(console.error);
+      // User is logged in - fetch cart from server
+      // Only fetch if we don't have items (initial load or after logout)
+      if (items.length === 0) {
+        fetchCart().catch((error) => {
+          console.error('Failed to fetch cart during hydration:', error);
+          
+          // If it's an auth error, try to retry once
+          if (error.message?.includes('expired') || error.message?.includes('jwt expired')) {
+            setTimeout(() => {
+              if (retryCount < 1) {
+                setRetryCount(prev => prev + 1);
+                fetchCart().catch(console.error);
+              }
+            }, 2000); // Wait 2 seconds before retry
+          }
         });
-      } else {
-        // No guest cart items or already synced - hydrate cart
-        // OPTIMIZATION: Only hydrate if not recently synced (within 10 seconds for login scenarios)
-        const lastSynced = useCartStore.getState().lastSyncedAt;
-        const now = Date.now();
-        
-        if (!lastSynced || (now - lastSynced) > 10000) { // 10 second threshold for faster updates on login
-          ensureHydrated(false).catch((error) => {
-            console.error('Failed to hydrate cart during hydration:', error);
-            
-            // If it's an auth error, try to refresh token and retry once
-            if (error.message?.includes('expired') || error.message?.includes('jwt expired')) {
-              setTimeout(() => {
-                if (retryCount < 1) {
-                  setRetryCount(prev => prev + 1);
-                  ensureHydrated(false).catch(console.error);
-                }
-              }, 2000); // Wait 2 seconds before retry
-            }
-          });
-        }
       }
     } else {
-      // User is not logged in - DON'T clear cart, just reset flags
+      // User is not logged in - reset flags
       setRetryCount(0);
       setHasSyncedGuestCart(false);
-      // Don't call clearCart() here - it will clear guest items!
     }
-  }, [hasHydratedAuth, isAuthenticated, ensureHydrated, clearCart, retryCount, isGuestCart, items.length, hasSyncedGuestCart, syncGuestCartToServer]);
+  }, [hasHydratedAuth, isAuthenticated, fetchCart, retryCount, items.length, isCartDrawerOpen]);
 
   // This component doesn't render anything
   return null;
