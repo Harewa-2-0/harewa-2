@@ -22,11 +22,14 @@ export function CartHydration() {
     fetchCart, 
     syncToServer, 
     isGuestCart,
-    items 
+    items,
+    isMerging,
+    isRefreshing
   } = useCartStore();
   const { isOpen: isCartDrawerOpen } = useCartDrawerStore();
   const [retryCount, setRetryCount] = useState(0);
   const [hasSyncedGuestCart, setHasSyncedGuestCart] = useState(false);
+  const [hasInitiallyFetched, setHasInitiallyFetched] = useState(false);
 
   useEffect(() => {
     // Only run after auth has hydrated
@@ -39,10 +42,19 @@ export function CartHydration() {
       return;
     }
 
+    // Don't fetch cart if merge or refresh is in progress to prevent race conditions
+    // The merge process handles cart fetching during login, so we should not interfere
+    if (isMerging || isRefreshing) {
+      console.log('CartHydration: Skipping fetch - merge/refresh in progress', { isMerging, isRefreshing });
+      return;
+    }
+
     if (isAuthenticated) {
       // User is logged in - fetch cart from server
-      // Only fetch if we don't have items (initial load or after logout)
-      if (items.length === 0) {
+      // Only fetch on initial load, not when items are deleted
+      if (items.length === 0 && !hasInitiallyFetched) {
+        console.log('CartHydration: Fetching cart from server');
+        setHasInitiallyFetched(true);
         fetchCart().catch((error) => {
           console.error('Failed to fetch cart during hydration:', error);
           
@@ -61,8 +73,9 @@ export function CartHydration() {
       // User is not logged in - reset flags
       setRetryCount(0);
       setHasSyncedGuestCart(false);
+      setHasInitiallyFetched(false);
     }
-  }, [hasHydratedAuth, isAuthenticated, fetchCart, retryCount, items.length, isCartDrawerOpen]);
+  }, [hasHydratedAuth, isAuthenticated, fetchCart, retryCount, items.length, isCartDrawerOpen, isMerging, isRefreshing]);
 
   // This component doesn't render anything
   return null;

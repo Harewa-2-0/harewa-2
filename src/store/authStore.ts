@@ -52,6 +52,21 @@ export const useAuthStore = create<AuthState>()(
           hasHydratedAuth: true,
           hasClientHydrated: true,
         });
+        
+        // Trigger cart merge after login
+        if (typeof window !== 'undefined') {
+          setTimeout(async () => {
+            try {
+              const { useCartStore } = await import('@/store/cartStore');
+              const guestCart = useCartStore.getState().getGuestCart();
+              if (guestCart.length > 0) {
+                await useCartStore.getState().mergeCart(guestCart);
+              }
+            } catch (error) {
+              console.error('Failed to merge cart after login:', error);
+            }
+          }, 100); // Small delay to ensure state is set
+        }
       },
 
       logout: async () => {
@@ -118,6 +133,19 @@ export const useAuthStore = create<AuthState>()(
           } else {
             sessionStorage.setItem("user", data);
           }
+          
+          // Trigger cart merge after setting user
+          setTimeout(async () => {
+            try {
+              const { useCartStore } = await import('@/store/cartStore');
+              const guestCart = useCartStore.getState().getGuestCart();
+              if (guestCart.length > 0) {
+                await useCartStore.getState().mergeCart(guestCart);
+              }
+            } catch (error) {
+              console.error('Failed to merge cart after setUser:', error);
+            }
+          }, 100); // Small delay to ensure state is set
         }
       },
 
@@ -130,6 +158,19 @@ export const useAuthStore = create<AuthState>()(
         try {
           const { user } = await getMe();
           set({ user, isAuthenticated: true, hasHydratedAuth: true });
+          
+          // Trigger cart merge after successful hydration
+          setTimeout(async () => {
+            try {
+              const { useCartStore } = await import('@/store/cartStore');
+              const guestCart = useCartStore.getState().getGuestCart();
+              if (guestCart.length > 0) {
+                await useCartStore.getState().mergeCart(guestCart);
+              }
+            } catch (error) {
+              console.error('Failed to merge cart after hydration:', error);
+            }
+          }, 100); // Small delay to ensure state is set
         } catch {
           // Not logged in / expired — mark as hydrated anyway
           set({ user: null, isAuthenticated: false, hasHydratedAuth: true });

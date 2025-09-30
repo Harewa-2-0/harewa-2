@@ -1,4 +1,4 @@
-import TrendingFashionStyles from '@/components/Public_C/Home/trending_Fashion';
+import { TrendingFashionGallery } from '@/components/Public_C/trending_fashion_gallery';
 import Hero from '@/components/Public_C/Home/hero';
 import What_we_Offer from '@/components/Public_C/Home/what_We_Offer';
 import ProductCardsGrid from '@/components/Public_C/Home/new_Arivals';
@@ -9,7 +9,7 @@ export default function Home() {
     <div>
       <Hero />
       <What_we_Offer />
-      <TrendingFashionStyles/>
+      <TrendingFashionGallery />
       <ProductCardsGrid/>
       <FashionCardsComponent/>
     </div>

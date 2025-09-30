@@ -1,5 +1,6 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image";
 import ProductCard, { Product } from "./ProductCard";
 
 interface ProductGridProps {
@@ -34,6 +35,32 @@ const ProductGrid: React.FC<ProductGridProps> = ({
   if (error) {
     return (
       <div className="text-center py-20 text-red-500">{error}</div>
+    );
+  }
+
+  // Empty state when no products are available
+  if (products.length === 0 && !loading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        {/* Illustration */}
+        <div className="mx-auto mb-6 flex h-32 w-32 items-center justify-center">
+          <Image
+            src="/unauthorized.png"
+            alt="No Products Available"
+            width={128}
+            height={128}
+            className=""
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+            priority
+          />
+        </div>
+        
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No products available</h3>
+        <p className="text-gray-500 mb-6">We couldn't find any products matching your criteria. Try adjusting your filters or check back later.</p>
+        
+      </div>
     );
   }
 
