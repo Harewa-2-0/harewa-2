@@ -7,7 +7,7 @@ import { X, Minus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCartStore, useCartTotalItems } from "@/store/cartStore";
+import { useCartStore, useCartTotalItems, useCartTotalItemsOptimistic } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/contexts/toast-context";
 
@@ -83,10 +83,8 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     return Array.from(productMap.values());
   }, [items]);
 
-  // Calculate total items from unique items to avoid counting duplicates
-  const totalItems = useMemo(() => {
-    return uniqueItems.reduce((total, item) => total + item.quantity, 0);
-  }, [uniqueItems]);
+  // Use optimistic counter for smooth UX during merge/refresh
+  const totalItems = useCartTotalItemsOptimistic();
 
   const subtotal = useMemo(() => {
     return uniqueItems.reduce((total, item) => {
@@ -188,12 +186,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
       // Update local state immediately for optimistic UI
       updateQuantity(id, qty);
       
-      // Show success toast immediately
-      if (qty === 0) {
-        addToast("Item removed from cart", "success");
-      } else {
-        addToast(`Quantity updated to ${qty}`, "success");
-      }
+      // Quantity updated - no toast notification needed
       
       // Sync to server in background if authenticated
       if (isAuthenticated && cartId) {
@@ -430,6 +423,21 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
               {/* Cart Summary */}
               <div className="border-t border-gray-200 p-6 space-y-4">
+                {/* Guest User Notice */}
+                {!isAuthenticated && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-yellow-800">
+                        Guest User
+                      </span>
+                    </div>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      Sign in to save your cart and checkout
+                    </p>
+                  </div>
+                )}
+                
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold text-gray-900">Subtotal:</span>
                   <span className="text-lg font-bold text-red-600">{formatPrice(subtotal)}</span>
@@ -456,6 +464,12 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                 <div className="space-y-3">
                   <button
                     onClick={() => {
+                      if (!isAuthenticated) {
+                        addToast('Please sign in or create an account to checkout', 'error');
+                        setIsOpen?.(false);
+                        router.push('/signin');
+                        return;
+                      }
                       setIsOpen?.(false);
                       router.push('/checkout');
                     }}
@@ -466,6 +480,12 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                   
                   <button
                     onClick={() => {
+                      if (!isAuthenticated) {
+                        addToast('Please sign in or create an account to view your cart', 'error');
+                        setIsOpen?.(false);
+                        router.push('/signin');
+                        return;
+                      }
                       setIsOpen?.(false);
                       router.push('/cart');
                     }}

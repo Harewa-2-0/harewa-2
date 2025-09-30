@@ -143,7 +143,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
         {/* Desktop */}
         <div className="hidden lg:block">
           <div className="grid grid-cols-12 gap-8">
-            <div className="col-span-8">
+            <div className="col-span-7">
               <ProductImageGallery
                 images={product.images || []}
                 selectedImageIndex={selectedImageIndex}
@@ -151,7 +151,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
                 productName={product.name}
               />
             </div>
-            <div className="col-span-4">
+            <div className="col-span-5">
               <ProductCheckoutCard
                 product={product}
                 selectedSize={selectedSize}

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { Menu, X, ArrowUpRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
@@ -11,14 +12,14 @@ import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import CartButton from '../../cart/cart-button';
 import UserMenu from '../../user-menu/user-menu';
-import { useAuthCartSync } from '@/hooks/use-auth-cart-sync';
+// import { useAuthCartSync } from '@/hooks/use-auth-cart-sync'; // No longer needed - cart merge is now global
+import { FabricMenu } from '../../header_expandable_menu/fabric_menu';
 
 const navItems = [
-  { label: 'Fabrics Gallery', href: '/fabrics' },
   { label: 'Ready to Wear', href: '/shop' },
   { label: 'Customization', href: '/customize' },
-  { label: 'Trending Styles', href: '/trends' },
-  { label: 'Clearance & Sales', href: '/sales' },
+  { label: 'Trending Styles', href: '/trending-fashion' },
+  // { label: 'Clearance & Sales', href: '/sales' },
   { label: 'About Harewa', href: '/about' },
 ];
 
@@ -26,9 +27,10 @@ export default function Header() {
   const { isMobileNavOpen, toggleMobileNav, closeMobileNav } = useUIStore();
   const { user, hasHydratedAuth } = useAuthStore();
   const [hideAnnouncement, setHideAnnouncement] = useState(false);
+  const pathname = usePathname();
 
-  // Sync cart with authentication state changes
-  useAuthCartSync();
+  // Cart merge is now handled globally in authStore - no need for component-level sync
+  // useAuthCartSync();
 
   useEffect(() => {
     // If you want the announcement to *disappear* when mobile nav opens, keep this true.
@@ -58,13 +60,24 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex gap-6 items-center text-sm text-white font-medium flex-1 justify-center">
-            {navItems.map(({ label, href }) => (
-              <motion.div key={label} whileHover={{ scale: 1.05 }}>
-                <Link href={href} className="hover:underline hover:text-[#FFE181]">
-                  {label}
-                </Link>
-              </motion.div>
-            ))}
+            <FabricMenu />
+            {navItems.map(({ label, href }) => {
+              const isActive = pathname === href;
+              return (
+                <motion.div key={label} whileHover={{ scale: 1.05 }}>
+                  <Link 
+                    href={href} 
+                    className={`transition-colors ${
+                      isActive 
+                        ? 'text-[#FFE181]' 
+                        : 'hover:text-[#FFE181]'
+                    }`}
+                  >
+                    {label}
+                  </Link>
+                </motion.div>
+              );
+            })}
           </nav>
 
           {/* Desktop Right (Avatar/Name first, then Cart) */}
@@ -128,6 +141,7 @@ export default function Header() {
               transition={{ duration: 0.3 }}
             >
               <div className="flex flex-col space-y-8 pt-6">
+                <FabricMenu isMobile={true} />
                 {navItems.map(({ label, href }) => (
                   <Link key={label} href={href} onClick={closeMobileNav} className="block hover:text-[#FFE181]">
                     {label}

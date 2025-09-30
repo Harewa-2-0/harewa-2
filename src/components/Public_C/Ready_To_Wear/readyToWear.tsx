@@ -10,6 +10,8 @@ import MobileFilterOverlay from "./MobileFilterOverlay";
 import { useResponsivePagination } from "../../../hooks/useResponsivePagination";
 import { getProducts } from "@/services/products";
 import { useAuthStore } from "@/store/authStore";
+import { useToast } from "@/contexts/toast-context";
+import Image from "next/image";
 
 interface FilterState {
   category: string;
@@ -40,9 +42,11 @@ const ReadyToWearPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated } = useAuthStore();
+  const { addToast } = useToast();
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
 
     getProducts()
       .then((data) => {
@@ -72,26 +76,15 @@ const ReadyToWearPage: React.FC = () => {
         setLoading(false);
       })
       .catch((err) => {
-        setError(err?.message || "Failed to load products");
+        const errorMessage = err?.message || "Failed to load products";
+        setError(errorMessage);
         setLoading(false);
-
-        // Keep a tiny fallback to avoid an empty page, but no demo overrides.
-        const fallbackData: Product[] = [
-          {
-            _id: "fallback-1",
-            name: "Sample Product",
-            price: 25000,
-            images: ["/placeholder.png"],
-            rating: 4,
-            reviews: 12,
-            isLiked: false,
-            gender: "female",
-          },
-        ];
-        setProducts(fallbackData);
-        setError(null);
+        setProducts([]); // Set empty array instead of fallback data
+        
+        // Show toast notification for fetch failure
+        addToast("Product fetch failed. Check your network connection.", "error");
       });
-  }, []);
+  }, [addToast]);
 
   const handleFilterChange = (filterType: keyof FilterState, value: any) => {
     setFilters((prev) => ({
@@ -164,7 +157,7 @@ const ReadyToWearPage: React.FC = () => {
     useResponsivePagination(sortedProducts);
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20 md:pt-24">
+    <div className="min-h-screen bg-white pt-20 md:pt-24">
       {/* Header Section */}
       <HeaderSection category={filters.category} />
 

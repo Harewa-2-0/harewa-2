@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import { useProfileStore } from '@/store/profile-store';
@@ -49,12 +50,12 @@ export default function CheckoutPage() {
     }
   }, [profileData?.addresses]);
 
-  // Redirect if no items in cart
-  useEffect(() => {
-    if (hasHydratedAuth && isAuthenticated && items.length === 0) {
-      router.push('/cart');
-    }
-  }, [hasHydratedAuth, isAuthenticated, items, router]);
+  // No longer redirect to cart - show empty state instead
+  // useEffect(() => {
+  //   if (hasHydratedAuth && isAuthenticated && items.length === 0) {
+  //     router.push('/cart');
+  //   }
+  // }, [hasHydratedAuth, isAuthenticated, items, router]);
 
   // Show loading while auth is hydrating
   if (!hasHydratedAuth) {
@@ -77,13 +78,51 @@ export default function CheckoutPage() {
     );
   }
 
-  // Show loading while redirecting to cart
+  // Show empty cart state instead of redirecting
   if (items.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-gray-300 border-t-[#D4AF37] rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecting to cart...</p>
+      <div className="min-h-screen bg-gray-50 pt-20 md:pt-24">
+        {/* Header */}
+        <div className="border-b">
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            {/* <nav className="flex items-center space-x-2 text-sm text-gray-500">
+              <a href="/" className="hover:text-gray-700">Home</a>
+              <span>/</span>
+              <a href="/cart" className="hover:text-gray-700">Cart</a>
+              <span>/</span>
+              <span className="text-gray-900 font-medium">Checkout</span>
+            </nav> */}
+            <h1 className="text-3xl font-bold text-gray-900 mt-2">Checkout</h1>
+          </div>
+        </div>
+
+        {/* Empty Cart State */}
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            {/* Illustration */}
+            <div className="mx-auto mb-6 flex h-32 w-32 items-center justify-center">
+              <Image
+                src="/unauthorized.png"
+                alt="Empty Cart"
+                width={128}
+                height={128}
+                className=""
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+                priority
+              />
+            </div>
+            
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
+            <p className="text-gray-500 mb-6">Looks like you haven't added any items to your cart yet.</p>
+            <a
+              href="/shop"
+              className="inline-flex items-center px-6 py-3 bg-[#D4AF37] hover:bg-[#B8941F] text-white font-medium rounded-lg transition-colors"
+            >
+              Continue Shopping
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -105,13 +144,13 @@ export default function CheckoutPage() {
       {/* Header */}
       <div className="bg-white border-b ">
         <div className="max-w-7xl mx-auto px-4 py-6 ">
-          <nav className="flex items-center space-x-2 text-sm text-gray-500">
+          {/* <nav className="flex items-center space-x-2 text-sm text-gray-500">
             <a href="/" className="hover:text-gray-700">Home</a>
             <span>/</span>
             <a href="/cart" className="hover:text-gray-700">Cart</a>
             <span>/</span>
             <span className="text-gray-900 font-medium">Checkout</span>
-          </nav>
+          </nav> */}
           <h1 className="text-3xl font-bold text-gray-900 mt-2">Checkout</h1>
         </div>
       </div>

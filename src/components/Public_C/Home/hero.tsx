@@ -61,7 +61,7 @@ const HeroSection = () => {
           {/* Text Section */}
           <div className="text-center mb-10 md:mb-6">
             <motion.h1
-              className="text-5xl xl:text-6xl font-bold text-gray-900 mb-4 leading-tight"
+              className="text-5xl xl:text-6xl font-bold text-gray-900 mb-4 leading-[1] "
               variants={textVariants}
             >
               Where Innovation
