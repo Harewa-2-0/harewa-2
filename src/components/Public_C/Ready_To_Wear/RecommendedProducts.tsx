@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Heart, ShoppingCart, Star } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Loader2 } from 'lucide-react';
 import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
 
@@ -78,28 +78,36 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
             <img
               src={product.images?.[0] || '/placeholder.png'}
               alt={product.name}
-              className="w-full h-48 sm:h-64 object-cover"
+              className="w-full h-36 sm:h-40 object-cover"
             />
             <button className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow">
               <Heart className={`w-5 h-5 ${product.isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
             </button>
           </div>
-          <div className="p-4">
-            <h4 className="text-sm text-gray-800 mb-2 line-clamp-2">{product.name}</h4>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-lg font-semibold text-gray-900">{formatPrice(product.price)}</span>
+          <div className="p-2.5">
+            <h4 className="text-sm text-gray-800 mb-1 line-clamp-2">{product.name}</h4>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-sm font-semibold text-gray-900">{formatPrice(product.price)}</span>
               <button
                 onClick={handleAddToCart}
                 disabled={isAddingToCart}
-                className="p-2 transition-colors cursor-pointer text-gray-600 hover:text-[#D4AF37] disabled:opacity-50"
-                aria-label="Add to cart"
+                className={`p-2 transition-all duration-200 rounded-full ${
+                  isAddingToCart
+                    ? 'bg-gray-100 cursor-not-allowed opacity-60'
+                    : 'text-gray-600 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 cursor-pointer'
+                }`}
+                aria-label={isAddingToCart ? 'Adding to cart...' : 'Add to cart'}
               >
-                <ShoppingCart className={`w-5 h-5 ${isAddingToCart ? 'animate-pulse' : ''}`} />
+                {isAddingToCart ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                ) : (
+                  <ShoppingCart className="w-5 h-5" />
+                )}
               </button>
             </div>
             <div className="flex items-center justify-between">
               {renderStars(product.rating)}
-              <span className="text-sm text-gray-500">({product.reviews || 0})</span>
+              <span className="text-xs text-gray-500">({product.reviews || 0})</span>
             </div>
           </div>
         </div>
@@ -113,9 +121,9 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
 
   return (
     <>
-      <div className='mt-8 md:mt-16'>
+      <div className='mt-8 md:mt-16 max-w-4xl mx-auto px-2 lg:px-4'>
         <h3 className="text-lg text-[#3D3D3D] font-bold mb-4 py-6 text-center">Recommended Items</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product) => (
             <RecommendedProductCard key={product._id} product={product} />
           ))}

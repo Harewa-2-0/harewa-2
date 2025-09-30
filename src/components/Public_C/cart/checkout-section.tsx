@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useCartStore } from '@/store/cartStore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/toast-context';
-import { useAuthCartSync } from '@/hooks/use-auth-cart-sync';
+// import { useAuthCartSync } from '@/hooks/use-auth-cart-sync'; // No longer needed - cart merge is now global
 
 export default function CheckoutSection() {
   const [promoCode, setPromoCode] = useState('');
@@ -13,8 +13,8 @@ export default function CheckoutSection() {
   const { addToast } = useToast();
   const router = useRouter();
   
-  // Sync cart with authentication state changes
-  useAuthCartSync();
+  // Cart merge is now handled globally in authStore - no need for component-level sync
+  // useAuthCartSync();
   
   const items = useCartStore((s) => s.items);
   const isLoading = useCartStore((s) => s.isLoading);
@@ -87,16 +87,18 @@ export default function CheckoutSection() {
     router.push('/checkout');
   };
 
-  if (isLoading) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-gray-300 border-t-[#fdc713] rounded-full animate-spin"></div>
-          <span className="ml-2 text-gray-600">Loading...</span>
-        </div>
-      </div>
-    );
-  }
+  // Remove artificial loading state to prevent flickering
+  // Cart should display immediately from Zustand state
+  // if (isLoading) {
+  //   return (
+  //     <div className="bg-white rounded-lg shadow-sm p-6">
+  //       <div className="flex items-center justify-center">
+  //         <div className="w-6 h-6 border-2 border-gray-300 border-t-[#fdc713] rounded-full animate-spin"></div>
+  //         <span className="ml-2 text-gray-600">Loading...</span>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="space-y-4">
@@ -187,7 +189,7 @@ export default function CheckoutSection() {
         <button
           onClick={handleCheckout}
           disabled={orderSummary.itemCount === 0}
-          className="w-full py-4 bg-[#fdc713] cursor-pointer text-white font-bold rounded-lg hover:bg-[#f0c000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-4 bg-[#D4AF37] cursor-pointer text-black font-bold rounded-lg hover:bg-[#B8941F] hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
           {orderSummary.itemCount === 0 ? 'Cart is Empty' : 'PROCEED TO CHECKOUT'}
         </button>

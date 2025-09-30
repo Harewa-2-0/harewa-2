@@ -3,14 +3,13 @@
 import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Minus, Plus, Trash2, Heart, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/contexts/toast-context';
-import { useAuthAwareCartActions } from '@/hooks/use-cart';
 
 export default function CartItems() {
   const { addToast } = useToast();
-  const { updateCartQuantity, removeFromCart } = useAuthAwareCartActions();
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
   const [favoriteItems, setFavoriteItems] = useState<Set<string>>(new Set());
   const [sizeDropdowns, setSizeDropdowns] = useState<{ [key: string]: boolean }>({});
@@ -18,6 +17,9 @@ export default function CartItems() {
   const items = useCartStore((s) => s.items);
   const cartId = useCartStore((s) => s.cartId);
   const isLoading = useCartStore((s) => s.isLoading);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const removeItem = useCartStore((s) => s.removeItem);
+  const fetchCart = useCartStore((s) => s.fetchCart);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // Items should already be deduplicated by the cartStore, but ensure no duplicates
@@ -60,34 +62,65 @@ export default function CartItems() {
 
   const onChangeQty = async (id: string, qty: number) => {
     if (pendingOperations.has(id)) return;
-
+    
     try {
-      setPendingOperations((prev) => new Set(prev).add(id));
+      setPendingOperations(prev => new Set(prev).add(id));
       
-      // Use the simplified cart actions
-      await updateCartQuantity(id, qty);
+      // Update local state immediately for optimistic UI
+      updateQuantity(id, qty);
       
-      if (qty === 0) {
-        addToast('Item removed from cart', 'success');
-      } else {
-        addToast(`Quantity updated to ${qty}`, 'success');
+      // Quantity updated - no toast notification needed
+      
+      // Sync to server in background if authenticated
+      if (isAuthenticated && cartId) {
+        try {
+          // Use the truly optimistic UPDATE endpoint that uses local state
+          const { updateProductQuantityOptimistic } = await import('@/services/cart');
+          await updateProductQuantityOptimistic(cartId, id, qty, items);
+          // Don't refetch cart - trust the update operation succeeded
+        } catch (serverError) {
+          console.error('Failed to update quantity on server:', serverError);
+          // Revert the local state on server error
+          addToast("Failed to update quantity on server. Please try again.", "error");
+          // Revert to server state by refetching cart
+          await fetchCart();
+        }
       }
     } catch (error) {
-      addToast('Failed to update quantity. Please try again.', 'error');
-      console.error('Failed to update quantity:', error);
+      addToast("Failed to update quantity. Please try again.", "error");
+      console.error("Failed to update quantity:", error);
     } finally {
-      setPendingOperations((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
+      setPendingOperations(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
       });
     }
   };
 
   const onRemove = async (id: string) => {
     try {
-      await removeFromCart(id);
+      // Update local state immediately for optimistic UI
+      removeItem(id);
+      
+      // Show success toast immediately
       addToast('Item removed from cart', 'success');
+      
+      // Sync to server in background if authenticated
+      if (isAuthenticated && cartId) {
+        try {
+          // Use the optimistic DELETE endpoint that doesn't fetch cart first
+          const { removeProductFromCartById } = await import('@/services/cart');
+          await removeProductFromCartById(cartId, id);
+          // Don't refetch cart - trust the delete operation succeeded
+        } catch (serverError) {
+          console.error('Failed to remove item from server:', serverError);
+          // Revert the local state on server error
+          addToast('Failed to remove item from server. Please try again.', 'error');
+          // Re-add the item to local state by refetching cart
+          await fetchCart();
+        }
+      }
     } catch (error) {
       addToast('Failed to remove item. Please try again.', 'error');
       console.error('Failed to remove item:', error);
@@ -98,18 +131,20 @@ export default function CartItems() {
     toggleFavorite(id);
   };
 
-  if (isLoading) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm p-4 md:p-8">
-        <div className="flex items-center justify-center">
-          <div className="w-6 h-6 md:w-8 md:h-8 border-2 border-gray-300 border-t-[#fdc713] rounded-full animate-spin"></div>
-          <span className="ml-2 md:ml-3 text-sm md:text-base text-gray-600">
-            Loading cart items...
-          </span>
-        </div>
-      </div>
-    );
-  }
+  // Remove artificial loading state to prevent flickering
+  // Cart should display immediately from Zustand state
+  // if (isLoading) {
+  //   return (
+  //     <div className="bg-white rounded-lg shadow-sm p-4 md:p-8">
+  //       <div className="flex items-center justify-center">
+  //         <div className="w-6 h-6 md:w-8 md:h-8 border-2 border-gray-300 border-t-[#fdc713] rounded-full animate-spin"></div>
+  //         <span className="ml-2 md:ml-3 text-sm md:text-base text-gray-600">
+  //           Loading cart items...
+  //         </span>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   if (uniqueItems.length === 0) {
     return (
@@ -144,7 +179,8 @@ export default function CartItems() {
   return (
     <div className="space-y-3 md:space-y-4">
       {/* Cart Items */}
-      {uniqueItems.map((item) => {
+      <AnimatePresence>
+        {uniqueItems.map((item) => {
         const name = item.name || 'Product Name';
         const image = item.image || '/placeholder.png';
         const itemTotal = typeof item.price === 'number' ? item.price * item.quantity : 0;
@@ -153,7 +189,14 @@ export default function CartItems() {
         const isFavorite = favoriteItems.has(item.id);
 
         return (
-          <div key={item.id} className="bg-white rounded-lg shadow-sm p-3 md:p-6">
+          <motion.div
+            key={item.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white rounded-lg shadow-sm p-3 md:p-6"
+          >
             <div className="flex gap-3 md:gap-6">
               {/* Product Image */}
               <div className="w-16 h-20 md:w-24 md:h-32 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center relative">
@@ -256,7 +299,7 @@ export default function CartItems() {
 
                   <button
                     onClick={() => onRemove(item.id)}
-                    className="flex items-center gap-1.5 text-xs md:text-sm text-red-600 hover:text-red-700 hover:underline transition-colors"
+                    className="flex items-center gap-1.5 text-xs md:text-sm text-red-600 hover:text-red-700 hover:transition-colors cursor-pointer"
                   >
                     <Trash2 size={14} className="md:w-4 md:h-4" />
                     <span>Delete</span>
@@ -264,9 +307,10 @@ export default function CartItems() {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         );
       })}
+      </AnimatePresence>
 
       {/* Toast notifications are now handled globally by ToastContainer */}
 
