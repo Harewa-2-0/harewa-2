@@ -16,8 +16,8 @@ export function useAuthCartSync() {
     const authStateChanged = previousAuthState !== null && previousAuthState !== isAuthenticated;
     setPreviousAuthState(isAuthenticated);
     
-    // Only run after auth has hydrated to avoid clearing cart on initial load
-    if (hasHydratedAuth) {
+    // Only run after auth has hydrated AND auth state actually changed
+    if (hasHydratedAuth && authStateChanged) {
       handleAuthStateChange(isAuthenticated);
     }
   }, [isAuthenticated, hasHydratedAuth, handleAuthStateChange, previousAuthState]);

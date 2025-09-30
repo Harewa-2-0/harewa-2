@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import CartUI from '../shop/cart';
 import { useCartActions, useCartOpen } from '@/hooks/use-cart';
-import { useCartStore } from '@/store/cartStore';
+import { useCartStore, useCartTotalItemsOptimistic } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -26,13 +26,14 @@ export default function CartButton({
   preflight = true,
   preflightIntervalMs = 60_000, // 1 minute
 }: CartButtonProps) {
-  // Get count and loading state from store
-  const { count, isLoading } = useCartStore(
-    useShallow((s) => {
-      const calculatedCount = s.items.reduce((n, i) => n + i.quantity, 0);
-      return { count: calculatedCount, isLoading: s.isLoading };
-    })
+  // Get count using optimistic counter and loading states
+  const count = useCartTotalItemsOptimistic();
+  const { isMerging, isRefreshing } = useCartStore(
+    useShallow((s) => ({ isMerging: s.isMerging, isRefreshing: s.isRefreshing }))
   );
+  
+  // Show spinner only during merge, not during refresh
+  const isLoading = isMerging;
   
   const isOpen = useCartOpen();
   const { openCart, closeCart, openCartForGuest } = useCartActions();

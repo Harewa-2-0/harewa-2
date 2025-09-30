@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Heart, Info, Star } from 'lucide-react';
-import { useAuthAwareCartActions } from '@/hooks/use-cart';
+import { Heart, Star, ChevronDown, ChevronUp } from 'lucide-react';
+import Image from 'next/image';
+import { useCartStore } from '@/store/cartStore';
+import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/contexts/toast-context';
+import SizeGuide from './SizeGuide';
 
 interface ProductCheckoutCardProps {
   product: {
@@ -25,17 +28,18 @@ interface ProductCheckoutCardProps {
 
 const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
   product,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  selectedSize: _selectedSize,
+  selectedSize,
   isLiked,
   isAddingToCart = false,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onSizeSelect: _onSizeSelect,
+  onSizeSelect,
   onAddToCart,
   onToggleLike
 }) => {
   const [isAddingToCartLocal, setIsAddingToCartLocal] = useState(false);
-  const { addToCart: addToCartAction, isAuthenticated } = useAuthAwareCartActions();
+  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const { addItem } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
 
   const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
@@ -61,8 +65,8 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
     const imageUrl = product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png';
 
     try {
-      // Use the centralized cart hook - handles optimistic update, server sync, and error handling
-      await addToCartAction({
+      // Update local state immediately for optimistic UI (same as cart drawer)
+      addItem({
         id: product._id,
         quantity: 1,
         price: product.price,
@@ -73,10 +77,27 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
       // Show success toast
       addToast("Item added to cart successfully", "success");
 
+      // Sync to server in background if authenticated (same as cart drawer)
+      if (isAuthenticated) {
+        try {
+          const { addToMyCart } = await import('@/services/cart');
+          await addToMyCart({
+            productId: product._id,
+            quantity: 1,
+            price: product.price,
+          });
+          // Don't refetch cart - trust the add operation succeeded
+        } catch (serverError) {
+          console.error('Failed to add item to server:', serverError);
+          // Show error toast but don't revert local state (user already sees item in cart)
+          addToast("Item added to cart, but sync to server failed", "info");
+        }
+      }
+
       // Parent callback for UI side-effects only
       onAddToCart();
     } catch (error) {
-      // Show error toast - the hook already handled rollback
+      // Show error toast
       addToast("Failed to add item to cart", "error");
       console.error('Failed to add item to cart:', error);
     } finally {
@@ -102,14 +123,47 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
             <span className="text-xl sm:text-2xl font-bold text-gray-900">{formatPrice(product.price)}</span>
           </div>
 
-          {/* Style Guide (image to be added later) */}
-          <div className="flex items-center gap-2 mb-4 cursor-pointer text-blue-600 hover:underline">
-            <Info className="w-4 h-4" />
-            <span className="text-sm">Style Guide</span>
+          {/* Size Guide */}
+          <div 
+            className="flex items-center gap-2 mb-4 cursor-pointer text-blue-600 hover:underline"
+            onClick={() => setIsSizeGuideOpen(true)}
+          >
+            <Image 
+              src="/style_guide.png" 
+              alt="Size guide" 
+              width={24} 
+              height={24}
+              className="w-6 h-6"
+            />
+            <span className="text-sm">Size guide</span>
           </div>
 
-          {/* Add to Cart & Like */}
+          {/* Size Selection */}
+          <div className="mb-4">
+            <div className="flex gap-2">
+              {['S', 'M', 'L', '1X', '2X'].map((size) => (
+                <button
+                  key={size}
+                  onClick={() => onSizeSelect(size)}
+                  className={`px-4 py-2 border-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedSize === size
+                      ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
           <div className="flex items-center gap-3 mb-4">
+            <button
+              className="flex-1 py-3 bg-black text-white rounded-lg font-medium transition-colors text-sm hover:bg-gray-800"
+            >
+              CUSTOMIZE
+            </button>
             <button
               onClick={handleAddToCart}
               disabled={isAddingToCartLocal}
@@ -121,12 +175,12 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
             >
               {isAddingToCartLocal ? (
                 <div className="flex justify-center items-center">
-                  <svg className="animate-spin h-5 w-5 text-[#D4AF37]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 </div>
-              ) : 'Add to Cart'}
+              ) : 'ADD TO CART'}
             </button>
             <button
               onClick={onToggleLike}
@@ -136,12 +190,33 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
             </button>
           </div>
 
-          {/* Description */}
-          <div className="text-gray-700 text-sm leading-relaxed">
-            {product.description || 'No description available.'}
+          {/* Expandable Product Description */}
+          <div className="border-t border-gray-200 pt-4">
+            <button
+              onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <span className="text-sm font-medium text-gray-900">Product description</span>
+              {isDescriptionExpanded ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            {isDescriptionExpanded && (
+              <div className="mt-3 text-gray-700 text-sm leading-relaxed">
+                {product.description || 'No description available.'}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Size Guide Modal */}
+      <SizeGuide 
+        isOpen={isSizeGuideOpen} 
+        onClose={() => setIsSizeGuideOpen(false)} 
+      />
 
       {/* Toast notifications are now handled globally by ToastContainer */}
     </>
