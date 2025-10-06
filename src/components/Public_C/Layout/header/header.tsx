@@ -14,13 +14,13 @@ import CartButton from '../../cart/cart-button';
 import UserMenu from '../../user-menu/user-menu';
 // import { useAuthCartSync } from '@/hooks/use-auth-cart-sync'; // No longer needed - cart merge is now global
 import { FabricMenu } from '../../header_expandable_menu/fabric_menu';
+import { AboutMenu } from '../../header_expandable_menu/about_menu';
 
 const navItems = [
   { label: 'Ready to Wear', href: '/shop' },
   { label: 'Customization', href: '/customize' },
   { label: 'Trending Styles', href: '/trending-fashion' },
   // { label: 'Clearance & Sales', href: '/sales' },
-  { label: 'About Harewa', href: '/about' },
 ];
 
 export default function Header() {
@@ -61,6 +61,7 @@ export default function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex gap-6 items-center text-sm text-white font-medium flex-1 justify-center">
             <FabricMenu />
+            <AboutMenu />
             {navItems.map(({ label, href }) => {
               const isActive = pathname === href;
               return (
@@ -142,6 +143,7 @@ export default function Header() {
             >
               <div className="flex flex-col space-y-8 pt-6">
                 <FabricMenu isMobile={true} />
+                <AboutMenu isMobile={true} />
                 {navItems.map(({ label, href }) => (
                   <Link key={label} href={href} onClick={closeMobileNav} className="block hover:text-[#FFE181]">
                     {label}

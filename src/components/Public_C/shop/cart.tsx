@@ -9,7 +9,10 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCartStore, useCartTotalItems, useCartTotalItemsOptimistic } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
+import { useOrderStore } from "@/store/orderStore";
 import { useToast } from "@/contexts/toast-context";
+import { createOrderFromCart } from "@/services/order";
+import PendingOrderModal from "@/components/common/pending-order-modal";
 
 interface CartUIProps {
   isOpen?: boolean;
@@ -35,6 +38,13 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   
   // Track pending operations per product to prevent double-submit
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
+  
+  // Track order creation state
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  
+  // Order store state
+  const { fetchPendingOrder, pendingOrder, setCurrentOrder } = useOrderStore();
+  const [showPendingOrderModal, setShowPendingOrderModal] = useState(false);
   
   const items = useCartStore((s) => s.items);
   const cartId = useCartStore((s) => s.cartId);
@@ -261,6 +271,102 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     }
   };
 
+  const handleCheckout = async () => {
+    if (isCreatingOrder) return;
+    
+    try {
+      setIsCreatingOrder(true);
+
+      // Auth gate first
+      if (!isAuthenticated) {
+        addToast('Please sign in or create an account to checkout', 'error');
+        setIsOpen?.(false);
+        router.push('/signin');
+        return;
+      }
+
+      // Check for pending orders first
+      const existingPendingOrder = await fetchPendingOrder();
+      
+      if (existingPendingOrder) {
+        // Show modal for pending order
+        setShowPendingOrderModal(true);
+        setIsCreatingOrder(false);
+        return;
+      }
+
+      // No pending order, proceed with creating new order
+      const result = await createOrderFromCart();
+      const errMsg = (result.error || '').toLowerCase();
+
+      if (result.success) {
+        addToast('Order created successfully! Please complete payment to confirm your order.', 'success');
+        setIsOpen?.(false);
+        router.push('/checkout');
+        return;
+      }
+
+      // Error handling by code/message
+      if (result.errorCode === 'NO_ADDRESS' || errMsg.includes('no delivery address')) {
+        addToast('Add a delivery address to your profile before checkout', 'error');
+        setIsOpen?.(false);
+        router.push('/profile');
+        return;
+      }
+
+      if (
+        result.errorCode === 'DUPLICATE_ORDER' ||
+        errMsg.includes('already exists') ||
+        errMsg.includes('exists for this cart')
+      ) {
+        addToast('Order already exists for this cart. Proceeding to payment.', 'error');
+        setIsOpen?.(false);
+        router.push('/checkout');
+        return;
+      }
+
+      // Special-case generic 400s that surface as "Bad Request" (treat like duplicate)
+      if (errMsg === 'bad request') {
+        addToast('Order already exists for this cart. Proceeding to payment.', 'error');
+        setIsOpen?.(false);
+        router.push('/checkout');
+        return;
+      }
+
+      // Generic failure: prefer server message; fall back to network message
+      if (result.errorCode === 'NETWORK_ERROR') {
+        addToast('Order failed. Check your network and try again.', 'error');
+      } else if (result.error && result.error.trim().length > 0) {
+        addToast(result.error, 'error');
+      } else {
+        addToast('Order failed. Check your network and try again.', 'error');
+      }
+      return;
+
+    } catch (error) {
+      console.error('Checkout error:', error);
+      addToast('Order failed. Check your network and try again.', 'error');
+    } finally {
+      setIsCreatingOrder(false);
+    }
+  };
+
+  // Modal handlers
+  const handleContinueWithPendingOrder = () => {
+    if (pendingOrder) {
+      setCurrentOrder(pendingOrder);
+      setIsOpen?.(false);
+      setShowPendingOrderModal(false);
+      router.push('/checkout');
+    }
+  };
+
+  const handleStartNewOrder = () => {
+    // This will be handled by the modal component
+    setIsOpen?.(false);
+    setShowPendingOrderModal(false);
+  };
+
   if (!isOpen) return null;
 
   // Use portal to render at root level to avoid stacking context issues
@@ -463,19 +569,18 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
                 <div className="space-y-3">
                   <button
-                    onClick={() => {
-                      if (!isAuthenticated) {
-                        addToast('Please sign in or create an account to checkout', 'error');
-                        setIsOpen?.(false);
-                        router.push('/signin');
-                        return;
-                      }
-                      setIsOpen?.(false);
-                      router.push('/checkout');
-                    }}
-                    className="w-full bg-[#D4AF37] text-black font-medium py-3 px-4 rounded-lg hover:bg-[#B8941F] transition-colors"
+                    onClick={handleCheckout}
+                    disabled={isCreatingOrder || uniqueItems.length === 0}
+                    className="w-full bg-[#D4AF37] text-black font-medium py-3 px-4 rounded-lg hover:bg-[#B8941F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    CHECKOUT
+                    {isCreatingOrder ? (
+                      <div className="flex items-center justify-center">
+                        <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
+                        PROCESSING...
+                      </div>
+                    ) : (
+                      'CHECKOUT'
+                    )}
                   </button>
                   
                   <button
@@ -504,7 +609,21 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   // Render using portal to ensure it's at the root level
   return typeof window !== 'undefined' 
-    ? createPortal(cartDrawer, document.body)
+    ? createPortal(
+        <>
+          {cartDrawer}
+          {pendingOrder && (
+            <PendingOrderModal
+              isOpen={showPendingOrderModal}
+              onClose={() => setShowPendingOrderModal(false)}
+              onContinue={handleContinueWithPendingOrder}
+              onStartNew={handleStartNewOrder}
+              pendingOrder={pendingOrder}
+            />
+          )}
+        </>,
+        document.body
+      )
     : null;
 };
 

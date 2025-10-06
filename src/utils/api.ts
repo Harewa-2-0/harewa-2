@@ -23,6 +23,9 @@ export class ApiError extends Error {
     this.payload = payload;
   }
 }
+// In-flight GET request deduplication to avoid duplicate network calls
+const pendingGetRequests = new Map<string, Promise<any>>();
+
 
 // ===== helpers =====
 
@@ -85,6 +88,13 @@ function isAccessExpired(status: number, body: any) {
     msg.includes("jwt expired") ||
     msg.includes("access token expired")
   );
+}
+
+// Detect "invalid token" that should trigger refresh (malformed/corrupted tokens)
+function isInvalidToken(status: number, body: any) {
+  if (status !== 403) return false;
+  const msg = (body?.message || body)?.toString?.().toLowerCase?.() || "";
+  return msg.includes("invalid token");
 }
 
 // ===== refresh single-flight =====
@@ -150,34 +160,56 @@ export async function api<T = any>(
     }
   }
 
-  // First attempt
-  let { res, body } = await runOnce();
+  // Core executor that performs the request with refresh handling
+  const execute = async (): Promise<T> => {
+    // First attempt
+    let { res, body } = await runOnce();
 
-  // If access expired → single-flight refresh → replay once
-  if (isAccessExpired(res.status, body)) {
-    try {
-      await ensureRefresh();
-    } catch (err: any) {
-      // Surface as 401 to callers
-      const message = err?.message || "Session expired";
-      throw new ApiError(message, 401, err?.payload ?? body);
+    // If access expired or invalid token → single-flight refresh → replay once
+    if (isAccessExpired(res.status, body) || isInvalidToken(res.status, body)) {
+      try {
+        await ensureRefresh();
+      } catch (err: any) {
+        // Surface as 401 to callers
+        const message = err?.message || "Session expired";
+        throw new ApiError(message, 401, err?.payload ?? body);
+      }
+      ({ res, body } = await runOnce());
     }
-    ({ res, body } = await runOnce());
+
+    // Final error handling
+    if (!res.ok) {
+      const msg =
+        (body &&
+          typeof body === "object" &&
+          "message" in body &&
+          (body as any).message) ||
+        res.statusText ||
+        `HTTP ${res.status}`;
+      throw new ApiError(String(msg), res.status, body);
+    }
+
+    return body as T;
+  };
+
+  // Deduplicate GET requests to the same URL while in-flight
+  const method = (init.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
+  const dedupeKey = `${method}:${url}`;
+
+  if (isGet) {
+    const existing = pendingGetRequests.get(dedupeKey);
+    if (existing) {
+      return existing as Promise<T>;
+    }
+    const p = execute().finally(() => {
+      pendingGetRequests.delete(dedupeKey);
+    });
+    pendingGetRequests.set(dedupeKey, p);
+    return p as Promise<T>;
   }
 
-  // Final error handling
-  if (!res.ok) {
-    const msg =
-      (body &&
-        typeof body === "object" &&
-        "message" in body &&
-        (body as any).message) ||
-      res.statusText ||
-      `HTTP ${res.status}`;
-    throw new ApiError(String(msg), res.status, body);
-  }
-
-  return body as T;
+  return execute();
 }
 
 /** SWR/React Query compatible fetcher */

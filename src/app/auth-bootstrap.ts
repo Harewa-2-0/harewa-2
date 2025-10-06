@@ -2,14 +2,12 @@
 
 import { useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
-import { useTokenRefresh } from "@/hooks/use-token-refresh";
 
 // Dedupe across React StrictMode, Fast Refresh, and multiple layouts
 let BOOTSTRAPPED = false;
 
 export default function AuthBootstrap() {
-  // Initialize token refresh hook
-  useTokenRefresh();
+  // Token refresh handled via HttpOnly cookies + api.ts auto-refresh. No periodic client timer.
 
   useEffect(() => {
     if (BOOTSTRAPPED) return;
