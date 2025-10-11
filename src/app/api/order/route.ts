@@ -1,4 +1,6 @@
 import { Order } from "@/lib/models/Order";
+import { User } from "@/lib/models/User";
+import { Profile } from "@/lib/models/Profile";
 import { Wallet } from "@/lib/models/Wallet";
 import { Product } from "@/lib/models/Product";
 import { Cart } from "@/lib/models/Cart";
@@ -19,22 +21,30 @@ export async function GET() {
                 model: Cart,
                 populate: {
                     path: "products.product",
-                    model: Product
-                }
+                    model: Product,
+                },
+            })
+            .populate({
+                path: "user",
+                model: User,
+                select: "username email phoneNumber",
+                strictPopulate: false,
+                populate: {
+                    path: "profile",
+                    model: Profile,
+                    select: "firstName lastName profilePicture",
+                },
             })
             .lean();
 
-        return ok({
-            success: true,
-            message: "Success",
-            data: orders
-        });
+        return ok(orders);
     } catch (error) {
         console.error("Failed to fetch orders:", error);
-        return badRequest("Failed to fetch orders" + error
-        );
+        return badRequest("Failed to fetch orders: " + error.message);
     }
 }
+
+
 
 // POST /api/order
 // Create a new order 
