@@ -6,6 +6,7 @@ const productSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   quantity: { type: Number, required: true },
   remainingInStock: { type: Number, default: 0 },
+  discount: { type: Number, default: 0 },
   location: { type: String, required: true },
   images: { type: [String], validate: [arrayLimit, '{PATH} exceeds the limit of 3'] },
   sizes: {
