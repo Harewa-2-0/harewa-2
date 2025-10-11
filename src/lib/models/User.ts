@@ -19,5 +19,15 @@ const UserSchema = new mongoose.Schema({
   },
   joinedAt: { type: Date, default: Date.now },
 });
+UserSchema.virtual("profile", {
+  ref: "Profile", // 👈 must match the model name string in mongoose.model("Profile", ...)
+  localField: "_id",
+  foreignField: "user",
+  justOne: true, // because one user = one profile
+});
+
+// Enable virtuals in outputs
+UserSchema.set("toObject", { virtuals: true });
+UserSchema.set("toJSON", { virtuals: true });
 
 export const User = mongoose.models.Users || mongoose.model("Users", UserSchema);
