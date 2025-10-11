@@ -8,6 +8,7 @@ import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
 import { ok, created, badRequest, serverError } from "@/lib/response";
 import { requireAuth } from "@/lib/middleware/requireAuth";
+import { ActivityLog } from "@/lib/models/ActivityLog";
 
 // GET /api/order
 // Get all orders    
@@ -40,7 +41,7 @@ export async function GET() {
         return ok(orders);
     } catch (error) {
         console.error("Failed to fetch orders:", error);
-        return badRequest("Failed to fetch orders: " + error.message);
+        return badRequest("Failed to fetch orders: " + error);
     }
 }
 
@@ -69,6 +70,15 @@ export async function POST(request: NextRequest) {
         }
         const newOrder = new Order({ user: user.sub, walletId: wallet._id, ...body });
         await newOrder.save();
+        await ActivityLog.create({
+            user: user.sub,
+            action: "Placed Order",
+            entityType: "Order",
+            entityId: newOrder._id,
+            description: `User placed order #${newOrder._id} worth $${newOrder.totalAmount}`,
+            metadata: { totalAmount: newOrder.totalAmount, itemCount: newOrder.carts.length },
+        });
+
         return created(newOrder);
     } catch (error) {
         return serverError(
