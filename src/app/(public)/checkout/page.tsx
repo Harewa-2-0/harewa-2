@@ -3,17 +3,18 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useAuthStore } from '@/store/authStore';
-import { useCartStore } from '@/store/cartStore';
+import { useOrderStore } from '@/store/orderStore';
 import { useProfileStore } from '@/store/profile-store';
 import { useRouter } from 'next/navigation';
 import AddressSection from '@/components/Public_C/checkout/address-section';
 import CartSummary from '@/components/Public_C/checkout/cart-summary';
-import PaymentMethods from '@/components/Public_C/checkout/payment-methods';
+// import PaymentMethods from '@/components/Public_C/checkout/payment-methods';
+import PaymentMethodSelector from '@/components/Public_C/checkout/payment-method-selector';
 import type { ProfileAddress } from '@/store/profile-store';
 
 export default function CheckoutPage() {
   const { isAuthenticated, hasHydratedAuth } = useAuthStore();
-  const { items } = useCartStore();
+  const { currentOrder, setCurrentOrder } = useOrderStore();
   const { profileData, fetchProfile } = useProfileStore();
   const router = useRouter();
   
@@ -33,6 +34,14 @@ export default function CheckoutPage() {
       fetchProfile();
     }
   }, [isAuthenticated, fetchProfile]);
+
+  // Redirect to cart if no current order (order should be set by cart components)
+  useEffect(() => {
+    if (isAuthenticated && !currentOrder) {
+      console.log('Checkout page - no current order found, redirecting to cart');
+      router.push('/cart');
+    }
+  }, [isAuthenticated, currentOrder, router]);
 
   // Auto-select address when profile data is available
   useEffect(() => {
@@ -78,8 +87,9 @@ export default function CheckoutPage() {
     );
   }
 
-  // Show empty cart state instead of redirecting
-  if (items.length === 0) {
+
+  // Show empty order state instead of redirecting
+  if (!currentOrder) {
     return (
       <div className="min-h-screen bg-gray-50 pt-20 md:pt-24">
         {/* Header */}
@@ -114,8 +124,8 @@ export default function CheckoutPage() {
               />
             </div>
             
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
-            <p className="text-gray-500 mb-6">Looks like you haven't added any items to your cart yet.</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No active order found</h3>
+            <p className="text-gray-500 mb-6">Looks like you don't have an active order to checkout. Add items to your cart and try again.</p>
             <a
               href="/shop"
               className="inline-flex items-center px-6 py-3 bg-[#D4AF37] hover:bg-[#B8941F] text-white font-medium rounded-lg transition-colors"
@@ -167,15 +177,15 @@ export default function CheckoutPage() {
             />
           </div>
           
-          {/* Right Side - Cart Summary */}
+          {/* Right Side - Order Summary */}
           <div className="lg:col-span-1">
-            <CartSummary />
+            <CartSummary order={currentOrder} />
           </div>
         </div>
         
         {/* Bottom - Payment Methods */}
         <div className="mt-8">
-          <PaymentMethods isEnabled={isAddressValid} />
+          <PaymentMethodSelector isEnabled={isAddressValid} />
         </div>
       </div>
     </div>

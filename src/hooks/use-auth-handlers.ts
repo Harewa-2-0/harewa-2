@@ -64,6 +64,9 @@ export default function useAuthHandlers() {
       };
 
       setUser(user, remember ? "localStorage" : "sessionStorage");
+      
+      // ✅ Save snapshot for instant hydration on next visit
+      localStorage.setItem('auth-snapshot', JSON.stringify({ user, isAuthenticated: true }));
 
       setAuthState({
         isLoading: false,

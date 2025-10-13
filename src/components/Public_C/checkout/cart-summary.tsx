@@ -6,14 +6,49 @@ import { useAuthStore } from '@/store/authStore';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/contexts/toast-context';
+import type { Order } from '@/services/order';
 
-export default function CartSummary() {
+interface CartSummaryProps {
+  order?: Order | null;
+}
+
+export default function CartSummary({ order }: CartSummaryProps) {
   const { items, removeItem, fetchCart, cartId } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
 
   const orderSummary = useMemo(() => {
+    // If we have order data, use it; otherwise fall back to cart data
+    if (order?.carts?.products) {
+      const orderItems = order.carts.products.map(cartProduct => ({
+        id: typeof cartProduct.product === 'string' ? cartProduct.product : (cartProduct.product as any)?._id || '',
+        quantity: cartProduct.quantity,
+        price: (cartProduct.product as any)?.price || 0,
+        name: (cartProduct.product as any)?.name || 'Product',
+        image: (cartProduct.product as any)?.images?.[0] || '/placeholder.png',
+      }));
+
+      const subtotal = orderItems.reduce((total, item) => {
+        const itemPrice = typeof item.price === 'number' ? item.price : 0;
+        return total + itemPrice * item.quantity;
+      }, 0);
+
+      const shipping = 15000;
+      const total = subtotal + shipping;
+      const itemCount = orderItems.reduce((t, i) => t + i.quantity, 0);
+
+      return {
+        itemCount,
+        subtotal,
+        shipping,
+        total,
+        savings: subtotal * 0.1,
+        items: orderItems,
+      };
+    }
+
+    // Fallback to cart data
     const uniqueItems = items.reduce((acc, item) => {
       const existing = acc.find(i => i.id === item.id);
       if (existing) existing.quantity += item.quantity;
@@ -36,8 +71,9 @@ export default function CartSummary() {
       shipping,
       total,
       savings: subtotal * 0.1,
+      items: uniqueItems,
     };
-  }, [items]);
+  }, [order, items]);
 
   const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
 
@@ -74,10 +110,10 @@ export default function CartSummary() {
     <div className="bg-white rounded-lg shadow-sm p-6">
       <h2 className="text-xl font-bold text-gray-900 mb-6">ORDER SUMMARY</h2>
 
-      {/* Cart Items */}
+      {/* Order Items */}
       <div className="space-y-4 mb-6">
         <AnimatePresence>
-          {items.map((item) => {
+          {orderSummary.items.map((item) => {
             const name = item.name || 'Product Name';
             const image = item.image || '/placeholder.png';
             const itemTotal =
@@ -97,15 +133,17 @@ export default function CartSummary() {
                 transition={{ duration: 0.2 }}
                 className="relative flex gap-3 p-4 rounded-xl border border-gray-100 bg-white shadow-sm"
               >
-                {/* Floating delete button (top-right) */}
-                <button
-                  onClick={() => handleRemoveItem(item.id)}
-                  disabled={isPending}
-                  aria-label="Remove item"
-                  className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-[#D4AF37] text-white flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <X size={16} />
-                </button>
+                {/* Floating delete button (top-right) - only show for cart items, not order items */}
+                {!order && (
+                  <button
+                    onClick={() => handleRemoveItem(item.id)}
+                    disabled={isPending}
+                    aria-label="Remove item"
+                    className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-[#D4AF37] text-white flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
 
                 {/* Product Image */}
                 <div className="w-16 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">

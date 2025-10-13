@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
-// import { useCartStore } from '@/store/cartStore'; // not used after cleanup
-// import { addToMyCart } from '@/services/cart';    // child handles server sync
+import { api } from '@/utils/api'; // ✅ Use your API utility
 import ProductBreadcrumb from '@/components/Public_C/Ready_To_Wear/ProductBreadcrumb';
 import ProductImageGallery from '@/components/Public_C/Ready_To_Wear/ProductImageGallery';
 import ProductCheckoutCard from '@/components/Public_C/Ready_To_Wear/ProductCheckoutCard';
@@ -47,7 +46,7 @@ interface RecommendedProduct {
 export default function ProductDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = React.use(params);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [selectedSize, setSelectedSize] = useState(''); // kept for prop compatibility only
+  const [selectedSize, setSelectedSize] = useState('');
   const [isLiked, setIsLiked] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
   const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
@@ -55,38 +54,52 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
   const [error, setError] = useState<string | null>(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const { isAuthenticated } = useAuthStore();
-  // const { addItem } = useCartStore(); // not used
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         setLoading(true);
 
-        const productResponse = await fetch(`/api/product/${resolvedParams.slug}`);
-        if (!productResponse.ok) throw new Error('Product not found');
-        const productResponseData = await productResponse.json();
+        // ✅ Fetch both in parallel using Promise.all
+        const [productData, allProductsData] = await Promise.all([
+          // Fetch single product
+          api<any>(`/api/product/${resolvedParams.slug}`).catch(() => null),
+          // Fetch all products (your api.ts will deduplicate if called elsewhere)
+          api<any>('/api/product').catch(() => [])
+        ]);
 
-        if (productResponseData.success && productResponseData.data) {
-          setProduct(productResponseData.data);
-        } else {
+        // Handle product data
+        if (!productData) {
+          throw new Error('Product not found');
+        }
+
+        const product = productData.success && productData.data 
+          ? productData.data 
+          : productData;
+
+        if (!product || !product._id) {
           throw new Error('Invalid product data format');
         }
 
-        const recommendedResponse = await fetch('/api/product');
-        if (recommendedResponse.ok) {
-          const recommendedData = await recommendedResponse.json();
-          let productsArray: Product[] = [];
-          if (recommendedData.success && recommendedData.data) {
-            productsArray = recommendedData.data;
-          } else if (Array.isArray(recommendedData)) {
-            productsArray = recommendedData;
-          }
-          const filtered = productsArray
-            .filter((p: Product) => p._id !== resolvedParams.slug)
-            .slice(0, 8);
-          setRecommendedProducts(filtered);
+        setProduct(product);
+
+        // Handle recommendations
+        let productsArray: Product[] = [];
+        if (allProductsData?.success && allProductsData?.data) {
+          productsArray = allProductsData.data;
+        } else if (Array.isArray(allProductsData)) {
+          productsArray = allProductsData;
         }
+
+        // Filter out current product and limit to 8
+        const filtered = productsArray
+          .filter((p: Product) => p._id !== resolvedParams.slug)
+          .slice(0, 8);
+
+        setRecommendedProducts(filtered);
+
       } catch (err) {
+        console.error('[ProductDetails] Error:', err);
         setError(err instanceof Error ? err.message : 'Failed to load product');
       } finally {
         setLoading(false);
@@ -96,14 +109,10 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
     if (resolvedParams.slug) fetchProduct();
   }, [resolvedParams.slug]);
 
-  // Parent no longer performs server add (child already does).
-  // Keep this for any UI side-effect you want (e.g., open drawer).
   const handleAddToCart = async () => {
-    // no window.alert here
-    // optionally: check isAuthenticated and show a toast UI if you have one
     setIsAddingToCart(true);
     try {
-      // e.g., openCartDrawer(); if you have that in a store
+      // Cart logic handled by child component
     } finally {
       setIsAddingToCart(false);
     }

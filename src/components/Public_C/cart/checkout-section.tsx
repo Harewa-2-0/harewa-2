@@ -2,16 +2,24 @@
 
 import React, { useState, useMemo } from 'react';
 import { useCartStore } from '@/store/cartStore';
+import { useOrderStore } from '@/store/orderStore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/toast-context';
+import { createOrderFromCart } from '@/services/order';
+import PendingOrderModal from '@/components/common/pending-order-modal';
 // import { useAuthCartSync } from '@/hooks/use-auth-cart-sync'; // No longer needed - cart merge is now global
 
 export default function CheckoutSection() {
   const [promoCode, setPromoCode] = useState('');
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const [showPendingOrderModal, setShowPendingOrderModal] = useState(false);
   const { addToast } = useToast();
   const router = useRouter();
+  
+  // Order store state
+  const { fetchPendingOrder, pendingOrder, setCurrentOrder } = useOrderStore();
   
   // Cart merge is now handled globally in authStore - no need for component-level sync
   // useAuthCartSync();
@@ -77,14 +85,90 @@ export default function CheckoutSection() {
     addToast("Promo code removed", "info");
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
+    if (isCreatingOrder) return;
+    
     if (orderSummary.itemCount === 0) {
       addToast("Your cart is empty. Add some items before checkout.", "error");
       return;
     }
     
-    addToast("Proceeding to checkout...", "success");
-    router.push('/checkout');
+    try {
+      setIsCreatingOrder(true);
+
+      // Check for pending orders first
+      const existingPendingOrder = await fetchPendingOrder();
+      
+      if (existingPendingOrder) {
+        // Show modal for pending order
+        setShowPendingOrderModal(true);
+        setIsCreatingOrder(false);
+        return;
+      }
+
+      // No pending order, proceed with creating new order
+      const result = await createOrderFromCart();
+      const errMsg = (result.error || '').toLowerCase();
+
+      if (result.success) {
+        addToast('Order created successfully! Please complete payment to confirm your order.', 'success');
+        router.push('/checkout');
+        return;
+      }
+
+      if (result.errorCode === 'NO_ADDRESS' || errMsg.includes('no delivery address')) {
+        addToast('Add a delivery address to your profile before checkout', 'error');
+        router.push('/profile');
+        return;
+      }
+
+      if (
+        result.errorCode === 'DUPLICATE_ORDER' ||
+        errMsg.includes('already exists') ||
+        errMsg.includes('exists for this cart')
+      ) {
+        addToast('Order already exists for this cart. Proceeding to payment.', 'error');
+        router.push('/checkout');
+        return;
+      }
+
+      // Special-case generic 400s that surface as "Bad Request" (treat like duplicate)
+      if (errMsg === 'bad request') {
+        addToast('Order already exists for this cart. Proceeding to payment.', 'error');
+        router.push('/checkout');
+        return;
+      }
+
+      // Generic failure: prefer server message; fall back to network message
+      if (result.errorCode === 'NETWORK_ERROR') {
+        addToast('Order failed. Check your network and try again.', 'error');
+      } else if (result.error && result.error.trim().length > 0) {
+        addToast(result.error, 'error');
+      } else {
+        addToast('Order failed. Check your network and try again.', 'error');
+      }
+      return;
+
+    } catch (error) {
+      console.error('Checkout error:', error);
+      addToast('Order failed. Check your network and try again.', 'error');
+    } finally {
+      setIsCreatingOrder(false);
+    }
+  };
+
+  // Modal handlers
+  const handleContinueWithPendingOrder = () => {
+    if (pendingOrder) {
+      setCurrentOrder(pendingOrder);
+      setShowPendingOrderModal(false);
+      router.push('/checkout');
+    }
+  };
+
+  const handleStartNewOrder = () => {
+    // This will be handled by the modal component
+    setShowPendingOrderModal(false);
   };
 
   // Remove artificial loading state to prevent flickering
@@ -188,14 +272,34 @@ export default function CheckoutSection() {
         {/* Checkout Button */}
         <button
           onClick={handleCheckout}
-          disabled={orderSummary.itemCount === 0}
+          disabled={orderSummary.itemCount === 0 || isCreatingOrder}
           className="w-full py-4 bg-[#D4AF37] cursor-pointer text-black font-bold rounded-lg hover:bg-[#B8941F] hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
-          {orderSummary.itemCount === 0 ? 'Cart is Empty' : 'PROCEED TO CHECKOUT'}
+          {isCreatingOrder ? (
+            <div className="flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
+              PROCESSING...
+            </div>
+          ) : orderSummary.itemCount === 0 ? (
+            'Cart is Empty'
+          ) : (
+            'PROCEED TO CHECKOUT'
+          )}
         </button>
       </div>
 
       {/* Toast notifications are now handled globally by ToastContainer */}
+      
+      {/* Pending Order Modal */}
+      {pendingOrder && (
+        <PendingOrderModal
+          isOpen={showPendingOrderModal}
+          onClose={() => setShowPendingOrderModal(false)}
+          onContinue={handleContinueWithPendingOrder}
+          onStartNew={handleStartNewOrder}
+          pendingOrder={pendingOrder}
+        />
+      )}
     </div>
   );
 }

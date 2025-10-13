@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/contexts/toast-context';
@@ -159,11 +160,12 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-3 mb-4">
-            <button
-              className="flex-1 py-3 bg-black text-white rounded-lg font-medium transition-colors text-sm hover:bg-gray-800"
+            <Link
+              href={`/shop/${product._id}/customize`}
+              className="flex-1 py-3 bg-black text-white rounded-lg font-medium transition-colors text-sm hover:bg-gray-800 text-center"
             >
               CUSTOMIZE
-            </button>
+            </Link>
             <button
               onClick={handleAddToCart}
               disabled={isAddingToCartLocal}
