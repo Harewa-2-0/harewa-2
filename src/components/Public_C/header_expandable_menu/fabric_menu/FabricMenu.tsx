@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { getFabrics, type Fabric } from '@/services/fabric';
+import { useFabricStore } from '@/store/fabricStore';
+import { type Fabric } from '@/services/fabric';
 
 interface FabricMenuProps {
   isMobile?: boolean;
@@ -11,30 +12,28 @@ interface FabricMenuProps {
 
 const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [fabrics, setFabrics] = useState<Fabric[]>([]);
   const [selectedFabric, setSelectedFabric] = useState<Fabric | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  
+  const { fabrics, isLoading, fetchFabrics } = useFabricStore();
 
-  // Fetch fabrics on component mount
+  // Fetch fabrics on component mount with cleanup
   useEffect(() => {
-    const fetchFabrics = async () => {
-      setIsLoading(true);
-      try {
-        const fabricData = await getFabrics();
-        setFabrics(fabricData);
-        if (fabricData.length > 0) {
-          setSelectedFabric(fabricData[0]);
-        }
-      } catch (error) {
-        console.error('Error fetching fabrics:', error);
-      } finally {
-        setIsLoading(false);
+    let isMounted = true;
+    
+    const loadFabrics = async () => {
+      await fetchFabrics();
+      if (isMounted && fabrics.length > 0 && !selectedFabric) {
+        setSelectedFabric(fabrics[0]);
       }
     };
-
-    fetchFabrics();
-  }, []);
+    
+    loadFabrics();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchFabrics, fabrics.length, selectedFabric]);
 
   // Close menu when clicking outside
   useEffect(() => {

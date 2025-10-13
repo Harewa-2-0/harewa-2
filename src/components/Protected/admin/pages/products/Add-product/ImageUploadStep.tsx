@@ -4,12 +4,88 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '@/contexts/toast-context';
 import { StepProps } from './types';
 
+// Image compression utility
+const compressImage = async (file: File): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const img = document.createElement('img');
+      
+      img.onload = () => {
+        // Calculate new dimensions (max 1920x1920)
+        const MAX_WIDTH = 1920;
+        const MAX_HEIGHT = 1920;
+        let { width, height } = img;
+        
+        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+          if (width > height) {
+            height = (height / width) * MAX_WIDTH;
+            width = MAX_WIDTH;
+          } else {
+            width = (width / height) * MAX_HEIGHT;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        // Create canvas and compress
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to blob with 85% quality
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Compression failed'));
+              return;
+            }
+
+            const compressedFile = new File(
+              [blob],
+              file.name.replace(/\.\w+$/, '.jpg'),
+              { type: 'image/jpeg' }
+            );
+
+            console.log(`[Compress] ${file.name}: ${(file.size / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB`);
+            resolve(compressedFile);
+          },
+          'image/jpeg',
+          0.85 // 85% quality
+        );
+      };
+
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = e.target?.result as string;
+    };
+
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function ImageUploadStep({ formData, onFormDataChange }: StepProps) {
   const { addToast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionStats, setCompressionStats] = useState<{
+    originalKB: number;
+    compressedKB: number;
+    savings: number;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const addFiles = (files: FileList | null) => {
+  const addFiles = async (files: FileList | null) => {
     if (!files || !files.length) return;
     
     // Validate file types
@@ -24,21 +100,37 @@ export default function ImageUploadStep({ formData, onFormDataChange }: StepProp
     if (validFiles.length === 0) return;
     
     // Limit to 3 images maximum
-    const newFiles = validFiles.slice(0, 3 - formData.images.length);
+    const filesToProcess = validFiles.slice(0, 3 - formData.images.length);
     
-    if (newFiles.length > 0) {
-      const newImages = [...formData.images, ...newFiles];
+    if (filesToProcess.length === 0) {
+      if (validFiles.length > 3 - formData.images.length) {
+        addToast(`You can only upload up to 3 images. ${validFiles.length - (3 - formData.images.length)} image${validFiles.length - (3 - formData.images.length) === 1 ? '' : 's'} were skipped.`, 'error');
+      }
+      return;
+    }
+
+    // Compress images
+    setIsCompressing(true);
+    try {
+      const compressedFiles = await Promise.all(
+        filesToProcess.map(file => compressImage(file))
+      );
+
+      const newImages = [...formData.images, ...compressedFiles];
       onFormDataChange({ images: newImages });
       
-      // Show success toast when all 3 images are uploaded
-      const totalImages = formData.images.length + newFiles.length;
+      // Show success toast
+      const totalImages = formData.images.length + compressedFiles.length;
       if (totalImages === 3) {
-        addToast('All 3 images uploaded successfully!', 'success');
-      } else if (newFiles.length > 0) {
-        addToast(`${newFiles.length} image${newFiles.length === 1 ? '' : 's'} uploaded successfully!`, 'success');
+        addToast('All 3 images uploaded and optimized successfully!', 'success');
+      } else if (compressedFiles.length > 0) {
+        addToast(`${compressedFiles.length} image${compressedFiles.length === 1 ? '' : 's'} uploaded and optimized!`, 'success');
       }
-    } else if (validFiles.length > 3 - formData.images.length) {
-      addToast(`You can only upload up to 3 images. ${validFiles.length - (3 - formData.images.length)} image${validFiles.length - (3 - formData.images.length) === 1 ? '' : 's'} were skipped.`, 'error');
+    } catch (error) {
+      console.error('[ImageUpload] Compression error:', error);
+      addToast('Failed to process images. Please try again.', 'error');
+    } finally {
+      setIsCompressing(false);
     }
   };
 
@@ -83,6 +175,17 @@ export default function ImageUploadStep({ formData, onFormDataChange }: StepProp
 
   return (
     <div className="space-y-6">
+      {/* Compression Indicator */}
+      {isCompressing && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center space-x-3">
+          <svg className="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span className="text-sm font-medium text-blue-800">Optimizing images...</span>
+        </div>
+      )}
+
       <div>
         <label className="block text-base font-medium text-gray-700 mb-3">
           Product Images
@@ -113,7 +216,8 @@ export default function ImageUploadStep({ formData, onFormDataChange }: StepProp
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-white/90 hover:bg-white text-gray-800 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 cursor-pointer"
+                    disabled={isCompressing}
+                    className="bg-white/90 hover:bg-white text-gray-800 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -139,8 +243,8 @@ export default function ImageUploadStep({ formData, onFormDataChange }: StepProp
             onDrop={onDrop}
             className={`flex cursor-pointer items-center justify-center rounded-lg border border-dashed px-8 py-12 text-center mt-6 ${
               isDragging ? 'border-[#D4AF37] bg-[#D4AF37]/10' : 'border-gray-300 bg-white'
-            }`}
-            onClick={() => fileInputRef.current?.click()}
+            } ${isCompressing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => !isCompressing && fileInputRef.current?.click()}
           >
             <div>
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,6 +258,9 @@ export default function ImageUploadStep({ formData, onFormDataChange }: StepProp
                   : `${3 - formData.images.length} more image${3 - formData.images.length === 1 ? '' : 's'} remaining`
                 }
               </p>
+              <p className="mt-1 text-xs text-gray-400">
+                Images will be automatically optimized for web
+              </p>
             </div>
             <input
               ref={fileInputRef}
@@ -161,6 +268,7 @@ export default function ImageUploadStep({ formData, onFormDataChange }: StepProp
               multiple
               accept="image/*"
               onChange={handleFileChange}
+              disabled={isCompressing}
               className="hidden"
             />
           </div>
