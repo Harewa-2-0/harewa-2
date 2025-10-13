@@ -12,7 +12,6 @@ import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import CartButton from '../../cart/cart-button';
 import UserMenu from '../../user-menu/user-menu';
-// import { useAuthCartSync } from '@/hooks/use-auth-cart-sync'; // No longer needed - cart merge is now global
 import { FabricMenu } from '../../header_expandable_menu/fabric_menu';
 import { AboutMenu } from '../../header_expandable_menu/about_menu';
 
@@ -20,32 +19,29 @@ const navItems = [
   { label: 'Ready to Wear', href: '/shop' },
   { label: 'Customization', href: '/customize' },
   { label: 'Trending Styles', href: '/trending-fashion' },
-  // { label: 'Clearance & Sales', href: '/sales' },
 ];
 
 export default function Header() {
   const { isMobileNavOpen, toggleMobileNav, closeMobileNav } = useUIStore();
-  const { user, hasHydratedAuth } = useAuthStore();
+  const { user, hasHydratedAuth, hasClientHydrated } = useAuthStore();
   const [hideAnnouncement, setHideAnnouncement] = useState(false);
   const pathname = usePathname();
 
-  // Cart merge is now handled globally in authStore - no need for component-level sync
-  // useAuthCartSync();
-
   useEffect(() => {
-    // If you want the announcement to *disappear* when mobile nav opens, keep this true.
-    // If you want it to remain stacked above the header even when the menu is open,
-    // set this to false (or remove this effect entirely).
     setHideAnnouncement(isMobileNavOpen);
   }, [isMobileNavOpen]);
 
   const getCartUrl = () => '/cartt.png';
 
+  // Use client hydration OR auth hydration - whichever is ready
+  // This ensures we show UI as soon as we know the state (even if from cache)
+  const isReady = hasClientHydrated || hasHydratedAuth;
+  const isLoggedIn = !!user;
+
   return (
     <>
       {!hideAnnouncement && <AnnouncementBar />}
 
-      {/* Header sits just below the announcement bar */}
       <header
         className="w-full bg-black border-b border-gray-700 sticky z-40"
         style={{
@@ -83,9 +79,13 @@ export default function Header() {
 
           {/* Desktop Right (Avatar/Name first, then Cart) */}
           <div className="hidden md:flex items-center gap-4 ml-8">
-            {!hasHydratedAuth ? (
-              <div style={{ width: 120, height: 32 }} aria-hidden />
-            ) : user ? (
+            {!isReady ? (
+              // Loading skeleton - minimal placeholder
+              <div className="flex items-center gap-4">
+                <div className="w-24 h-8 bg-gray-800 rounded-full animate-pulse" />
+                <div className="w-24 h-8 bg-gray-800 rounded-full animate-pulse" />
+              </div>
+            ) : isLoggedIn ? (
               <UserMenu desktop className="ml-2" />
             ) : (
               <>
@@ -114,7 +114,7 @@ export default function Header() {
 
           {/* Mobile Right (Avatar circle first, then Cart) */}
           <div className="md:hidden flex items-center gap-3">
-            {hasHydratedAuth && user && <UserMenu desktop={false} />}
+            {isReady && isLoggedIn && <UserMenu desktop={false} />}
             <CartButton size={24} getCartIconUrl={getCartUrl} preflight={false} />
             <button
               onClick={toggleMobileNav}
@@ -132,7 +132,6 @@ export default function Header() {
             <motion.div
               className="md:hidden fixed left-0 right-0 w-full bg-black px-4 pb-8 text-white text-base font-medium border-t border-gray-700 min-h-screen flex flex-col z-30"
               style={{
-                // Dropdown starts below announcement + header (~64px)
                 top: 'calc(var(--announcement-height, 0px) + 64px)',
                 transition: 'top 250ms ease',
               }}
@@ -152,7 +151,7 @@ export default function Header() {
               </div>
 
               <div className="mt-14 flex flex-col space-y-3">
-                {hasHydratedAuth && !user && (
+                {isReady && !isLoggedIn && (
                   <div className="flex gap-4">
                     <Link
                       href="/signup"
