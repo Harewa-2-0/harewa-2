@@ -1,3 +1,4 @@
+// src/store/authStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { getMe, logoutServer } from "@/services/auth";
@@ -6,7 +7,7 @@ interface User {
   id: string;
   email: string;
   name?: string;
-  role: "user" | "admin" | string; // allow backend-specific roles (e.g., "client")
+  role: "user" | "admin" | string;
   avatar?: string;
   fullName?: string;
 }
@@ -18,10 +19,9 @@ interface AuthState {
   emailForVerification: string;
 
   // UI gating flags
-  hasHydratedAuth: boolean;     // server session check finished
-  hasClientHydrated: boolean;   // local storage rehydrated (instant paint)
+  hasHydratedAuth: boolean;
+  hasClientHydrated: boolean;
 
-  // Kept for convenience; token is no longer used or stored
   login: (user: User, _token?: string) => void;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
@@ -30,6 +30,7 @@ interface AuthState {
   setEmailForVerification: (email: string) => void;
   setUser: (user: User, storage?: "localStorage" | "sessionStorage") => void;
   hydrateFromCookie: () => Promise<void>;
+  silentRefresh: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -43,7 +44,6 @@ export const useAuthStore = create<AuthState>()(
       hasHydratedAuth: false,
       hasClientHydrated: false,
 
-      // Token param retained but ignored to avoid breaking callers
       login: (user) => {
         set({
           user,
@@ -52,6 +52,11 @@ export const useAuthStore = create<AuthState>()(
           hasHydratedAuth: true,
           hasClientHydrated: true,
         });
+        
+        // Persist to localStorage for instant paint on next load
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('auth-snapshot', JSON.stringify({ user, isAuthenticated: true }));
+        }
         
         // Trigger cart merge after login
         if (typeof window !== 'undefined') {
@@ -65,22 +70,18 @@ export const useAuthStore = create<AuthState>()(
             } catch (error) {
               console.error('Failed to merge cart after login:', error);
             }
-          }, 100); // Small delay to ensure state is set
+          }, 100);
         }
       },
 
       logout: async () => {
-        // Best-effort server logout to clear HttpOnly cookies
         await logoutServer().catch(() => undefined);
 
-        // Clear cart store before clearing auth
         if (typeof window !== "undefined") {
           try {
-            // Import and clear cart store
             const { useCartStore } = await import('@/store/cartStore');
             useCartStore.getState().clearCart();
             
-            // Import and clear profile cache
             const { useProfileStore } = await import('@/store/profile-store');
             useProfileStore.getState().clearCache();
           } catch (error) {
@@ -93,14 +94,14 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           isLoading: false,
           emailForVerification: "",
-          hasHydratedAuth: true,   // final known state
-          hasClientHydrated: true, // ensure UI paints immediately
+          hasHydratedAuth: true,
+          hasClientHydrated: true,
         });
 
         if (typeof window !== "undefined") {
           localStorage.removeItem("user");
+          localStorage.removeItem("auth-snapshot");
           sessionStorage.removeItem("user");
-          // Redirect to home on logout or session expiry
           window.location.href = "/";
         }
       },
@@ -130,11 +131,11 @@ export const useAuthStore = create<AuthState>()(
           const data = JSON.stringify(user);
           if (storage === "localStorage") {
             localStorage.setItem("user", data);
+            localStorage.setItem('auth-snapshot', JSON.stringify({ user, isAuthenticated: true }));
           } else {
             sessionStorage.setItem("user", data);
           }
           
-          // Trigger cart merge after setting user
           setTimeout(async () => {
             try {
               const { useCartStore } = await import('@/store/cartStore');
@@ -145,21 +146,64 @@ export const useAuthStore = create<AuthState>()(
             } catch (error) {
               console.error('Failed to merge cart after setUser:', error);
             }
-          }, 100); // Small delay to ensure state is set
+          }, 100);
         }
       },
 
-      // Trust the server session (HttpOnly cookies) — no Authorization header
+      silentRefresh: async () => {
+        if (typeof window === "undefined") return false;
+        
+        try {
+          const { user } = await getMe();
+          const currentUser = get().user;
+          
+          if (JSON.stringify(currentUser) !== JSON.stringify(user)) {
+            set({ user, isAuthenticated: true, hasHydratedAuth: true });
+            localStorage.setItem('auth-snapshot', JSON.stringify({ user, isAuthenticated: true }));
+          }
+          return true;
+        } catch (error: any) {
+          if (error?.status === 401 || error?.status === 403) {
+            console.log('[Auth] Session expired, logging out');
+            get().logout();
+            return false;
+          }
+          console.warn('[Auth] Silent refresh failed:', error.message);
+          return false;
+        }
+      },
+
       hydrateFromCookie: async () => {
         if (typeof window === "undefined") return;
-        // Avoid duplicate work if already hydrated from server
         if (get().hasHydratedAuth) return;
+
+        const snapshot = localStorage.getItem('auth-snapshot');
+        if (snapshot) {
+          try {
+            const cached = JSON.parse(snapshot);
+            if (cached.user && cached.isAuthenticated) {
+              set({ 
+                user: cached.user, 
+                isAuthenticated: true, 
+                hasHydratedAuth: false,
+                hasClientHydrated: true 
+              });
+              
+              setTimeout(() => {
+                get().silentRefresh();
+              }, 100);
+              return;
+            }
+          } catch (e) {
+            console.warn('[Auth] Invalid cached snapshot');
+          }
+        }
 
         try {
           const { user } = await getMe();
           set({ user, isAuthenticated: true, hasHydratedAuth: true });
+          localStorage.setItem('auth-snapshot', JSON.stringify({ user, isAuthenticated: true }));
           
-          // Trigger cart merge after successful hydration
           setTimeout(async () => {
             try {
               const { useCartStore } = await import('@/store/cartStore');
@@ -170,9 +214,11 @@ export const useAuthStore = create<AuthState>()(
             } catch (error) {
               console.error('Failed to merge cart after hydration:', error);
             }
-          }, 100); // Small delay to ensure state is set
-        } catch {
-          // Not logged in / expired — mark as hydrated anyway
+          }, 100);
+        } catch (error: any) {
+          if (error?.status !== 401 && error?.status !== 403) {
+            console.warn('[Auth] Hydration failed:', error.message);
+          }
           set({ user: null, isAuthenticated: false, hasHydratedAuth: true });
         }
       },
@@ -183,18 +229,27 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         emailForVerification: state.emailForVerification,
-        // Do NOT persist hasHydratedAuth / hasClientHydrated — they recompute each load
       }),
-      // Flip hasClientHydrated as soon as storage rehydrates (instant UI, no blank state)
-      onRehydrateStorage: () => () => {
-        const s = useAuthStore.getState();
-        const logged = !!s.user;
-        useAuthStore.setState({
-          hasClientHydrated: true,
-          // Keep isAuthenticated consistent with any stored user snapshot
-          isAuthenticated: logged || s.isAuthenticated,
-        });
+      onRehydrateStorage: () => {
+        console.log('[Auth] Starting rehydration from localStorage...');
+        return (state, error) => {
+          if (error) {
+            console.error('[Auth] Rehydration error:', error);
+          }
+          
+          const logged = !!state?.user;
+          console.log('[Auth] ✅ Client rehydrated, user present:', logged);
+          
+          // Use setTimeout to break the circular reference
+          setTimeout(() => {
+            useAuthStore.setState({
+              hasClientHydrated: true,
+              isAuthenticated: logged,
+            });
+          }, 0);
+        };
       },
+      skipHydration: false,
     }
   )
 );

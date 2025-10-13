@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { useOrderStore } from '@/store/orderStore';
+import { purchase, getRedirectUrl } from '@/services/payments';
+import { useToast } from '@/contexts/toast-context';
 
 interface PaymentMethodSelectorProps {
   isEnabled: boolean;
@@ -13,15 +16,43 @@ export default function PaymentMethodSelector({
   onPaymentMethodSelect 
 }: PaymentMethodSelectorProps) {
   const [selectedMethod, setSelectedMethod] = useState<'paystack' | 'stripe' | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { currentOrder } = useOrderStore();
+  const { addToast } = useToast();
 
   const handleMethodSelect = (method: 'paystack' | 'stripe') => {
     if (!isEnabled) return;
-    
+    if (method === 'stripe') return; // Stripe disabled for now
     setSelectedMethod(method);
     onPaymentMethodSelect?.(method);
-    
-    // For now, just log the selection - payment automation will be implemented later
-    console.log(`Selected payment method: ${method}`);
+  };
+
+  const handlePay = async () => {
+    if (!isEnabled) return;
+    if (!currentOrder?._id) {
+      addToast('No active order found. Please create an order first.', 'error');
+      return;
+    }
+    if (selectedMethod !== 'paystack') {
+      addToast('Please select Paystack to continue.', 'error');
+      return;
+    }
+    try {
+      setIsProcessing(true);
+      addToast('Initializing payment…', 'info');
+      const resp = await purchase({ type: 'gateway', orderId: currentOrder._id });
+      const redirect = getRedirectUrl(resp);
+      if (redirect) {
+        window.location.href = redirect;
+        return;
+      }
+      addToast('No redirect URL returned from gateway. Please try again.', 'error');
+    } catch (err: any) {
+      const msg = err?.message || 'Payment initialization failed.';
+      addToast(msg, 'error');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -64,7 +95,7 @@ export default function PaymentMethodSelector({
           )}
         </div>
 
-        {/* Stripe Image */}
+        {/* Stripe Image (disabled for now) */}
         <div className="relative">
           <Image 
             src="/stripe.png" 
@@ -73,12 +104,8 @@ export default function PaymentMethodSelector({
             height={120}
             onClick={() => handleMethodSelect('stripe')}
             className={`
-              cursor-pointer transition-all duration-200 rounded-lg border-2 p-4
-              ${selectedMethod === 'stripe' 
-                ? 'border-purple-500 shadow-lg' 
-                : 'border-purple-200 hover:border-purple-300 hover:shadow-md hover:scale-105'
-              }
-              ${!isEnabled ? 'opacity-50 cursor-not-allowed' : ''}
+              transition-all duration-200 rounded-lg border-2 p-4 opacity-50 cursor-not-allowed
+              border-purple-200
             `}
           />
           
@@ -94,16 +121,14 @@ export default function PaymentMethodSelector({
       </div>
 
       {/* Payment Button */}
-      {selectedMethod && (
+      {selectedMethod === 'paystack' && (
         <div className="mt-8 text-center">
           <button
-            onClick={() => {
-              // Payment automation will be implemented here
-              console.log(`Processing payment with ${selectedMethod}`);
-            }}
-            className="px-8 py-3 bg-[#D4AF37] text-black font-semibold rounded-lg hover:bg-[#B8941F] transition-colors"
+            onClick={handlePay}
+            disabled={!isEnabled || isProcessing}
+            className={`px-8 py-3 bg-[#D4AF37] text-black font-semibold rounded-lg hover:bg-[#B8941F] transition-colors ${(!isEnabled || isProcessing) ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
-            PAY WITH {selectedMethod.toUpperCase()}
+            {isProcessing ? 'Processing…' : 'PAY WITH PAYSTACK'}
           </button>
         </div>
       )}
