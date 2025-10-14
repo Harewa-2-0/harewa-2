@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/toast-context';
 import { createOrderFromCart } from '@/services/order';
 import PendingOrderModal from '@/components/common/pending-order-modal';
-// import { useAuthCartSync } from '@/hooks/use-auth-cart-sync'; // No longer needed - cart merge is now global
 
 export default function CheckoutSection() {
   const [promoCode, setPromoCode] = useState('');
@@ -21,11 +20,14 @@ export default function CheckoutSection() {
   // Order store state
   const { fetchPendingOrder, pendingOrder, setCurrentOrder } = useOrderStore();
   
-  // Cart merge is now handled globally in authStore - no need for component-level sync
-  // useAuthCartSync();
-  
   const items = useCartStore((s) => s.items);
   const isLoading = useCartStore((s) => s.isLoading);
+
+  // Debug: Log when pendingOrder or modal state changes
+  React.useEffect(() => {
+    console.log('[CheckoutSection] pendingOrder:', pendingOrder);
+    console.log('[CheckoutSection] showPendingOrderModal:', showPendingOrderModal);
+  }, [pendingOrder, showPendingOrderModal]);
 
   // Calculate order summary
   const orderSummary = useMemo(() => {
@@ -97,20 +99,35 @@ export default function CheckoutSection() {
       setIsCreatingOrder(true);
 
       // Check for pending orders first
+      console.log('[Checkout] Checking for pending orders...');
       const existingPendingOrder = await fetchPendingOrder();
+      console.log('[Checkout] Pending order result:', existingPendingOrder);
+      console.log('[Checkout] Pending order from store:', pendingOrder);
       
       if (existingPendingOrder) {
-        // Show modal for pending order
+        // FIXED: Show modal instead of navigating directly
+        console.log('[Checkout] Found pending order, showing modal');
+        setCurrentOrder(existingPendingOrder);
         setShowPendingOrderModal(true);
         setIsCreatingOrder(false);
+        console.log('[Checkout] Modal state set to:', true);
         return;
       }
+      
+      console.log('[Checkout] No pending order, creating new one...');
 
       // No pending order, proceed with creating new order
       const result = await createOrderFromCart();
       const errMsg = (result.error || '').toLowerCase();
 
-      if (result.success) {
+      if (result.success && result.order) {
+        console.log('[Checkout] New order created:', result.order);
+        // CRITICAL: Set the new order as current order before navigation
+        setCurrentOrder(result.order);
+        
+        // Wait for store to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         addToast('Order created successfully! Please complete payment to confirm your order.', 'success');
         router.push('/checkout');
         return;
@@ -127,15 +144,91 @@ export default function CheckoutSection() {
         errMsg.includes('already exists') ||
         errMsg.includes('exists for this cart')
       ) {
-        addToast('Order already exists for this cart. Proceeding to payment.', 'error');
-        router.push('/checkout');
+        console.log('[Checkout] Duplicate order detected, fetching existing order...');
+        // Fetch the existing pending order
+        const existingOrder = await fetchPendingOrder();
+        console.log('[Checkout] Fetched existing order:', existingOrder);
+        
+        // Also check all orders to debug
+        const { allOrders } = useOrderStore.getState();
+        console.log('[Checkout] All orders in store:', allOrders);
+        console.log('[Checkout] Number of orders:', allOrders.length);
+        if (allOrders.length > 0) {
+          console.log('[Checkout] First order status:', allOrders[0].status);
+          console.log('[Checkout] First order details:', allOrders[0]);
+        }
+        
+        if (existingOrder) {
+          setCurrentOrder(existingOrder);
+          
+          // Wait a tick to ensure store is updated before navigation
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          addToast('Continuing with existing order', 'info');
+          router.push('/checkout');
+        } else if (allOrders.length > 0) {
+          // If we have orders but no "pending" ones, use the most recent one
+          const mostRecentOrder = allOrders[0];
+          console.log('[Checkout] No pending order found, using most recent:', mostRecentOrder);
+          setCurrentOrder(mostRecentOrder);
+          
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          addToast('Continuing with existing order', 'info');
+          router.push('/checkout');
+        } else {
+          addToast('Order already exists but could not be found. Please try again.', 'error');
+        }
         return;
       }
 
       // Special-case generic 400s that surface as "Bad Request" (treat like duplicate)
       if (errMsg === 'bad request') {
-        addToast('Order already exists for this cart. Proceeding to payment.', 'error');
-        router.push('/checkout');
+        console.log('[Checkout] Bad request (likely duplicate), fetching existing order...');
+        
+        // Debug: Call the API directly to see raw response
+        try {
+          const { getMyOrders } = await import('@/services/order');
+          const rawOrders = await getMyOrders();
+          console.log('[Checkout] Raw orders from API:', rawOrders);
+        } catch (e) {
+          console.error('[Checkout] Failed to fetch orders directly:', e);
+        }
+        
+        // Fetch the existing pending order
+        const existingOrder = await fetchPendingOrder();
+        console.log('[Checkout] Fetched existing order:', existingOrder);
+        
+        // Also check all orders to debug
+        const { allOrders } = useOrderStore.getState();
+        console.log('[Checkout] All orders in store:', allOrders);
+        console.log('[Checkout] Number of orders:', allOrders.length);
+        if (allOrders.length > 0) {
+          console.log('[Checkout] First order status:', allOrders[0].status);
+          console.log('[Checkout] First order details:', allOrders[0]);
+        }
+        
+        if (existingOrder) {
+          setCurrentOrder(existingOrder);
+          
+          // Wait a tick to ensure store is updated before navigation
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          addToast('Continuing with existing order', 'info');
+          router.push('/checkout');
+        } else if (allOrders.length > 0) {
+          // If we have orders but no "pending" ones, use the most recent one
+          const mostRecentOrder = allOrders[0];
+          console.log('[Checkout] No pending order found, using most recent:', mostRecentOrder);
+          setCurrentOrder(mostRecentOrder);
+          
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          addToast('Continuing with existing order', 'info');
+          router.push('/checkout');
+        } else {
+          addToast('Order already exists but could not be found. Please try again.', 'error');
+        }
         return;
       }
 
@@ -162,27 +255,56 @@ export default function CheckoutSection() {
     if (pendingOrder) {
       setCurrentOrder(pendingOrder);
       setShowPendingOrderModal(false);
+      addToast('Continuing with existing order', 'info');
       router.push('/checkout');
     }
   };
 
-  const handleStartNewOrder = () => {
-    // This will be handled by the modal component
-    setShowPendingOrderModal(false);
-  };
+  const handleStartNewOrder = async () => {
+    // Modal has already deleted the pending order
+    // Now create a new order from current cart
+    console.log('[CheckoutSection] Creating new order after pending order deletion...');
+    setIsCreatingOrder(true);
+    
+    try {
+      // Create new order (pending order already deleted by modal)
+      const result = await createOrderFromCart();
+      const errMsg = (result.error || '').toLowerCase();
 
-  // Remove artificial loading state to prevent flickering
-  // Cart should display immediately from Zustand state
-  // if (isLoading) {
-  //   return (
-  //     <div className="bg-white rounded-lg shadow-sm p-6">
-  //       <div className="flex items-center justify-center">
-  //         <div className="w-6 h-6 border-2 border-gray-300 border-t-[#fdc713] rounded-full animate-spin"></div>
-  //         <span className="ml-2 text-gray-600">Loading...</span>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+      if (result.success && result.order) {
+        console.log('[CheckoutSection] New order created:', result.order);
+        // CRITICAL: Set the new order as current order before navigation
+        setCurrentOrder(result.order);
+        
+        // Wait for store to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        addToast('New order created successfully!', 'success');
+        router.push('/checkout');
+        return;
+      }
+
+      // Handle errors
+      if (result.errorCode === 'NO_ADDRESS' || errMsg.includes('no delivery address')) {
+        addToast('Add a delivery address to your profile before checkout', 'error');
+        router.push('/profile');
+        return;
+      }
+
+      if (result.errorCode === 'NETWORK_ERROR') {
+        addToast('Order failed. Check your network and try again.', 'error');
+      } else if (result.error && result.error.trim().length > 0) {
+        addToast(result.error, 'error');
+      } else {
+        addToast('Failed to create new order', 'error');
+      }
+    } catch (error) {
+      console.error('Error creating new order:', error);
+      addToast('Failed to create new order', 'error');
+    } finally {
+      setIsCreatingOrder(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -287,10 +409,8 @@ export default function CheckoutSection() {
           )}
         </button>
       </div>
-
-      {/* Toast notifications are now handled globally by ToastContainer */}
       
-      {/* Pending Order Modal */}
+      {/* Pending Order Modal - Only render if pendingOrder exists */}
       {pendingOrder && (
         <PendingOrderModal
           isOpen={showPendingOrderModal}

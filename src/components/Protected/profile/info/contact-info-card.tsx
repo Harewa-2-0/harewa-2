@@ -45,7 +45,7 @@ export default function ContactInfoCard({
         <button
           type="button"
           onClick={() => setEditing(v => !v)}
-          className="inline-flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer bg-[#fdc713] text-black hover:bg-[#f0c000]"
+          className="inline-flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer bg-[#D4AF37] text-black hover:bg-[#f0c000]"
         >
           <Pencil size={16} />
           {editing ? 'Close' : 'Edit'}

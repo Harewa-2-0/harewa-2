@@ -31,7 +31,13 @@ interface AuthState {
   setUser: (user: User, storage?: "localStorage" | "sessionStorage") => void;
   hydrateFromCookie: () => Promise<void>;
   silentRefresh: () => Promise<boolean>;
+  startRefreshTimer: () => void;
+  stopRefreshTimer: () => void;
 }
+
+let refreshIntervalId: NodeJS.Timeout | null = null;
+let refreshRetryCount = 0;
+const MAX_RETRY_COUNT = 3;
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -53,10 +59,16 @@ export const useAuthStore = create<AuthState>()(
           hasClientHydrated: true,
         });
         
+        // Reset retry count on successful login
+        refreshRetryCount = 0;
+        
         // Persist to localStorage for instant paint on next load
         if (typeof window !== 'undefined') {
           localStorage.setItem('auth-snapshot', JSON.stringify({ user, isAuthenticated: true }));
         }
+        
+        // Start proactive token refresh
+        get().startRefreshTimer();
         
         // Trigger cart merge after login
         if (typeof window !== 'undefined') {
@@ -75,6 +87,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
+        get().stopRefreshTimer();
+        refreshRetryCount = 0; // Reset retry count
+        
         await logoutServer().catch(() => undefined);
 
         if (typeof window !== "undefined") {
@@ -113,7 +128,10 @@ export const useAuthStore = create<AuthState>()(
 
       setLoading: (loading) => set({ isLoading: loading }),
 
-      clearAuth: () =>
+      clearAuth: () => {
+        get().stopRefreshTimer();
+        refreshRetryCount = 0;
+        
         set({
           user: null,
           isAuthenticated: false,
@@ -121,12 +139,17 @@ export const useAuthStore = create<AuthState>()(
           emailForVerification: "",
           hasHydratedAuth: true,
           hasClientHydrated: true,
-        }),
+        });
+      },
 
       setEmailForVerification: (email) => set({ emailForVerification: email }),
 
       setUser: (user, storage = "localStorage") => {
         set({ user, isAuthenticated: true, hasHydratedAuth: true, hasClientHydrated: true });
+        
+        // Reset retry count
+        refreshRetryCount = 0;
+        
         if (typeof window !== "undefined") {
           const data = JSON.stringify(user);
           if (storage === "localStorage") {
@@ -135,6 +158,9 @@ export const useAuthStore = create<AuthState>()(
           } else {
             sessionStorage.setItem("user", data);
           }
+          
+          // Start proactive token refresh
+          get().startRefreshTimer();
           
           setTimeout(async () => {
             try {
@@ -161,15 +187,79 @@ export const useAuthStore = create<AuthState>()(
             set({ user, isAuthenticated: true, hasHydratedAuth: true });
             localStorage.setItem('auth-snapshot', JSON.stringify({ user, isAuthenticated: true }));
           }
+          
+          // Reset retry count on success
+          refreshRetryCount = 0;
+          //console.log('[Auth] ✅ Silent refresh successful');
           return true;
         } catch (error: any) {
-          if (error?.status === 401 || error?.status === 403) {
-            console.log('[Auth] Session expired, logging out');
-            get().logout();
+          const status = error?.status;
+          
+          // IMPORTANT: Only logout on definitive auth failures (401/403)
+          if (status === 401 || status === 403) {
+            //console.log('[Auth] Session expired (401/403), logging out');
+            await get().logout();
             return false;
           }
-          console.warn('[Auth] Silent refresh failed:', error.message);
+          
+          // For network errors or other issues, just log and return false
+          // Don't logout immediately - let the retry mechanism handle it
+          console.warn('[Auth] Silent refresh failed (will retry):', error.message || 'Network error');
           return false;
+        }
+      },
+
+      startRefreshTimer: () => {
+        if (typeof window === "undefined") return;
+        
+        // Clear existing timer if any
+        if (refreshIntervalId) {
+          clearInterval(refreshIntervalId);
+        }
+        
+        // Refresh token every 10 minutes 
+        const REFRESH_INTERVAL = 10 * 60 * 1000;
+        
+        refreshIntervalId = setInterval(async () => {
+          const state = get();
+          if (state.isAuthenticated) {
+            //console.log('[Auth] Running proactive token refresh...');
+            
+            try {
+              const success = await state.silentRefresh();
+              
+              if (success) {
+                refreshRetryCount = 0; // Reset on success
+              } else {
+                refreshRetryCount++;
+                console.warn(`[Auth] Refresh failed (attempt ${refreshRetryCount}/${MAX_RETRY_COUNT})`);
+                
+                // Only logout after multiple consecutive failures
+                if (refreshRetryCount >= MAX_RETRY_COUNT) {
+                  console.error('[Auth] Max retry attempts reached, logging out');
+                  await state.logout();
+                }
+              }
+            } catch (error) {
+              refreshRetryCount++;
+              console.error(`[Auth] Refresh error (attempt ${refreshRetryCount}/${MAX_RETRY_COUNT}):`, error);
+              
+              if (refreshRetryCount >= MAX_RETRY_COUNT) {
+                console.error('[Auth] Max retry attempts reached, logging out');
+                await state.logout();
+              }
+            }
+          }
+        }, REFRESH_INTERVAL);
+        
+        //console.log('[Auth] Proactive refresh timer started (5min interval)');
+      },
+
+      stopRefreshTimer: () => {
+        if (refreshIntervalId) {
+          clearInterval(refreshIntervalId);
+          refreshIntervalId = null;
+          //console.log('[Auth] Proactive refresh timer stopped');
         }
       },
 
@@ -185,10 +275,17 @@ export const useAuthStore = create<AuthState>()(
               set({ 
                 user: cached.user, 
                 isAuthenticated: true, 
-                hasHydratedAuth: false,
+                hasHydratedAuth: true,
                 hasClientHydrated: true 
               });
               
+              // Reset retry count
+              refreshRetryCount = 0;
+              
+              // Start proactive token refresh
+              get().startRefreshTimer();
+              
+              // Immediately verify with server
               setTimeout(() => {
                 get().silentRefresh();
               }, 100);
@@ -203,6 +300,12 @@ export const useAuthStore = create<AuthState>()(
           const { user } = await getMe();
           set({ user, isAuthenticated: true, hasHydratedAuth: true });
           localStorage.setItem('auth-snapshot', JSON.stringify({ user, isAuthenticated: true }));
+          
+          // Reset retry count
+          refreshRetryCount = 0;
+          
+          // Start proactive token refresh
+          get().startRefreshTimer();
           
           setTimeout(async () => {
             try {
@@ -231,21 +334,27 @@ export const useAuthStore = create<AuthState>()(
         emailForVerification: state.emailForVerification,
       }),
       onRehydrateStorage: () => {
-        console.log('[Auth] Starting rehydration from localStorage...');
+        //console.log('[Auth] Starting rehydration from localStorage...');
         return (state, error) => {
           if (error) {
             console.error('[Auth] Rehydration error:', error);
           }
           
           const logged = !!state?.user;
-          console.log('[Auth] ✅ Client rehydrated, user present:', logged);
+          //console.log('[Auth] ✅ Client rehydrated, user present:', logged);
           
-          // Use setTimeout to break the circular reference
           setTimeout(() => {
             useAuthStore.setState({
               hasClientHydrated: true,
+              hasHydratedAuth: true,
               isAuthenticated: logged,
             });
+            
+            // Start proactive refresh timer if user is logged in
+            if (logged) {
+              refreshRetryCount = 0; // Reset retry count
+              useAuthStore.getState().startRefreshTimer();
+            }
           }, 0);
         };
       },

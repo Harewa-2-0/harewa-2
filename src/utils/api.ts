@@ -140,7 +140,7 @@ async function doRefreshOnce(): Promise<void> {
       throw new ApiError(String(msg), res.status, body);
     }
     
-    console.log('[API] Token refresh successful');
+    //console.log('[API] Token refresh successful');
   } catch (err: any) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
@@ -153,7 +153,7 @@ async function doRefreshOnce(): Promise<void> {
 
 async function ensureRefresh(): Promise<void> {
   if (refreshInProgress) {
-    console.log('[API] Waiting for existing refresh...');
+    //console.log('[API] Waiting for existing refresh...');
   }
   
   if (!refreshPromise) {
@@ -175,9 +175,27 @@ export async function api<T = any>(
   const url = buildUrl(path);
   const timeoutMs = opts.timeout ?? DEFAULT_TIMEOUT;
 
-  console.log(`[API] ${init.method || 'GET'} ${url} (timeout: ${timeoutMs}ms)`);
+  //console.log(`[API] ${init.method || 'GET'} ${url} (timeout: ${timeoutMs}ms)`);
 
-  async function runOnce(): Promise<{ res: Response; body: any }> {
+  // Clone the body if it exists so we can retry with the same data
+  let bodyForRetry: any = null;
+  if (init.body) {
+    if (typeof init.body === 'string') {
+      bodyForRetry = init.body;
+    } else if (init.body instanceof FormData) {
+      // FormData can't be cloned easily, so we'll just use the original
+      bodyForRetry = init.body;
+    } else {
+      // For other types, try to stringify
+      try {
+        bodyForRetry = JSON.stringify(init.body);
+      } catch {
+        bodyForRetry = init.body;
+      }
+    }
+  }
+
+  async function runOnce(isRetry = false): Promise<{ res: Response; body: any }> {
     const controller = new AbortController();
     const timer = setTimeout(() => {
       console.error(`[API] Request timeout after ${timeoutMs}ms: ${url}`);
@@ -186,13 +204,22 @@ export async function api<T = any>(
     
     try {
       const startTime = Date.now();
-      const res = await fetch(url, {
+      
+      // On retry, reconstruct the request with the saved body
+      const fetchInit: RequestInit = {
         credentials: "include",
         signal: controller.signal,
         ...init,
-      });
+      };
+      
+      // If this is a retry and we have a body, use the cloned version
+      if (isRetry && bodyForRetry !== null) {
+        fetchInit.body = bodyForRetry;
+      }
+      
+      const res = await fetch(url, fetchInit);
       const elapsed = Date.now() - startTime;
-      console.log(`[API] Response received in ${elapsed}ms: ${res.status} ${url}`);
+      //console.log(`[API] Response received in ${elapsed}ms: ${res.status} ${url}`);
 
       // 204/205: no content to parse
       if (res.status === 204 || res.status === 205) {
@@ -220,11 +247,11 @@ export async function api<T = any>(
   // Core executor that performs the request with refresh handling
   const execute = async (): Promise<T> => {
     // First attempt
-    let { res, body } = await runOnce();
+    let { res, body } = await runOnce(false);
 
     // If access expired or invalid token → single-flight refresh → replay once
     if (isAccessExpired(res.status, body) || isInvalidToken(res.status, body)) {
-      console.log('[API] Token expired/invalid, attempting refresh...');
+      //console.log('[API] Token expired/invalid, attempting refresh...');
       try {
         await ensureRefresh();
       } catch (err: any) {
@@ -234,8 +261,9 @@ export async function api<T = any>(
         throw new ApiError(message, 401, err?.payload ?? body);
       }
       
-      console.log('[API] Retrying original request after refresh...');
-      ({ res, body } = await runOnce());
+      //console.log('[API] Retrying original request after refresh...');
+      // Pass true to indicate this is a retry
+      ({ res, body } = await runOnce(true));
     }
 
     // Final error handling
@@ -262,7 +290,7 @@ export async function api<T = any>(
   if (isGet) {
     const existing = pendingGetRequests.get(dedupeKey);
     if (existing) {
-      console.log(`[API] Deduplicating GET request: ${url}`);
+      //console.log(`[API] Deduplicating GET request: ${url}`);
       return existing as Promise<T>;
     }
     const p = execute().finally(() => {
