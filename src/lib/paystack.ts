@@ -35,7 +35,7 @@ export const initializePayment2 = async (
       email,
       amount: amount * 100, // convert to kobo
       callback_url: process.env.PAYMENT_CALLBACK_URL,
-      metadata,
+      metadata: { type: metadata.type, amount: metadata.amount, uuid: metadata.uuid, orderId: metadata.orderId },
     }),
   });
 
