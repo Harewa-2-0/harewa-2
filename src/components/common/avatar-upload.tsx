@@ -56,7 +56,7 @@ export default function AvatarUpload({
       <button
         type="button"
         onClick={open}
-        className="absolute bottom-0 right-0 p-2 rounded-full bg-white border shadow hover:bg-gray-50 transition-colors"
+        className="absolute cursor-pointer bottom-0 right-0 p-2 rounded-full bg-white border shadow hover:bg-gray-50 transition-colors"
         aria-label="Change photo"
         disabled={busy}
       >

@@ -3,7 +3,7 @@ import { api, unwrap, type MaybeWrapped } from "@/utils/api";
 
 /** ---------- Types ---------- */
 export type CustomizationInput = {
-  outfit: string;              // e.g., "sleeve gown"
+  outfit: "gown" | "skirt" | "blouse" | "pants" | "sleeve";  // Must match backend enum
   outfitOption: string;        // e.g., "Long sleeve with slit"
   fabricType: string;          // e.g., "Ankara"
   size: string;                // e.g., "M"
@@ -15,7 +15,7 @@ export type CustomizationInput = {
 export type CustomizationResponse = {
   _id?: string;
   id?: string;
-  outfit: string;
+  outfit: "gown" | "skirt" | "blouse" | "pants" | "sleeve";  // Must match backend enum
   outfitOption: string;
   fabricType: string;
   size: string;

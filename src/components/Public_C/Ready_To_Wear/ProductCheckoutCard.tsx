@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { Heart, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/contexts/toast-context';
+import { api } from '@/utils/api';
 import SizeGuide from './SizeGuide';
 
 interface ProductCheckoutCardProps {
@@ -16,9 +18,8 @@ interface ProductCheckoutCardProps {
     description?: string;
     rating?: number;
     reviews?: number;
-    sizes?: string[]; // (unused now)
+    sizes?: string[];
   };
-  // Deprecated/unused (kept to avoid breaking parents)
   selectedSize: string;
   isLiked: boolean;
   isAddingToCart?: boolean;
@@ -37,11 +38,13 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
   onToggleLike
 }) => {
   const [isAddingToCartLocal, setIsAddingToCartLocal] = useState(false);
+  const [isVerifyingAuth, setIsVerifyingAuth] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const { addItem } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
+  const router = useRouter();
 
   const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
 
@@ -57,16 +60,13 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
   );
 
   const handleAddToCart = async () => {
-    // Prevent double-submit
     if (isAddingToCartLocal) return;
 
     setIsAddingToCartLocal(true);
 
-    // Get the first image or use a placeholder
     const imageUrl = product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png';
 
     try {
-      // Update local state immediately for optimistic UI (same as cart drawer)
       addItem({
         id: product._id,
         quantity: 1,
@@ -75,10 +75,8 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
         image: imageUrl,
       });
 
-      // Show success toast
       addToast("Item added to cart successfully", "success");
 
-      // Sync to server in background if authenticated (same as cart drawer)
       if (isAuthenticated) {
         try {
           const { addToMyCart } = await import('@/services/cart');
@@ -87,22 +85,57 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
             quantity: 1,
             price: product.price,
           });
-          // Don't refetch cart - trust the add operation succeeded
         } catch (serverError) {
           console.error('Failed to add item to server:', serverError);
-          // Show error toast but don't revert local state (user already sees item in cart)
           addToast("Item added to cart, but sync to server failed", "info");
         }
       }
 
-      // Parent callback for UI side-effects only
       onAddToCart();
     } catch (error) {
-      // Show error toast
       addToast("Failed to add item to cart", "error");
       console.error('Failed to add item to cart:', error);
     } finally {
       setIsAddingToCartLocal(false);
+    }
+  };
+
+  // ✅ NEW: Verify auth status before navigation
+  const handleCustomizeClick = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Always prevent default to check auth first
+
+    // Quick check from store
+    if (!isAuthenticated) {
+      addToast('Please sign in to customize this product', 'error');
+      router.push('/signin');
+      return;
+    }
+
+    // Verify token is still valid by hitting an auth endpoint
+    setIsVerifyingAuth(true);
+    try {
+      console.log('[Customize] Verifying auth before navigation...');
+      
+      // Quick ping to verify session (this will auto-refresh if needed)
+      await api('/api/auth/me');
+      
+      console.log('[Customize] ✅ Auth verified, navigating...');
+      
+      // Auth is valid, navigate to customize page
+      router.push(`/shop/${product._id}/customize`);
+      
+    } catch (error: any) {
+      console.error('[Customize] Auth verification failed:', error);
+      
+      // Token expired or invalid
+      if (error?.status === 401 || error?.message?.includes('Token expired')) {
+        addToast('Your session has expired. Please sign in again.', 'error');
+        router.push('/signin');
+      } else {
+        addToast('Unable to verify your session. Please try again.', 'error');
+      }
+    } finally {
+      setIsVerifyingAuth(false);
     }
   };
 
@@ -160,12 +193,26 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-3 mb-4">
-            <Link
-              href={`/shop/${product._id}/customize`}
-              className="flex-1 py-3 bg-black text-white rounded-lg font-medium transition-colors text-sm hover:bg-gray-800 text-center"
+            <button
+              onClick={handleCustomizeClick}
+              disabled={isVerifyingAuth}
+              className={`flex-1 py-3 bg-black text-white rounded-lg font-medium transition-colors text-sm text-center ${
+                isVerifyingAuth
+                  ? 'opacity-50 cursor-not-allowed'
+                  : 'hover:bg-gray-800'
+              }`}
             >
-              CUSTOMIZE
-            </Link>
+              {isVerifyingAuth ? (
+                <div className="flex justify-center items-center">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              ) : (
+                'CUSTOMIZE'
+              )}
+            </button>
             <button
               onClick={handleAddToCart}
               disabled={isAddingToCartLocal}
@@ -219,8 +266,6 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
         isOpen={isSizeGuideOpen} 
         onClose={() => setIsSizeGuideOpen(false)} 
       />
-
-      {/* Toast notifications are now handled globally by ToastContainer */}
     </>
   );
 };

@@ -72,7 +72,6 @@ export default function ProductCustomizePage({ params }: { params: Promise<{ slu
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading product for customization...</p>
         </div>
       </div>
     );
@@ -93,7 +92,7 @@ export default function ProductCustomizePage({ params }: { params: Promise<{ slu
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Custom breadcrumb for customization */}
+      {/* Custom breadcrumb for customization 
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <nav className="flex" aria-label="Breadcrumb">
@@ -135,8 +134,9 @@ export default function ProductCustomizePage({ params }: { params: Promise<{ slu
           </nav>
         </div>
       </div>
+      */}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-4 md:pt-24">
         {/* Desktop Layout */}
         <div className="hidden lg:block">
           <div className="grid grid-cols-12 gap-8">

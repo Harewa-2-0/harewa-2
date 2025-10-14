@@ -69,7 +69,7 @@ export default function CheckoutPage() {
   // Show loading while auth is hydrating
   if (!hasHydratedAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-gray-300 border-t-[#D4AF37] rounded-full animate-spin"></div>
       </div>
     );
@@ -78,7 +78,7 @@ export default function CheckoutPage() {
   // Show loading while redirecting
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-gray-300 border-t-[#D4AF37] rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Redirecting to sign in...</p>
@@ -91,7 +91,7 @@ export default function CheckoutPage() {
   // Show empty order state instead of redirecting
   if (!currentOrder) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20 md:pt-24">
+      <div className="min-h-screen bg-gray-50 pt-20 md:pt-32 border border-solid border-red-500">
         {/* Header */}
         <div className="border-b">
           <div className="max-w-7xl mx-auto px-4 py-6">
@@ -153,7 +153,7 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b ">
-        <div className="max-w-7xl mx-auto px-4 py-6 ">
+        <div className="max-w-7xl mx-auto px-4 py-6 pt-24">
           {/* <nav className="flex items-center space-x-2 text-sm text-gray-500">
             <a href="/" className="hover:text-gray-700">Home</a>
             <span>/</span>

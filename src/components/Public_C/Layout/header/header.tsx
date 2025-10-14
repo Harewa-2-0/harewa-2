@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Menu, X, ArrowUpRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useLayoutEffect, useRef } from 'react';
 
 import AnnouncementBar from '../../Home/announcementBar';
 import { useUIStore } from '@/store/uiStore';
@@ -17,7 +17,7 @@ import { AboutMenu } from '../../header_expandable_menu/about_menu';
 
 const navItems = [
   { label: 'Ready to Wear', href: '/shop' },
-  { label: 'Customization', href: '/customize' },
+  { label: 'Customization', href: '/shop' },
   { label: 'Trending Styles', href: '/trending-fashion' },
 ];
 
@@ -26,15 +26,47 @@ export default function Header() {
   const { user, hasHydratedAuth, hasClientHydrated } = useAuthStore();
   const [hideAnnouncement, setHideAnnouncement] = useState(false);
   const pathname = usePathname();
+  const headerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setHideAnnouncement(isMobileNavOpen);
   }, [isMobileNavOpen]);
 
+  // Measure and set header height as CSS variable
+  useLayoutEffect(() => {
+    const updateHeaderHeight = () => {
+      if (headerRef.current) {
+        const height = headerRef.current.offsetHeight;
+        document.documentElement.style.setProperty('--header-height', `${height}px`);
+        
+        // Calculate total offset (announcement + header)
+        const announcementHeight = parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue('--announcement-height') || '0'
+        );
+        document.documentElement.style.setProperty(
+          '--total-header-offset',
+          `${announcementHeight + height}px`
+        );
+      }
+    };
+
+    updateHeaderHeight();
+
+    const ro = new ResizeObserver(updateHeaderHeight);
+    if (headerRef.current) {
+      ro.observe(headerRef.current);
+    }
+
+    window.addEventListener('resize', updateHeaderHeight);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', updateHeaderHeight);
+    };
+  }, []);
+
   const getCartUrl = () => '/cartt.png';
 
-  // Use client hydration OR auth hydration - whichever is ready
-  // This ensures we show UI as soon as we know the state (even if from cache)
   const isReady = hasClientHydrated || hasHydratedAuth;
   const isLoggedIn = !!user;
 
@@ -43,6 +75,7 @@ export default function Header() {
       {!hideAnnouncement && <AnnouncementBar />}
 
       <header
+        ref={headerRef}
         className="w-full bg-black border-b border-gray-700 sticky z-40"
         style={{
           top: 'var(--announcement-height, 0px)',
@@ -126,54 +159,86 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Mobile Nav Dropdown */}
+        {/* Mobile Nav Dropdown - SEPARATE INSTANCE */}
         <AnimatePresence>
           {isMobileNavOpen && (
-            <motion.div
-              className="md:hidden fixed left-0 right-0 w-full bg-black px-4 pb-8 text-white text-base font-medium border-t border-gray-700 min-h-screen flex flex-col z-30"
-              style={{
-                top: 'calc(var(--announcement-height, 0px) + 64px)',
-                transition: 'top 250ms ease',
-              }}
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="flex flex-col space-y-8 pt-6">
-                <FabricMenu isMobile={true} />
-                <AboutMenu isMobile={true} />
-                {navItems.map(({ label, href }) => (
-                  <Link key={label} href={href} onClick={closeMobileNav} className="block hover:text-[#FFE181]">
-                    {label}
+            <>
+              {/* Full screen backdrop */}
+              <motion.div
+                className="md:hidden fixed inset-0 bg-black/60 z-[100]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                onClick={closeMobileNav}
+              />
+              
+              {/* Mobile menu - starts from top of screen */}
+              <motion.div
+                className="md:hidden fixed top-0 left-0 right-0 w-full bg-black px-4 pb-8 text-white text-base font-medium flex flex-col overflow-y-auto z-[101]"
+                style={{
+                  height: '100vh',
+                }}
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+              >
+                {/* Mobile Header inside menu */}
+                <div className="flex items-center justify-between py-3 border-b border-gray-700 mb-6">
+                  <Link href="/home" onClick={closeMobileNav}>
+                    <Image src="/logo.webp" alt="Harewa Logo" width={120} height={40} priority />
                   </Link>
-                ))}
-              </div>
-
-              <div className="mt-14 flex flex-col space-y-3">
-                {isReady && !isLoggedIn && (
-                  <div className="flex gap-4">
-                    <Link
-                      href="/signup"
-                      onClick={closeMobileNav}
-                      className="flex-1 border border-white text-[#D4AF37] text-center px-4 py-2 rounded-full hover:bg-white hover:text-black transition-colors"
-                    >
-                      Sign Up
-                    </Link>
-                    <Link
-                      href="/signin"
-                      onClick={closeMobileNav}
-                      className="flex-1 bg-[#FFE181] text-black text-center px-4 py-2 rounded-full hover:bg-yellow-200 transition-colors"
-                    >
-                      Login <ArrowUpRight size={16} className="inline ml-1" />
-                    </Link>
-                  </div>
-                )}
-                <div className="bg-[#F4D35E] text-black text-center text-sm py-3 rounded-full mt-8">
-                  Customise Your Fabric
+                  <button
+                    onClick={closeMobileNav}
+                    className="text-white"
+                    aria-label="Close navigation"
+                  >
+                    <X size={30} />
+                  </button>
                 </div>
-              </div>
-            </motion.div>
+
+                {/* Navigation Links */}
+                <div className="flex flex-col space-y-8 pt-2">
+                  <FabricMenu isMobile={true} />
+                  <AboutMenu isMobile={true} />
+                  {navItems.map(({ label, href }) => (
+                    <Link key={label} href={href} onClick={closeMobileNav} className="block hover:text-[#FFE181] text-lg">
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+
+                {/* Auth Buttons & CTA */}
+                <div className="mt-auto flex flex-col space-y-3 pt-8">
+                  {isReady && !isLoggedIn && (
+                    <div className="flex gap-4">
+                      <Link
+                        href="/signup"
+                        onClick={closeMobileNav}
+                        className="flex-1 border border-white text-[#D4AF37] text-center px-4 py-2 rounded-full hover:bg-white hover:text-black transition-colors"
+                      >
+                        Sign Up
+                      </Link>
+                      <Link
+                        href="/signin"
+                        onClick={closeMobileNav}
+                        className="flex-1 bg-[#FFE181] text-black text-center px-4 py-2 rounded-full hover:bg-yellow-200 transition-colors"
+                      >
+                        Login <ArrowUpRight size={16} className="inline ml-1" />
+                      </Link>
+                    </div>
+                  )}
+                  <Link
+                    href="/customize"
+                    onClick={closeMobileNav}
+                    className="bg-[#F4D35E] text-black text-center text-sm py-3 rounded-full hover:bg-[#F4D35E]/90 transition-colors"
+                  >
+                    Customise Your Fabric
+                  </Link>
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </header>

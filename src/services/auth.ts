@@ -21,7 +21,6 @@ function cleanStr(v: unknown): string | undefined {
 
 let getMeInflight: Promise<any> | null = null;
 
-
 function toUserProfile(payload: any): UserProfile {
   // Accept multiple backend shapes without leaking tokens
   const data = payload?.data ?? payload;
@@ -67,7 +66,7 @@ function toUserProfile(payload: any): UserProfile {
 
 /** Email/password login — relies on HttpOnly cookies set by server */
 export async function loginWithEmail(params: { email: string; password: string }) {
-  const data = await api<any>("/api/auth/login", {
+  const data = await api("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -82,7 +81,7 @@ export async function loginWithEmail(params: { email: string; password: string }
 /** Get current user from server session (cookies) */
 export async function getMe() {
   if (!getMeInflight) {
-    getMeInflight = api<any>("/api/auth/me", { method: "GET" })
+    getMeInflight = api("/api/auth/me", { method: "GET" })
       .finally(() => { getMeInflight = null; });
   }
   const data = await getMeInflight;
@@ -100,16 +99,15 @@ export async function logoutServer() {
 
 /** Delete current user account */
 export async function deleteCurrentUser() {
-  const response = await api<any>("/api/auth/me", {
+  // The api() utility returns parsed JSON data, not the Response object
+  // If the request succeeds, we'll get the data back
+  // If it fails, api() will throw an error
+  const data = await api("/api/auth/me", {
     method: "DELETE",
   });
   
-  // Only return on 2xx status codes
-  if (response.status >= 200 && response.status < 300) {
-    return response;
-  }
-  
-  throw new Error(`Failed to delete account: ${response.status}`);
+  // Return the response data (e.g., {"message": "User deleted successfully"})
+  return data;
 }
 
 /** OAuth entry (opened in popup by the UI) */

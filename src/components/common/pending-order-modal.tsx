@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Clock, ShoppingCart, AlertCircle, Loader2 } from 'lucide-react';
 import { useOrderStore, formatOrderDate, getOrderStatusDisplay } from '@/store/orderStore';
 import { useCartStore } from '@/store/cartStore';
-import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/toast-context';
 import type { Order } from '@/services/order';
 
@@ -26,8 +25,7 @@ export default function PendingOrderModal({
 }: PendingOrderModalProps) {
   const { items } = useCartStore();
   const { addToast } = useToast();
-  const router = useRouter();
-  const { deletePendingOrder, createOrder } = useOrderStore();
+  const { deletePendingOrder } = useOrderStore();
   
   // Loading states
   const [isContinuing, setIsContinuing] = useState(false);
@@ -40,12 +38,11 @@ export default function PendingOrderModal({
   const handleContinue = async () => {
     try {
       setIsContinuing(true);
+      // Just call the parent callback - let it handle navigation
       onContinue();
-      // Don't close modal immediately - let the parent handle it after navigation
     } catch (error) {
       console.error('Failed to continue with pending order:', error);
       addToast("Failed to continue with pending order. Please try again.", "error");
-    } finally {
       setIsContinuing(false);
     }
   };
@@ -61,27 +58,24 @@ export default function PendingOrderModal({
         return;
       }
 
-      // Delete pending order first
+      // FIXED: Only delete pending order, don't create new one
+      // The parent component (CheckoutSection) will handle creating the new order
+      console.log('[Modal] Deleting pending order...');
       const deleted = await deletePendingOrder();
+      
       if (!deleted) {
         addToast("Failed to cancel pending order. Please try again.", "error");
+        setIsStartingNew(false);
         return;
       }
 
-      // Create new order from current cart
-      const result = await createOrder();
-      if (result.success) {
-        addToast("New order created successfully!", "success");
-        onStartNew();
-        onClose();
-        router.push('/checkout');
-      } else {
-        addToast(result.error || "Failed to create new order. Please try again.", "error");
-      }
+      console.log('[Modal] Pending order deleted, calling parent callback...');
+      // Close modal and let parent handle order creation
+      onClose();
+      onStartNew();
     } catch (error) {
       console.error('Failed to start new order:', error);
       addToast("Failed to start new order. Please try again.", "error");
-    } finally {
       setIsStartingNew(false);
     }
   };
@@ -200,7 +194,7 @@ export default function PendingOrderModal({
                     {isStartingNew ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        Creating New Order...
+                        Deleting Old Order...
                       </>
                     ) : cartItemCount === 0 ? (
                       'Cart is Empty'

@@ -167,14 +167,13 @@ export async function deleteOrder(orderId: string) {
   return unwrap<{ deleted: boolean }>(raw);
 }
 
-// Get all orders (admin)
+// Get all orders (admin) - FIXED
 export async function getOrders(params?: Record<string, string | number | boolean | undefined>) {
-  const raw = await api<MaybeWrapped<{ data: Order[] }>>(
+  const raw = await api<MaybeWrapped<Order[]>>(
     `${paths.list}${toQS(params)}`
   );
-  const response = unwrap<{ data: Order[] }>(raw);
-  // Handle the nested response structure: response.data.data
-  return response?.data ?? [];
+  const orders = unwrap<Order[]>(raw);
+  return orders ?? [];
 }
 
 // Get orders by status (admin) - filters on frontend since API returns all orders
@@ -194,14 +193,13 @@ export async function getOrderById(orderId: string) {
   return data ?? null;
 }
 
-// Get current user's orders
+// Get current user's orders - FIXED
 export async function getMyOrders(params?: Record<string, string | number | boolean | undefined>) {
-  const raw = await api<MaybeWrapped<{ data: Order[] }>>(
+  const raw = await api<MaybeWrapped<Order[]>>(
     `${paths.myOrders}${toQS(params)}`
   );
-  const response = unwrap<{ data: Order[] }>(raw);
-  // Handle the nested response structure: response.data.data
-  return response?.data ?? [];
+  const orders = unwrap<Order[]>(raw);
+  return orders ?? [];
 }
 
 // Update order status (convenience function)

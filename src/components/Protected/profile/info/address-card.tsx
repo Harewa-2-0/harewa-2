@@ -27,7 +27,7 @@ export default function AddressCard({
         <h4 className="font-medium text-black">{title}</h4>
         <button 
           onClick={onEdit} 
-          className="px-3 py-1.5 cursor-pointer text-sm border rounded-lg inline-flex items-center gap-1 bg-[#fdc713] text-black hover:bg-[#f0c000]"
+          className="px-3 py-1.5 cursor-pointer text-sm border rounded-lg inline-flex items-center gap-1 bg-[#D4AF37] text-black hover:bg-[#f0c000]"
         >
           <Pencil size={14} /> Edit
         </button>
@@ -38,7 +38,7 @@ export default function AddressCard({
           <div>{address.city}, {address.state} {address.zip}</div>
           <div>{address.country}</div>
           {address.isDefault && (
-            <span className="inline-block px-2 py-1 bg-[#fdc713] text-black text-xs rounded-full mt-2">
+            <span className="inline-block px-2 py-1 bg-[#D4AF37] text-black text-xs rounded-full mt-2">
               Default
             </span>
           )}
