@@ -37,17 +37,26 @@ export default function PaymentMethodSelector({
       addToast('Please select Paystack to continue.', 'error');
       return;
     }
+    
     try {
       setIsProcessing(true);
-      addToast('Initializing payment…', 'info');
+      addToast('Initializing payment… This may take a few moments.', 'info');
+      
+      console.log('Initiating payment for order:', currentOrder._id);
       const resp = await purchase({ type: 'gateway', orderId: currentOrder._id });
+      console.log('Payment response:', resp);
+      
       const redirect = getRedirectUrl(resp);
       if (redirect) {
+        addToast('Redirecting to payment gateway…', 'success');
         window.location.href = redirect;
         return;
       }
+      
       addToast('No redirect URL returned from gateway. Please try again.', 'error');
+      console.error('Full response:', resp);
     } catch (err: any) {
+      console.error('Payment error:', err);
       const msg = err?.message || 'Payment initialization failed.';
       addToast(msg, 'error');
     } finally {
@@ -130,6 +139,12 @@ export default function PaymentMethodSelector({
           >
             {isProcessing ? 'Processing…' : 'PAY WITH PAYSTACK'}
           </button>
+          
+          {isProcessing && (
+            <p className="text-sm text-gray-500 mt-2">
+              Please wait, this may take up to 30 seconds...
+            </p>
+          )}
         </div>
       )}
     </div>
