@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import { useCartDrawerStore } from '@/store/cartDrawerStore';
@@ -20,16 +20,14 @@ export function CartHydration() {
   const { isAuthenticated, hasHydratedAuth } = useAuthStore();
   const { 
     fetchCart, 
-    syncToServer, 
-    isGuestCart,
-    items,
     isMerging,
     isRefreshing
   } = useCartStore();
   const { isOpen: isCartDrawerOpen } = useCartDrawerStore();
+  
   const [retryCount, setRetryCount] = useState(0);
-  const [hasSyncedGuestCart, setHasSyncedGuestCart] = useState(false);
-  const [hasInitiallyFetched, setHasInitiallyFetched] = useState(false);
+  const hasInitiallyFetchedRef = useRef(false);
+  const previousAuthStateRef = useRef(isAuthenticated);
 
   useEffect(() => {
     // Only run after auth has hydrated
@@ -45,26 +43,28 @@ export function CartHydration() {
     // Don't fetch cart if merge or refresh is in progress to prevent race conditions
     // The merge process handles cart fetching during login, so we should not interfere
     if (isMerging || isRefreshing) {
-      console.log('CartHydration: Skipping fetch - merge/refresh in progress', { isMerging, isRefreshing });
       return;
     }
 
     if (isAuthenticated) {
-      // User is logged in - fetch cart from server
-      // Only fetch on initial load, not when items are deleted
-      if (items.length === 0 && !hasInitiallyFetched) {
-        console.log('CartHydration: Fetching cart from server');
-        setHasInitiallyFetched(true);
+      // Only fetch on initial load or when user just logged in
+      const justLoggedIn = !previousAuthStateRef.current && isAuthenticated;
+      
+      if (!hasInitiallyFetchedRef.current || justLoggedIn) {
+        hasInitiallyFetchedRef.current = true;
+        
         fetchCart().catch((error) => {
           console.error('Failed to fetch cart during hydration:', error);
           
           // If it's an auth error, try to retry once
-          if (error.message?.includes('expired') || error.message?.includes('jwt expired')) {
+          const isAuthError = error.message?.includes('expired') || 
+                             error.message?.includes('jwt expired') ||
+                             error.status === 401;
+          
+          if (isAuthError && retryCount < 1) {
             setTimeout(() => {
-              if (retryCount < 1) {
-                setRetryCount(prev => prev + 1);
-                fetchCart().catch(console.error);
-              }
+              setRetryCount(prev => prev + 1);
+              fetchCart().catch(console.error);
             }, 2000); // Wait 2 seconds before retry
           }
         });
@@ -72,10 +72,12 @@ export function CartHydration() {
     } else {
       // User is not logged in - reset flags
       setRetryCount(0);
-      setHasSyncedGuestCart(false);
-      setHasInitiallyFetched(false);
+      hasInitiallyFetchedRef.current = false;
     }
-  }, [hasHydratedAuth, isAuthenticated, fetchCart, retryCount, items.length, isCartDrawerOpen, isMerging, isRefreshing]);
+    
+    // Update previous auth state
+    previousAuthStateRef.current = isAuthenticated;
+  }, [hasHydratedAuth, isAuthenticated, fetchCart, retryCount, isCartDrawerOpen, isMerging, isRefreshing]);
 
   // This component doesn't render anything
   return null;

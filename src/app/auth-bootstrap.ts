@@ -19,7 +19,7 @@ export default function AuthBootstrap() {
   // CRITICAL FIX: Force hasClientHydrated to true if user data exists
   useEffect(() => {
     if (!hasClientHydrated && (user || isAuthenticated)) {
-      console.log('[Auth] Force-setting hasClientHydrated due to present user data');
+      //console.log('[Auth] Force-setting hasClientHydrated due to present user data');
       useAuthStore.setState({ hasClientHydrated: true });
     }
   }, [hasClientHydrated, user, isAuthenticated]);
@@ -28,7 +28,7 @@ export default function AuthBootstrap() {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!hasClientHydrated) {
-        console.log('[Auth] Fallback: Setting hasClientHydrated after 500ms');
+        //console.log('[Auth] Fallback: Setting hasClientHydrated after 500ms');
         useAuthStore.setState({ hasClientHydrated: true });
       }
     }, 500);
@@ -40,7 +40,7 @@ export default function AuthBootstrap() {
     // Check for cached auth snapshot
     const snapshot = localStorage.getItem('auth-snapshot');
     if (!snapshot) {
-      console.log('[Auth] No cached session, skipping server check');
+      //console.log('[Auth] No cached session, skipping server check');
       // Mark as hydrated so UI knows we're done checking
       useAuthStore.setState({ hasHydratedAuth: true });
       return;
@@ -49,18 +49,18 @@ export default function AuthBootstrap() {
     try {
       const cached = JSON.parse(snapshot);
       if (cached.isAuthenticated && cached.user) {
-        console.log('[Auth] Found cached session, verifying with server...');
+        //console.log('[Auth] Found cached session, verifying with server...');
         // We think user is logged in - verify with server
         void hydrateFromCookie();
         return;
       }
     } catch (e) {
-      console.warn('[Auth] Invalid cached snapshot, clearing');
+      //console.warn('[Auth] Invalid cached snapshot, clearing');
       localStorage.removeItem('auth-snapshot');
     }
 
     // No valid cached session
-    console.log('[Auth] No valid cached session');
+    //console.log('[Auth] No valid cached session');
     useAuthStore.setState({ hasHydratedAuth: true });
   };
 
@@ -102,14 +102,14 @@ export default function AuthBootstrap() {
       return;
     }
 
-    console.log('[Auth] Starting background session checks (5min interval)');
+    //console.log('[Auth] Starting background session checks (5min interval)');
 
     // Immediate check
     void silentRefresh();
 
     // Then every 5 minutes
     intervalRef.current = setInterval(() => {
-      console.log('[Auth] Background session check...');
+      //console.log('[Auth] Background session check...');
       void silentRefresh();
     }, 5 * 60 * 1000);
 

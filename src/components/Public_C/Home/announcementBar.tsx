@@ -7,43 +7,35 @@ import { useUIStore } from '@/store/uiStore';
 
 export default function AnnouncementBar() {
   const {
-    isAnnouncementVisible,           // user hasn't manually closed it
+    isAnnouncementVisible,
     hideAnnouncement,
     resetAnnouncement,
-    isAnnouncementHiddenByScroll,    // hidden due to scroll
+    isAnnouncementHiddenByScroll,
     hideAnnouncementByScroll,
     showAnnouncementByScroll,
   } = useUIStore();
 
   const barRef = useRef<HTMLDivElement | null>(null);
 
-  // Debug
-  // console.log('AnnouncementBar - isAnnouncementVisible:', isAnnouncementVisible);
-  // console.log('AnnouncementBar - isAnnouncementHiddenByScroll:', isAnnouncementHiddenByScroll);
-
   // Reset announcement state on full page refresh
   useEffect(() => {
     resetAnnouncement();
-    // initialize based on current scroll position (SSR safe: runs on client)
     const y = window.scrollY || 0;
     if (y > 120) hideAnnouncementByScroll();
     else showAnnouncementByScroll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- Smooth & stable scroll behavior (hysteresis + rAF throttle)
+  // Smooth scroll behavior with hysteresis
   useEffect(() => {
     let lastScrollY = window.scrollY;
     let ticking = false;
 
-    // Hysteresis to avoid threshold flapping
-    const HIDE_AFTER = 120; // hide when scrolling down & past this
-    const SHOW_BEFORE = 60; // show again when above this (smaller) level
+    const HIDE_AFTER = 120;
+    const SHOW_BEFORE = 60;
 
     const update = () => {
       const current = window.scrollY;
-
-      // direction
       const scrollingDown = current > lastScrollY;
 
       if (scrollingDown && current > HIDE_AFTER) {
@@ -67,15 +59,23 @@ export default function AnnouncementBar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, [hideAnnouncementByScroll, showAnnouncementByScroll]);
 
-  // Final visibility
   const shouldShowAnnouncement = isAnnouncementVisible && !isAnnouncementHiddenByScroll;
 
-  // --- Keep a CSS var with the *actual* height so nav can offset correctly
+  // Set CSS variable for announcement height and recalculate total offset
   const setCssHeight = (px: number) => {
     document.documentElement.style.setProperty('--announcement-height', `${px}px`);
+    
+    // Also update total header offset
+    const headerHeight = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--header-height') || '64'
+    );
+    document.documentElement.style.setProperty(
+      '--total-header-offset',
+      `${px + headerHeight}px`
+    );
   };
 
-  // Measure height when shown/hidden and on resize (useLayoutEffect to avoid layout jump)
+  // Measure height when shown/hidden and on resize
   useLayoutEffect(() => {
     const el = barRef.current;
     const apply = () => setCssHeight(shouldShowAnnouncement && el ? el.offsetHeight : 0);
@@ -84,11 +84,9 @@ export default function AnnouncementBar() {
 
     if (!el) return;
 
-    // ResizeObserver to respond to content/line-wrap changes
     const ro = (window as any).ResizeObserver ? new (window as any).ResizeObserver(() => apply()) : null;
     ro?.observe(el);
 
-    // Also update on window resize (breakpoints / font sizing)
     const onResize = () => apply();
     window.addEventListener('resize', onResize);
 

@@ -28,12 +28,14 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
       
       try {
         setLoading(true);
-        const response = await getOrderById(orderId);
-        console.log('Order response:', response); // Debug log
+        const response = await getOrderById(orderId) as any; // Type assertion to handle nested response
+        console.log('Order response:', response);
         
         // Handle nested response structure
         const orderData = response?.data?.data || response?.data || response;
-        console.log('Extracted order data:', orderData); // Debug log
+        console.log('Extracted order data:', orderData);
+        console.log('Cart data:', orderData?.carts);
+        console.log('Products:', orderData?.carts?.products);
         
         setOrder(orderData);
       } catch (error) {
@@ -67,7 +69,27 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     }
   };
 
+  // Helper to safely get products from order
+  const getOrderProducts = () => {
+    if (!order) return [];
+    
+    // Check if carts exists and has products
+    if (order.carts && Array.isArray(order.carts.products)) {
+      return order.carts.products;
+    }
+    
+    // Fallback: check if products is directly on order
+    if (Array.isArray((order as any).products)) {
+      return (order as any).products;
+    }
+    
+    return [];
+  };
+
   if (!isOpen || !orderId) return null;
+
+  const products = getOrderProducts();
+  console.log('Rendered products:', products);
 
   return (
     <AnimatePresence>
@@ -142,27 +164,31 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                         <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                           <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-semibold text-gray-900">Order Status</h3>
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getOrderStatusInfo(order.status || 'unknown').color}`}>
-                              {getOrderStatusInfo(order.status || 'unknown').label}
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getOrderStatusInfo(order.status || 'pending').color}`}>
+                              {getOrderStatusInfo(order.status || 'pending').label}
                             </span>
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-gray-600" />
-                              <span className="text-gray-600 font-medium">Ordered:</span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-gray-600 font-medium flex items-center gap-2">
+                                <Calendar className="w-4 h-4" />
+                                Ordered:
+                              </span>
                               <span className="text-gray-800">{order.createdAt ? formatDate(order.createdAt) : 'Unknown'}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-gray-600" />
-                              <span className="text-gray-600 font-medium">Updated:</span>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-gray-600 font-medium flex items-center gap-2">
+                                <Calendar className="w-4 h-4" />
+                                Updated:
+                              </span>
                               <span className="text-gray-800">{order.updatedAt ? formatDate(order.updatedAt) : 'Unknown'}</span>
                             </div>
                           </div>
 
-                          {((order.status === 'pending' || order.status === 'initiated')) && (
-                            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                              <p className="text-yellow-800 text-sm font-medium">
+                          {(order.status === 'pending' || order.status === 'initiated') && (
+                            <div className="mt-4 p-4 bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg">
+                              <p className="text-[#B8941F] text-sm font-medium">
                                 This order is pending payment. Complete your payment to confirm your order.
                               </p>
                             </div>
@@ -173,38 +199,68 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                         <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                           <h3 className="text-lg font-semibold mb-4 text-gray-900">Order Items</h3>
                           <div className="space-y-4">
-                            {order.carts?.products?.map((cartProduct, index) => {
-                              const product = typeof cartProduct.product === 'string' 
-                                ? null 
-                                : cartProduct.product as any;
-                              
-                              return (
-                                <div key={index} className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-                                  <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
-                                    {product?.images?.[0] ? (
-                                      <img 
-                                        src={product.images[0]} 
-                                        alt={product.name}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : (
-                                      <Package className="w-6 h-6 text-gray-500" />
-                                    )}
+                            {products.length > 0 ? (
+                              products.map((cartProduct: any, index: number) => {
+                                // Handle both populated and unpopulated product references
+                                const product = typeof cartProduct.product === 'object' && cartProduct.product !== null
+                                  ? cartProduct.product
+                                  : null;
+                                
+                                const productId = typeof cartProduct.product === 'string' 
+                                  ? cartProduct.product 
+                                  : product?._id;
+                                
+                                return (
+                                  <div key={productId || index} className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                    <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+                                      {product?.images?.[0] ? (
+                                        <img 
+                                          src={product.images[0]} 
+                                          alt={product.name || 'Product'}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            (e.target as HTMLImageElement).style.display = 'none';
+                                          }}
+                                        />
+                                      ) : (
+                                        <Package className="w-6 h-6 text-gray-400" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="font-semibold text-gray-900 truncate">
+                                        {product?.name || `Product ${index + 1}`}
+                                      </h4>
+                                      <div className="flex items-center gap-4 mt-1">
+                                        <p className="text-sm text-gray-600">
+                                          Qty: {cartProduct?.quantity || 1}
+                                        </p>
+                                        {product?.price && (
+                                          <p className="text-sm font-semibold text-gray-900">
+                                            {formatPrice(product.price * (cartProduct?.quantity || 1))}
+                                          </p>
+                                        )}
+                                      </div>
+                                      {product?.description && (
+                                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                                          {product.description}
+                                        </p>
+                                      )}
+                                      {!product && (
+                                        <p className="text-xs text-gray-400 mt-1 italic">
+                                          Product details unavailable
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="flex-1">
-                                    <h4 className="font-semibold text-gray-900">{product?.name || 'Product'}</h4>
-                                    <p className="text-sm text-gray-600">Quantity: {cartProduct?.quantity || 0}</p>
-                                    <p className="text-sm font-semibold text-gray-900">{formatPrice(product?.price || 0)}</p>
-                                    {product?.description && (
-                                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{product.description}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            }) || (
+                                );
+                              })
+                            ) : (
                               <div className="text-center py-8 text-gray-500">
-                                <Package className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                                <p className="font-medium">No items found in this order</p>
+                                <Package className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                                <p className="font-medium text-gray-700 mb-1">No items found in this order</p>
+                                <p className="text-sm text-gray-500">
+                                  The order items could not be loaded. Please try again later.
+                                </p>
                               </div>
                             )}
                           </div>
@@ -223,7 +279,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600 font-medium">Shipping:</span>
-                              <span className="text-gray-900 font-semibold">₦0</span>
+                              <span className="text-green-600 font-semibold">Free</span>
                             </div>
                             <div className="border-t border-gray-300 pt-3">
                               <div className="flex justify-between font-bold text-lg">
@@ -239,16 +295,16 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                           <h3 className="text-lg font-semibold mb-4 text-gray-900">Order Information</h3>
                           <div className="space-y-3 text-sm">
                             <div>
-                              <span className="text-gray-600 font-medium">Order ID:</span>
-                              <p className="text-gray-900 font-mono">{order._id}</p>
+                              <span className="text-gray-600 font-medium block mb-1">Order ID:</span>
+                              <p className="text-gray-900 font-mono text-xs break-all">{order._id}</p>
                             </div>
                             <div>
-                              <span className="text-gray-600 font-medium">Status:</span>
+                              <span className="text-gray-600 font-medium block mb-1">Status:</span>
                               <p className="text-gray-900 capitalize">{order.status}</p>
                             </div>
                             {order.address && (
                               <div>
-                                <span className="text-gray-600 font-medium">Delivery Address:</span>
+                                <span className="text-gray-600 font-medium block mb-1">Delivery Address:</span>
                                 <p className="text-gray-900">{order.address}</p>
                               </div>
                             )}
@@ -259,7 +315,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                         <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                           <h3 className="text-lg font-semibold mb-4 text-gray-900">Actions</h3>
                           <div className="space-y-3">
-                            {((order.status === 'pending' || order.status === 'initiated')) && (
+                            {(order.status === 'pending' || order.status === 'initiated') && (
                               <button
                                 onClick={handleCompletePayment}
                                 className="w-full bg-[#D4AF37] text-black font-semibold py-3 px-4 rounded-lg hover:bg-[#B8941F] transition-colors shadow-sm"

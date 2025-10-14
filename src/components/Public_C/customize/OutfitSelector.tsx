@@ -70,6 +70,19 @@ const outfitOptions: OutfitOption[] = [
       { value: 'trouser-pants', label: 'Trouser Pants' },
     ]
   },
+  {
+    value: 'sleeve',
+    label: 'Sleeve',
+    image: '/sleve.png',
+    subOptions: [
+      { value: 'long-sleeve', label: 'Long Sleeve' },
+      { value: 'short-sleeve', label: 'Short Sleeve' },
+      { value: 'sleeveless', label: 'Sleeveless' },
+      { value: 'off-shoulder', label: 'Off-Shoulder' },
+      { value: 'cap-sleeve', label: 'Cap Sleeve' },
+      { value: 'bell-sleeve', label: 'Bell Sleeve' },
+    ]
+  },
 ];
 
 const OutfitSelector: React.FC<OutfitSelectorProps> = ({ 
@@ -104,56 +117,60 @@ const OutfitSelector: React.FC<OutfitSelectorProps> = ({
         Only select parts of this outfit that you're customizing.
       </h3>
       
-      {/* Outfit Type Selection */}
+      {/* Outfit Type Selection - Single Row with Perfect Fit */}
       <div className="mb-4">
         <h4 className="text-xs font-medium text-gray-700 mb-3">Outfit Type</h4>
-        <div className="flex gap-3 flex-wrap">
-          {outfitOptions.map((outfit) => (
-            <button
-              key={outfit.value}
-              onClick={() => handleOutfitTypeSelect(outfit.value)}
-              className={`relative p-3 rounded-lg border-2 transition-all duration-200 hover:scale-105 flex-shrink-0 ${
-                selectedOutfitType === outfit.value
-                  ? 'border-[#D4AF37] bg-[#D4AF37]/5 shadow-md'
-                  : 'border-gray-300 bg-white hover:border-gray-400'
-              }`}
-            >
-              {/* Outfit Image */}
-              <div className="flex flex-col items-center space-y-2">
-                <div className={`w-12 h-12 rounded-full overflow-hidden transition-all duration-200 ${
+        
+        {/* Perfect fit container - distribute evenly on desktop, scroll on mobile */}
+        <div className="relative">
+          <div className="grid grid-cols-5 gap-2 md:gap-3">
+            {outfitOptions.map((outfit) => (
+              <button
+                key={outfit.value}
+                onClick={() => handleOutfitTypeSelect(outfit.value)}
+                className={`relative p-2 rounded-lg border-2 transition-all duration-200 hover:scale-105 ${
                   selectedOutfitType === outfit.value
-                    ? 'ring-2 ring-[#D4AF37] ring-offset-2'
-                    : ''
-                }`}>
-                  <Image
-                    src={outfit.image}
-                    alt={outfit.label}
-                    width={48}
-                    height={48}
-                    className="w-full h-full object-cover"
-                  />
+                    ? 'border-[#D4AF37] bg-[#D4AF37]/5 shadow-md'
+                    : 'border-gray-300 bg-white hover:border-gray-400'
+                }`}
+              >
+                {/* Outfit Image */}
+                <div className="flex flex-col items-center space-y-1.5">
+                  <div className={`w-10 h-10 rounded-full overflow-hidden transition-all duration-200 mx-auto ${
+                    selectedOutfitType === outfit.value
+                      ? 'ring-2 ring-[#D4AF37] ring-offset-1'
+                      : ''
+                  }`}>
+                    <Image
+                      src={outfit.image}
+                      alt={outfit.label}
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  
+                  {/* Label */}
+                  <span className={`text-[10px] font-medium transition-colors whitespace-nowrap block truncate w-full text-center ${
+                    selectedOutfitType === outfit.value
+                      ? 'text-[#D4AF37]'
+                      : 'text-gray-700'
+                  }`}>
+                    {outfit.label}
+                  </span>
                 </div>
-                
-                {/* Label */}
-                <span className={`text-xs font-medium transition-colors ${
-                  selectedOutfitType === outfit.value
-                    ? 'text-[#D4AF37]'
-                    : 'text-gray-700'
-                }`}>
-                  {outfit.label}
-                </span>
-              </div>
 
-              {/* Selected indicator */}
-              {selectedOutfitType === outfit.value && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#D4AF37] rounded-full flex items-center justify-center">
-                  <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              )}
-            </button>
-          ))}
+                {/* Selected indicator */}
+                {selectedOutfitType === outfit.value && (
+                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#D4AF37] rounded-full flex items-center justify-center">
+                    <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

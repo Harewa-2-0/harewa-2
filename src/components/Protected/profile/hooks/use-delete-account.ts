@@ -14,32 +14,62 @@ export function useDeleteAccount() {
     setError(null);
 
     try {
-      await deleteCurrentUser();
+      console.log('[DeleteAccount] Attempting to delete account...');
+      const response = await deleteCurrentUser();
+      console.log('[DeleteAccount] Delete response:', response);
       
-      // Success: run centralized auth cleanup first, then redirect
-      logout();
+      // Success: run centralized auth cleanup first
+      console.log('[DeleteAccount] Account deleted successfully, logging out...');
+      
+      // Wait a bit to ensure the server has processed the deletion
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Run logout (clears all stores and localStorage)
+      await logout();
       
       // Use replace to prevent back navigation to protected routes
-      router.replace('/');
+      router.replace('/home');
       
     } catch (err: any) {
+      console.error('[DeleteAccount] Error during deletion:', err);
+      
       const status = err.status || err.response?.status;
+      const message = err.message || err.response?.data?.message || '';
+      
+      console.log('[DeleteAccount] Error status:', status);
+      console.log('[DeleteAccount] Error message:', message);
+      
+      // Check if this is actually a success response mishandled as error
+      if (
+        message.toLowerCase().includes('deleted') || 
+        message.toLowerCase().includes('success') ||
+        status === 200 ||
+        status === 204
+      ) {
+        console.log('[DeleteAccount] Treating as successful deletion despite error format');
+        await logout();
+        router.replace('/home');
+        return;
+      }
       
       if (status === 401 || status === 403) {
         // Auth error: still run cleanup and redirect (treat as success)
-        logout();
-        router.replace('/');
+        console.log('[DeleteAccount] Auth error - treating as success and logging out');
+        await logout();
+        router.replace('/home');
       } else if (status === 404) {
-        // User not found - likely a Google user, treat as successful deletion
-        // This gives the impression their account was deleted
-        logout();
-        router.replace('/');
+        // User not found - likely a Google user or already deleted
+        console.log('[DeleteAccount] User not found - treating as success');
+        await logout();
+        router.replace('/home');
       } else if (status >= 500) {
         // Server error: show error, don't clear auth
+        console.error('[DeleteAccount] Server error');
         setError('Server error. Please try again later.');
       } else {
         // Other errors: show error, keep user signed in
-        setError(err.message || 'Failed to delete account. Please try again.');
+        console.error('[DeleteAccount] Client error:', message);
+        setError(message || 'Failed to delete account. Please try again.');
       }
     } finally {
       setIsPending(false);

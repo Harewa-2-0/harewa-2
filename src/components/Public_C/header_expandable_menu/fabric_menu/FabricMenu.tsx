@@ -51,12 +51,13 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
 
   const handleFabricClick = (fabric: Fabric) => {
     setSelectedFabric(fabric);
-    if (isMobile) {
-      setIsOpen(false);
-    }
+    // REMOVED: Don't close menu on mobile when selecting fabric
+    // if (isMobile) {
+    //   setIsOpen(false);
+    // }
   };
 
-  // Create unique image sources for display
+  // Create unique image sources for display - only 2 for mobile
   const getFabricImages = (fabric: Fabric) => {
     const baseImage = fabric.image || '/placeholder-fabric.jpg';
     const images = [];
@@ -64,7 +65,10 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
     // Check if it's a base64 data URL
     const isBase64 = baseImage.startsWith('data:');
     
-    for (let i = 0; i < 4; i++) {
+    // Mobile gets 2 images, desktop gets 4
+    const imageCount = isMobile ? 2 : 4;
+    
+    for (let i = 0; i < imageCount; i++) {
       if (isBase64) {
         // For base64 images, we can't add query params, so just use the same image
         // The key uniqueness will handle the React rendering issues
@@ -124,11 +128,11 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
                   )}
                 </div>
 
-                {/* Selected Fabric Images */}
+                {/* Selected Fabric Images - 2 images in 1 row */}
                 {selectedFabric && (
                   <div className="pt-4">
                     <h3 className="text-white font-medium mb-3">{selectedFabric.name} Prints</h3>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-3">
                       {getFabricImages(selectedFabric).map((image, index) => (
                         <div key={`${selectedFabric._id}-${index}`} className="aspect-square rounded-lg overflow-hidden">
                           <img
@@ -146,7 +150,7 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
                               const target = e.target as HTMLImageElement;
                               target.style.opacity = '1';
                             }}
-                            style={{ opacity: 0 }}
+                            style={{ opacity: 0, transition: 'opacity 0.3s ease' }}
                           />
                         </div>
                       ))}
@@ -238,7 +242,7 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
                                 const target = e.target as HTMLImageElement;
                                 target.style.opacity = '1';
                               }}
-                              style={{ opacity: 0 }}
+                              style={{ opacity: 0, transition: 'opacity 0.3s ease' }}
                             />
                           </div>
                         ))}
@@ -259,4 +263,4 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
   );
 };
 
-export default FabricMenu;
+export default FabricMenu ;
