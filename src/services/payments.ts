@@ -26,6 +26,19 @@ export interface PurchaseResponse {
 }
 
 const BASE = '/api/payment/purchase';
+const TIMEOUT_MS = 30000; // 30 seconds timeout
+
+/**
+ * Create a promise that rejects after a specified timeout
+ */
+function timeoutPromise<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Request timed out. Please try again.')), ms)
+    ),
+  ]);
+}
 
 /**
  * Initiate a purchase. The backend decides the provider based on `type`.
@@ -39,12 +52,28 @@ export async function purchase(payload: PurchaseRequest): Promise<PurchaseRespon
     throw new Error("purchase: `type` must be 'gateway' or 'wallet'.");
   }
 
-  const raw = await api<MaybeWrapped<PurchaseResponse>>(BASE, json({
-    type: payload.type,
-    orderId: payload.orderId.trim(),
-  }));
+  try {
+    const apiCall = api<MaybeWrapped<PurchaseResponse>>(BASE, json({
+      type: payload.type,
+      orderId: payload.orderId.trim(),
+    }));
 
-  return unwrap<PurchaseResponse>(raw);
+    const raw = await timeoutPromise(apiCall, TIMEOUT_MS);
+    return unwrap<PurchaseResponse>(raw);
+  } catch (error: any) {
+    // Enhance error messages
+    if (error.message === 'Request timed out. Please try again.') {
+      throw new Error('Payment initialization timed out. This might be due to server issues. Please try again.');
+    }
+    
+    // Handle network errors
+    if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+      throw new Error('Network error. Please check your connection and try again.');
+    }
+
+    // Pass through other errors with original message
+    throw error;
+  }
 }
 
 /**
@@ -62,4 +91,3 @@ export function getRedirectUrl(resp: PurchaseResponse | null | undefined): strin
     null
   );
 }
-
