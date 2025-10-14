@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface ICustomization extends Document {
     user: mongoose.Types.ObjectId;
-    outfit: "sleeve gown" | "skirt" | "blouse" | "pants";
+    outfit: "sleeve" | "gown" | "skirt" | "blouse" | "pants";
     outfitOption?: string;
     fabricType: string;
     size: string;
@@ -16,7 +16,7 @@ const CustomizationSchema = new Schema<ICustomization>(
         user: { type: Schema.Types.ObjectId, ref: "User", required: true },
         outfit: {
             type: String,
-            enum: ["sleeve gown", "skirt", "blouse", "pants"],
+            enum: ["sleeve", "gown", "skirt", "blouse", "pants"],
             required: true,
         },
         outfitOption: { type: String },
