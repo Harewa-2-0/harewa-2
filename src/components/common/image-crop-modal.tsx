@@ -1,7 +1,3 @@
-// Currently: dragging/panning the image resets because a new object URL was created on each render
-// and mouse events lacked pointer capture, letting ReactCrop intercept/lose the gesture.
-// Fix: use a stable object URL + pointer events with capture, and add touchAction/willChange.
-
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -156,50 +152,57 @@ export default function ImageCropModal({ isOpen, onClose, onCrop, imageFile }: I
           </button>
         </div>
 
-        {/* Image Crop Area - Fixed Height */}
-        <div className="h-96 p-4 overflow-hidden">
-          <div className="h-full flex flex-col">
-            <div className="flex-1 flex items-center justify-center mb-4">
-              <div className="text-center">
+        {/* Image Crop Area - Adjusted Height */}
+        <div className="flex-1 p-4 overflow-y-auto">
+          <div className="h-full flex flex-col gap-4">
+            {/* Image Preview Section */}
+            <div className="flex items-center justify-center">
+              <div className="text-center w-full">
                 <p className="text-xs text-gray-500 mb-2">Drag image to reposition • Use scroll to zoom • Drag crop area to adjust</p>
-                <ReactCrop
-                  crop={crop}
-                  onChange={(_, percentCrop) => setCrop(percentCrop)}
-                  onComplete={(c) => setCompletedCrop(c)}
-                  aspect={1}
-                  circularCrop
-                  minWidth={100}
-                  minHeight={100}
-                  className="max-w-full"
-                >
-                  <img
-                    ref={imgRef}
-                    src={imageUrl}
-                    alt="Crop preview"
-                    style={{
-                      transform: `scale(${scale}) rotate(${rotate}deg) translate(${translateX}px, ${translateY}px)`,
-                      maxHeight: '250px',
-                      maxWidth: '100%',
-                      cursor: isDragging ? 'grabbing' : 'grab',
-                      touchAction: 'none',
-                      willChange: 'transform',
-                    }}
-                    onLoad={onImageLoad}
-                    onPointerDown={handlePointerDown}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={endPointer}
-                    onPointerCancel={endPointer}
-                    className="max-h-64 object-contain select-none"
-                    draggable={false}
-                  />
-                </ReactCrop>
+                {imageUrl ? (
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(_, percentCrop) => setCrop(percentCrop)}
+                    onComplete={(c) => setCompletedCrop(c)}
+                    aspect={1}
+                    circularCrop
+                    minWidth={100}
+                    minHeight={100}
+                    className="max-w-full inline-block"
+                  >
+                    <img
+                      ref={imgRef}
+                      src={imageUrl}
+                      alt="Crop preview"
+                      style={{
+                        transform: `scale(${scale}) rotate(${rotate}deg) translate(${translateX}px, ${translateY}px)`,
+                        maxHeight: '300px',
+                        maxWidth: '100%',
+                        cursor: isDragging ? 'grabbing' : 'grab',
+                        touchAction: 'none',
+                        willChange: 'transform',
+                      }}
+                      onLoad={onImageLoad}
+                      onPointerDown={handlePointerDown}
+                      onPointerMove={handlePointerMove}
+                      onPointerUp={endPointer}
+                      onPointerCancel={endPointer}
+                      className="object-contain select-none"
+                      draggable={false}
+                    />
+                  </ReactCrop>
+                ) : (
+                  <div className="w-64 h-64 mx-auto flex items-center justify-center bg-gray-100 rounded-lg">
+                    <p className="text-gray-400">No image selected</p>
+                  </div>
+                )}
               </div>
             </div>
             
             {/* Controls and Preview Layout */}
-            <div className="flex flex-col md:flex-row md:items-start gap-4">
+            <div className="flex flex-col md:flex-row md:items-start gap-4 mt-4">
               {/* Controls - Left Side */}
-              <div className="flex-1 space-y-3">
+              <div className="flex-1 space-y-4">
                 {/* Scale Control */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -208,7 +211,7 @@ export default function ImageCropModal({ isOpen, onClose, onCrop, imageFile }: I
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setScale(Math.max(0.5, scale - 0.1))}
-                      className="p-2 hover:bg-yellow-100 rounded-full transition-colors"
+                      className="p-2 hover:bg-[#D4AF37]/10 rounded-full transition-colors flex-shrink-0"
                       disabled={scale <= 0.5}
                     >
                       <ZoomOut size={16} />
@@ -224,7 +227,7 @@ export default function ImageCropModal({ isOpen, onClose, onCrop, imageFile }: I
                     />
                     <button
                       onClick={() => setScale(Math.min(3, scale + 0.1))}
-                      className="p-2 hover:bg-yellow-100 rounded-full transition-colors"
+                      className="p-2 hover:bg-[#D4AF37]/10 rounded-full transition-colors flex-shrink-0"
                       disabled={scale >= 3}
                     >
                       <ZoomIn size={16} />
@@ -240,7 +243,7 @@ export default function ImageCropModal({ isOpen, onClose, onCrop, imageFile }: I
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setRotate(rotate - 90)}
-                      className="p-2 hover:bg-yellow-100 rounded-full transition-colors"
+                      className="p-2 hover:bg-[#D4AF37]/10 rounded-full transition-colors flex-shrink-0"
                     >
                       <RotateCw size={16} />
                     </button>
@@ -255,7 +258,7 @@ export default function ImageCropModal({ isOpen, onClose, onCrop, imageFile }: I
                     />
                     <button
                       onClick={() => setRotate(rotate + 90)}
-                      className="p-2 hover:bg-yellow-100 rounded-full transition-colors"
+                      className="p-2 hover:bg-[#D4AF37]/10 rounded-full transition-colors flex-shrink-0"
                     >
                       <RotateCw size={16} className="rotate-180" />
                     </button>
@@ -272,21 +275,21 @@ export default function ImageCropModal({ isOpen, onClose, onCrop, imageFile }: I
               </div>
 
               {/* Crop Preview - Desktop Only */}
-              {completedCrop && (
-                <div className="hidden md:block flex-shrink-0">
+              {completedCrop && imageUrl && (
+                <div className="flex-shrink-0">
                   <p className="text-sm text-gray-600 mb-2 text-center">Crop Preview</p>
-                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-yellow-500">
+                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[#D4AF37] mx-auto">
                     <canvas
-                      width={80}
-                      height={80}
-                      className="w-20 h-20 object-cover"
+                      width={96}
+                      height={96}
+                      className="w-24 h-24 object-cover"
                       ref={(canvas) => {
                         if (canvas && imgRef.current && completedCrop) {
                           const ctx = canvas.getContext('2d');
                           if (ctx) {
                             const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
                             const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
-                            ctx.clearRect(0, 0, 80, 80);
+                            ctx.clearRect(0, 0, 96, 96);
                             ctx.drawImage(
                               imgRef.current,
                               completedCrop.x * scaleX,
@@ -295,8 +298,8 @@ export default function ImageCropModal({ isOpen, onClose, onCrop, imageFile }: I
                               completedCrop.height * scaleY,
                               0,
                               0,
-                              80,
-                              80
+                              96,
+                              96
                             );
                           }
                         }
@@ -323,14 +326,14 @@ export default function ImageCropModal({ isOpen, onClose, onCrop, imageFile }: I
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setScale(Math.max(0.5, scale - 0.2))}
-                className="px-3 py-1 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors text-sm"
+                className="px-3 py-1 bg-[#D4AF37] text-white rounded-md hover:bg-[#B8941F] transition-colors text-sm"
                 disabled={scale <= 0.5}
               >
                 -
               </button>
               <button
                 onClick={() => setScale(Math.min(3, scale + 0.2))}
-                className="px-3 py-1 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors text-sm"
+                className="px-3 py-1 bg-[#D4AF37] text-white rounded-md hover:bg-[#B8941F] transition-colors text-sm"
                 disabled={scale >= 3}
               >
                 +
@@ -339,8 +342,8 @@ export default function ImageCropModal({ isOpen, onClose, onCrop, imageFile }: I
             
             <button
               onClick={handleCrop}
-              disabled={!completedCrop || isProcessing}
-              className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              disabled={!completedCrop || isProcessing || !imageUrl}
+              className="px-6 py-2 bg-[#D4AF37] text-white rounded-lg hover:bg-[#B8941F] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               {isProcessing ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

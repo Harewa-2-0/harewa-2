@@ -102,7 +102,7 @@ const ColorPalette: React.FC<ColorPaletteProps> = ({ selectedColors, onColorSele
         <input
           type="text"
           placeholder="Add custom color (e.g., Gold, Navy)"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 text-black rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
           onKeyPress={(e) => {
             if (e.key === 'Enter') {
               const target = e.target as HTMLInputElement;

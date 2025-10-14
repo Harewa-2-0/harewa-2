@@ -59,19 +59,9 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  // Remove automatic cart fetching on drawer open to prevent flickering
-  // Cart data should already be available from Zustand state
-
-  // Remove artificial loading state to prevent flickering
-  // Cart should display immediately from Zustand state
-
-  // Removed window focus refresh to prevent unnecessary API calls
-
   // Prevent any automatic cart fetching while drawer is open
   useEffect(() => {
     if (isOpen) {
-      // Disable any automatic cart fetching while drawer is open
-      // This prevents the GET request from running before DELETE
       console.log('Cart drawer opened - preventing automatic fetches');
     }
   }, [isOpen]);
@@ -84,7 +74,6 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
       if (!item || !item.id) return;
       
       const productId = String(item.id);
-      // If item already exists, keep the existing one (don't add quantities)
       if (!productMap.has(productId)) {
         productMap.set(productId, { ...item });
       }
@@ -93,7 +82,6 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     return Array.from(productMap.values());
   }, [items]);
 
-  // Use optimistic counter for smooth UX during merge/refresh
   const totalItems = useCartTotalItemsOptimistic();
 
   const subtotal = useMemo(() => {
@@ -104,7 +92,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     }, 0);
   }, [uniqueItems]);
 
-  // Clear all toasts when cart opens to prevent spam
+  // Clear all toasts when cart opens
   useEffect(() => {
     if (isOpen) {
       clearToasts();
@@ -130,7 +118,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
         window.__scrollLockCount = 0;
       }
       
-      if (window.__scrollLockCount > 1) return; // already locked elsewhere
+      if (window.__scrollLockCount > 1) return;
       
       window.__scrollLockCount++;
       
@@ -158,7 +146,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
       
       window.__scrollLockCount--;
       
-      if (window.__scrollLockCount > 0) return; // still in use by another modal
+      if (window.__scrollLockCount > 0) return;
       
       const prev = window.__scrollLockPrev;
       if (prev) {
@@ -192,24 +180,15 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     
     try {
       setPendingOperations(prev => new Set(prev).add(id));
-      
-      // Update local state immediately for optimistic UI
       updateQuantity(id, qty);
       
-      // Quantity updated - no toast notification needed
-      
-      // Sync to server in background if authenticated
       if (isAuthenticated && cartId) {
         try {
-          // Use the truly optimistic UPDATE endpoint that uses local state
           const { updateProductQuantityOptimistic } = await import('@/services/cart');
           await updateProductQuantityOptimistic(cartId, id, qty, items);
-          // Don't refetch cart - trust the update operation succeeded
         } catch (serverError) {
           console.error('Failed to update quantity on server:', serverError);
-          // Revert the local state on server error
           addToast("Failed to update quantity on server. Please try again.", "error");
-          // Revert to server state by refetching cart
           await fetchCart();
         }
       }
@@ -227,24 +206,16 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   const onRemove = async (id: string) => {
     try {
-      // Update local state immediately for optimistic UI
       removeItem(id);
-      
-      // Show success toast immediately
       addToast("Item removed from cart", "success");
       
-      // Sync to server in background if authenticated
       if (isAuthenticated && cartId) {
         try {
-          // Use the optimistic DELETE endpoint that doesn't fetch cart first
           const { removeProductFromCartById } = await import('@/services/cart');
           await removeProductFromCartById(cartId, id);
-          // Don't refetch cart - trust the delete operation succeeded
         } catch (serverError) {
           console.error('Failed to remove item from server:', serverError);
-          // Revert the local state on server error
           addToast("Failed to remove item from server. Please try again.", "error");
-          // Re-add the item to local state by refetching cart
           await fetchCart();
         }
       }
@@ -256,10 +227,8 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   const onClearCart = async () => {
     try {
-      // Update local state immediately
       clearCart();
       
-      // Sync to server if authenticated
       if (isAuthenticated) {
         await syncToServer();
       }
@@ -271,8 +240,14 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     }
   };
 
+  // UPDATED: Same checkout logic as cart page
   const handleCheckout = async () => {
     if (isCreatingOrder) return;
+    
+    if (uniqueItems.length === 0) {
+      addToast("Your cart is empty. Add some items before checkout.", "error");
+      return;
+    }
     
     try {
       setIsCreatingOrder(true);
@@ -286,27 +261,40 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
       }
 
       // Check for pending orders first
+      console.log('[CartDrawer] Checking for pending orders...');
       const existingPendingOrder = await fetchPendingOrder();
+      console.log('[CartDrawer] Pending order result:', existingPendingOrder);
       
       if (existingPendingOrder) {
-        // Show modal for pending order
+        // FIXED: Show modal instead of navigating directly
+        console.log('[CartDrawer] Found pending order, showing modal');
+        setCurrentOrder(existingPendingOrder);
         setShowPendingOrderModal(true);
         setIsCreatingOrder(false);
+        console.log('[CartDrawer] Modal state set to:', true);
         return;
       }
+      
+      console.log('[CartDrawer] No pending order, creating new one...');
 
       // No pending order, proceed with creating new order
       const result = await createOrderFromCart();
       const errMsg = (result.error || '').toLowerCase();
 
-      if (result.success) {
+      if (result.success && result.order) {
+        console.log('[CartDrawer] New order created:', result.order);
+        // CRITICAL: Set the new order as current order before navigation
+        setCurrentOrder(result.order);
+        
+        // Wait for store to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         addToast('Order created successfully! Please complete payment to confirm your order.', 'success');
         setIsOpen?.(false);
         router.push('/checkout');
         return;
       }
 
-      // Error handling by code/message
       if (result.errorCode === 'NO_ADDRESS' || errMsg.includes('no delivery address')) {
         addToast('Add a delivery address to your profile before checkout', 'error');
         setIsOpen?.(false);
@@ -319,21 +307,62 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
         errMsg.includes('already exists') ||
         errMsg.includes('exists for this cart')
       ) {
-        addToast('Order already exists for this cart. Proceeding to payment.', 'error');
-        setIsOpen?.(false);
-        router.push('/checkout');
+        console.log('[CartDrawer] Duplicate order detected, fetching existing order...');
+        const existingOrder = await fetchPendingOrder();
+        console.log('[CartDrawer] Fetched existing order:', existingOrder);
+        
+        const { allOrders } = useOrderStore.getState();
+        console.log('[CartDrawer] All orders in store:', allOrders);
+        
+        if (existingOrder) {
+          setCurrentOrder(existingOrder);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          addToast('Continuing with existing order', 'info');
+          setIsOpen?.(false);
+          router.push('/checkout');
+        } else if (allOrders.length > 0) {
+          const mostRecentOrder = allOrders[0];
+          console.log('[CartDrawer] No pending order found, using most recent:', mostRecentOrder);
+          setCurrentOrder(mostRecentOrder);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          addToast('Continuing with existing order', 'info');
+          setIsOpen?.(false);
+          router.push('/checkout');
+        } else {
+          addToast('Order already exists but could not be found. Please try again.', 'error');
+        }
         return;
       }
 
-      // Special-case generic 400s that surface as "Bad Request" (treat like duplicate)
       if (errMsg === 'bad request') {
-        addToast('Order already exists for this cart. Proceeding to payment.', 'error');
-        setIsOpen?.(false);
-        router.push('/checkout');
+        console.log('[CartDrawer] Bad request (likely duplicate), fetching existing order...');
+        const existingOrder = await fetchPendingOrder();
+        console.log('[CartDrawer] Fetched existing order:', existingOrder);
+        
+        const { allOrders } = useOrderStore.getState();
+        console.log('[CartDrawer] All orders in store:', allOrders);
+        
+        if (existingOrder) {
+          setCurrentOrder(existingOrder);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          addToast('Continuing with existing order', 'info');
+          setIsOpen?.(false);
+          router.push('/checkout');
+        } else if (allOrders.length > 0) {
+          const mostRecentOrder = allOrders[0];
+          console.log('[CartDrawer] No pending order found, using most recent:', mostRecentOrder);
+          setCurrentOrder(mostRecentOrder);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          addToast('Continuing with existing order', 'info');
+          setIsOpen?.(false);
+          router.push('/checkout');
+        } else {
+          addToast('Order already exists but could not be found. Please try again.', 'error');
+        }
         return;
       }
 
-      // Generic failure: prefer server message; fall back to network message
+      // Generic failure
       if (result.errorCode === 'NETWORK_ERROR') {
         addToast('Order failed. Check your network and try again.', 'error');
       } else if (result.error && result.error.trim().length > 0) {
@@ -357,22 +386,56 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
       setCurrentOrder(pendingOrder);
       setIsOpen?.(false);
       setShowPendingOrderModal(false);
+      addToast('Continuing with existing order', 'info');
       router.push('/checkout');
     }
   };
 
-  const handleStartNewOrder = () => {
-    // This will be handled by the modal component
-    setIsOpen?.(false);
+  const handleStartNewOrder = async () => {
     setShowPendingOrderModal(false);
+    setIsCreatingOrder(true);
+    
+    try {
+      const result = await createOrderFromCart();
+      const errMsg = (result.error || '').toLowerCase();
+
+      if (result.success && result.order) {
+        console.log('[CartDrawer] New order created:', result.order);
+        setCurrentOrder(result.order);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        addToast('New order created successfully!', 'success');
+        setIsOpen?.(false);
+        router.push('/checkout');
+        return;
+      }
+
+      if (result.errorCode === 'NO_ADDRESS' || errMsg.includes('no delivery address')) {
+        addToast('Add a delivery address to your profile before checkout', 'error');
+        setIsOpen?.(false);
+        router.push('/profile');
+        return;
+      }
+
+      if (result.errorCode === 'NETWORK_ERROR') {
+        addToast('Order failed. Check your network and try again.', 'error');
+      } else if (result.error && result.error.trim().length > 0) {
+        addToast(result.error, 'error');
+      } else {
+        addToast('Failed to create new order', 'error');
+      }
+    } catch (error) {
+      console.error('Error creating new order:', error);
+      addToast('Failed to create new order', 'error');
+    } finally {
+      setIsCreatingOrder(false);
+    }
   };
 
   if (!isOpen) return null;
 
-  // Use portal to render at root level to avoid stacking context issues
   const cartDrawer = (
     <div className="fixed inset-0 z-[99999]" style={{ zIndex: 99999 }}>
-      {/* Overlay: subtle dark, click to close */}
+      {/* Overlay */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -409,14 +472,12 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
         <div className="flex-1 overflow-hidden flex flex-col">
           {uniqueItems.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-              {/* Illustration */}
               <div className="mx-auto mb-6 flex h-32 w-32 items-center justify-center">
                 <Image
                   src="/unauthorized.png"
                   alt="Empty Cart"
                   width={128}
                   height={128}
-                  className=""
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none';
                   }}
@@ -443,7 +504,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                     const image = item.image || '/placeholder.png';
                     const itemPrice = typeof item.price === 'number' ? item.price : 0;
                     const itemTotal = itemPrice * item.quantity;
-                    const originalPrice = itemPrice * 1.75; // Mock original price (75% higher)
+                    const originalPrice = itemPrice * 1.75;
                     const savings = originalPrice - itemTotal;
                     const isPending = pendingOperations.has(item.id);
 
@@ -457,18 +518,15 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                         className="bg-white"
                       >
                         <div className="flex gap-4">
-                          {/* Product Image */}
                           <div className="w-20 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                             <img src={image} alt={name} className="w-full h-full object-cover" />
                           </div>
 
-                          {/* Product Details */}
                           <div className="flex-1 min-w-0">
                             <h3 className="text-sm font-medium text-gray-900 mb-2 line-clamp-2">
                               {name}
                             </h3>
 
-                            {/* Pricing */}
                             <div className="mb-2">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-bold text-red-600">
@@ -480,12 +538,10 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                               </div>
                             </div>
 
-                            {/* Size */}
                             <div className="mb-3">
                               <span className="text-xs text-gray-600">Size: M</span>
                             </div>
 
-                            {/* Quantity Controls */}
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <button
@@ -509,7 +565,6 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                                 </button>
                               </div>
 
-                              {/* Remove Button - Dustbin */}
                               <button
                                 onClick={() => onRemove(item.id)}
                                 className="w-8 h-8 border border-red-200 rounded-full flex items-center justify-center hover:bg-red-50 hover:border-red-300 transition-colors"
@@ -529,7 +584,6 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
               {/* Cart Summary */}
               <div className="border-t border-gray-200 p-6 space-y-4">
-                {/* Guest User Notice */}
                 {!isAuthenticated && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
                     <div className="flex items-center gap-2">
@@ -549,7 +603,6 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                   <span className="text-lg font-bold text-red-600">{formatPrice(subtotal)}</span>
                 </div>
 
-                {/* Calculate total savings */}
                 {(() => {
                   const totalOriginalPrice = uniqueItems.reduce((total, item) => {
                     const itemPrice = typeof item.price === 'number' ? item.price : 0;
@@ -607,7 +660,6 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     </div>
   );
 
-  // Render using portal to ensure it's at the root level
   return typeof window !== 'undefined' 
     ? createPortal(
         <>

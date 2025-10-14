@@ -59,7 +59,7 @@ export default function DeleteAccountSection() {
               placeholder="Type DELETE to confirm"
               value={confirmationText}
               onChange={(e) => setConfirmationText(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
+              className={`w-full px-3 py-2 text-black border rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
                 confirmationText === 'DELETE' 
                   ? 'border-green-500 focus:ring-green-500 focus:border-green-500' 
                   : 'border-gray-300 focus:ring-red-500 focus:border-red-500'

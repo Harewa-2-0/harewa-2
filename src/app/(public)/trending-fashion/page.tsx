@@ -22,7 +22,7 @@ export default function TrendingFashionPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Page Header */}
-      <div className="bg-white shadow-sm pt-16">
+      <div className="bg-white shadow-sm pt-24">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4">

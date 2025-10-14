@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { Star } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/toast-context';
+import { useAuthStore } from '@/store/authStore';
 import { createCustomization, type CustomizationInput } from '@/services/customization';
+import { ApiError } from '@/utils/api';
 import OutfitSelector from './OutfitSelector';
 import FabricTypeDropdown from './FabricTypeDropdown';
 import ColorPalette from './ColorPalette';
@@ -34,6 +37,8 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
 
   const { addToast } = useToast();
+  const { isAuthenticated } = useAuthStore();
+  const router = useRouter();
 
   const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
 
@@ -106,6 +111,16 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
 
     } catch (error) {
       console.error('Failed to submit customization:', error);
+      
+      // Handle specific error cases
+      if (error instanceof ApiError) {
+        if (error.status === 403) {
+          addToast('You do not have permission to submit customization requests.', 'error');
+          return;
+        }
+      }
+      
+      // Generic error message
       addToast('Failed to submit customization request. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
@@ -196,7 +211,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
               value={additionalNotes}
               onChange={(e) => setAdditionalNotes(e.target.value)}
               placeholder="Add any specific requirements or modifications..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent resize-none"
+              className="w-full px-4 py-3 text-black border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent resize-none"
               rows={3}
             />
           </div>
@@ -217,8 +232,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span className="ml-2">Submitting...</span>
-              </div>
+                </div>
             ) : (
               'CUSTOMIZE'
             )}
