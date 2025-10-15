@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { Fabric } from "@/lib/models/Fabric";
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
