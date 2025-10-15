@@ -3,10 +3,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, Suspense } from 'react';
 import { useAuthStore } from '@/store/authStore';
 
-export default function AdminUnauthorizedPage() {
+function AdminUnauthorizedContent() {
   const router = useRouter();
   const search = useSearchParams();
   const pathname = usePathname();
@@ -72,7 +72,7 @@ export default function AdminUnauthorizedPage() {
 
             {/* Subcopy */}
             <p className="mt-3 text-gray-600 leading-relaxed">
-              {reason} You’re signed in as an <span className="font-medium">admin</span>.
+              {reason} You're signed in as an <span className="font-medium">admin</span>.
               {from && (
                 <>
                   {' '}You tried to open{' '}
@@ -107,5 +107,17 @@ export default function AdminUnauthorizedPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function AdminUnauthorizedPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    }>
+      <AdminUnauthorizedContent />
+    </Suspense>
   );
 }

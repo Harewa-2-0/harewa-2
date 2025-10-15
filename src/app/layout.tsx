@@ -11,17 +11,22 @@ import AuthDebug from "@/components/Public_C/auth-debug";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
+  fallback: ["system-ui", "arial"],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
+  fallback: ["ui-monospace", "monospace"],
 });
 
 const mulish = Mulish({
   variable: "--font-mulish",
   subsets: ["latin"],
   display: "swap",
+  fallback: ["system-ui", "sans-serif"],
 });
 
 export const metadata: Metadata = {

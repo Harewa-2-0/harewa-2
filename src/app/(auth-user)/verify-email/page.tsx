@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { Mail } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '../../../store/authStore';
@@ -12,7 +12,7 @@ interface VerifyEmailPageProps {
   email?: string;
 }
 
-export default function VerifyEmailPage({ email: emailProp }: VerifyEmailPageProps) {
+function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addToast } = useToast();
@@ -342,5 +342,21 @@ export default function VerifyEmailPage({ email: emailProp }: VerifyEmailPagePro
         </div>
       </div>
     </div>
+  );
+}
+
+// Wrapper component with Suspense boundary
+export default function VerifyEmailPage({ email }: VerifyEmailPageProps) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <VerifyEmailContent email={email} />
+    </Suspense>
   );
 }
