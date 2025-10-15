@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // GET /api/wa
 // Get my wallet details
 import { NextRequest } from "next/server";

@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // POST /api/wallet/receipt
 // Send receipt for a specific transaction
 import { NextRequest } from "next/server";
