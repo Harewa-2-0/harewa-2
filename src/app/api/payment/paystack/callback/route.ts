@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import axios from "axios";
 import connectDB from "@/lib/db";
 import { ok, badRequest, serverError, notFound } from "@/lib/response";

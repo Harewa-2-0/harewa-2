@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { Order } from "@/lib/models/Order";
 import { Product } from "@/lib/models/Product";
 import { NextRequest } from "next/server";
