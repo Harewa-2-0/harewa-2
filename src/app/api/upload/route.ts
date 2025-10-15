@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextRequest } from "next/server";
 import { uploadSingleFile } from "@/lib/upload";
 import { uploaded } from "@/lib/response";
