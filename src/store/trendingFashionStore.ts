@@ -81,7 +81,10 @@ export const useTrendingFashionStore = create<TrendingFashionState>()(
 
       fetchCategories: async () => {
         const state = get();
-        if (state.isLoadingCategories || state.hasCategoriesLoaded) return;
+        
+        if (state.isLoadingCategories) {
+          return;
+        }
 
         set({ isLoadingCategories: true, error: null });
 
@@ -115,8 +118,33 @@ export const useTrendingFashionStore = create<TrendingFashionState>()(
 
       initializeData: async () => {
         const state = get();
-        if (state.hasInitialized && state.hasCategoriesLoaded) {
+        
+        // Prevent multiple simultaneous initialization calls
+        if (state.isLoading || state.isLoadingCategories) {
           return;
+        }
+        
+        // Check if we need to fetch fresh data
+        const needsCategoriesFetch = 
+          !state.hasCategoriesLoaded ||
+          state.categories.length === 0 || 
+          state.categories[0]?._id?.startsWith('fallback-');
+        
+        const needsProductsFetch = 
+          !state.hasInitialized ||
+          state.allProducts.length === 0;
+        
+        if (!needsCategoriesFetch && !needsProductsFetch) {
+          get().filterProductsByCategory(state.activeCategory);
+          return;
+        }
+        
+        // Reset loading flags to allow fresh fetch
+        if (needsCategoriesFetch) {
+          set({ hasCategoriesLoaded: false, isLoadingCategories: false });
+        }
+        if (needsProductsFetch) {
+          set({ hasInitialized: false, isLoading: false });
         }
         
         // Fetch both categories and products in parallel
@@ -134,7 +162,10 @@ export const useTrendingFashionStore = create<TrendingFashionState>()(
 
       fetchAllProducts: async () => {
         const state = get();
-        if (state.isLoading || state.hasInitialized) return;
+        
+        if (state.isLoading) {
+          return;
+        }
 
         set({ isLoading: true, error: null });
 
@@ -148,7 +179,6 @@ export const useTrendingFashionStore = create<TrendingFashionState>()(
             error: null
           });
           
-          // Products loaded, filtering will be handled by initializeData
         } catch (error) {
           console.error('Failed to fetch products:', error);
           set({ 
@@ -178,7 +208,6 @@ export const useTrendingFashionStore = create<TrendingFashionState>()(
         set({ filteredProducts: limitedProducts });
       },
 
-
       setLoading: (loading: boolean) => set({ isLoading: loading }),
       setError: (error: string | null) => set({ error }),
       clearError: () => set({ error: null }),
@@ -198,10 +227,9 @@ export const useTrendingFashionStore = create<TrendingFashionState>()(
     {
       name: 'trending-fashion-store',
       partialize: (state) => ({
-        // Only persist the essential data, not loading states
-        allProducts: state.allProducts,
+        // Persist only the active category preference
+        // Don't persist data to avoid stale data issues in production
         activeCategory: state.activeCategory,
-        hasInitialized: state.hasInitialized,
       }),
     }
   )
