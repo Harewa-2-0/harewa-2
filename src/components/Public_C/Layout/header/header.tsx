@@ -146,7 +146,7 @@ export default function Header() {
           </div>
 
           {/* Mobile Right (Avatar circle first, then Cart) */}
-          <div className="md:hidden flex items-center gap-3">
+          <div className="md:hidden flex items-center gap-6">
             {isReady && isLoggedIn && <UserMenu desktop={false} />}
             <CartButton size={24} getCartIconUrl={getCartUrl} preflight={false} />
             <button

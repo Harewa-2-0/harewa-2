@@ -5,8 +5,7 @@ import AuthBootstrap from "./auth-bootstrap";
 import { CartHydrationWithErrorBoundary } from "@/components/Public_C/cart/cart-hydration";
 import ToastContainer from '@/components/ui/toast-container';
 import { ToastProvider } from '@/contexts/toast-context';
-import AuthDebug from "@/components/Public_C/auth-debug";
-
+//import AuthDebug from "@/components/Public_C/auth-debug";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,14 +52,14 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL("https://harewa.com"),
+  metadataBase: new URL("https://harewa-2.vercel.app"),
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://harewa.com",
+    url: "https://harewa-2.vercel.app",
     title: "HAREWA – Where Innovation Meets Fashion",
     description:
       "Your premier destination where cutting-edge technology meets the vibrant world of fashion. Discover trends, shop ready-to-wear, explore fabrics, and get AI-powered style recommendations.",
