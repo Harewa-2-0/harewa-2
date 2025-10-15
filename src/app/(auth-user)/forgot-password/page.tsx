@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -213,5 +213,17 @@ export default function ForgotPasswordPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen justify-center items-center bg-white">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    }>
+      <ForgotPasswordContent />
+    </Suspense>
   );
 }
