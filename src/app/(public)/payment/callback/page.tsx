@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrderStore } from '@/store/orderStore';
 import { useToast } from '@/contexts/toast-context';
 
-export default function PaymentCallback() {
+function PaymentCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { clearCurrentOrder, fetchPendingOrder, fetchAllOrders } = useOrderStore();
@@ -133,5 +133,17 @@ export default function PaymentCallback() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PaymentCallback() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#D4AF37]"></div>
+      </div>
+    }>
+      <PaymentCallbackContent />
+    </Suspense>
   );
 }
