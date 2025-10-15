@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // app/api/auth/reset-password/route.ts
 
 import { NextRequest, NextResponse } from "next/server";

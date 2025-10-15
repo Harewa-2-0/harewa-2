@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { Wishlist } from "@/lib/models/Wishlist";
 import { Product } from "@/lib/models/Product";
 import dbConnect from "@/lib/db";

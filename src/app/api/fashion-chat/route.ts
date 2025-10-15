@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // app/api/fashion-chat/route.ts
 import { FashionChat } from "@/lib/models/FashionChat";
 import dbConnect from "@/lib/db";
