@@ -9,6 +9,7 @@ import { Cart } from "@/lib/models/Cart";
 import { initializePayment2 } from "@/lib/paystack";
 import { deductFunds } from "@/lib/wallet";
 import { getUserFromUserid } from "@/lib/utils";
+import { createCheckoutSession } from "@/lib/stripe";
 
 export async function POST(request: NextRequest) {
     try {
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
             return ok({ success: true, message: "Funds deducted from wallet" });
         }
         //pay with paystack gateway
-        if (body.type == "gateway") {
+        if (body.type == "paystack-gateway") {
 
             const order = await Order.findOne({ _id: body.orderId, user: user.sub })
                 .populate({
@@ -86,6 +87,51 @@ export async function POST(request: NextRequest) {
                 order.amount,
                 { items: order.carts.products, type: "order", amount: order.amount, uuid, orderId: order._id },
             );
+            // console.log("Payment initialized:", paymentInit);
+            return ok({
+                success: true,
+                message: "Payment initialized",
+                data: paymentInit,
+            });
+        }
+        if (body.type == "stripe-gateway") {
+
+            const order = await Order.findOne({ _id: body.orderId, user: user.sub })
+                .populate({
+                    path: "carts",
+                    model: Cart,
+                    populate: {
+                        path: "products.product",
+                        model: Product
+                    }
+                });
+
+            if (order.status !== "pending" && order.status !== "initiated") {
+                return badRequest("Order already processed");
+            }
+            if (!order) {
+                return badRequest("Order not found");
+            }
+            if (order) {
+                order.status = "initiated";
+                await order.save();
+            }
+            console.log("Order to be paid:", order);
+
+            const paymentInit = await createCheckoutSession({
+                amount: order.amount,
+                email: user.email,
+                successUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+                cancelUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/cancel`,
+                metadata: {
+                    items: order.items || [], // optional, can stringify later
+                    type: "order",
+                    amount: order.amount,
+                    uuid: user.sub,
+                    orderId: order.id,
+                },
+            });
+
             // console.log("Payment initialized:", paymentInit);
             return ok({
                 success: true,
