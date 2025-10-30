@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { CustomRequest } from "@/lib/models/CustomRequest";
 import dbConnect from "@/lib/db";
 import { requireAuth } from "@/lib/middleware/requireAuth";

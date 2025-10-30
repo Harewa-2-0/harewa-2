@@ -15,8 +15,6 @@ interface AuthFormProps {
   onSubmit: (e: React.FormEvent) => void;
   isDisabled: boolean;
   isLoading: boolean;
-  loginError?: string | null;
-  showSuccess?: boolean;
 }
 
 export default function AuthForm({
@@ -25,27 +23,12 @@ export default function AuthForm({
   onSubmit,
   isDisabled,
   isLoading,
-  loginError,
-  showSuccess,
 }: AuthFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState("");
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      {/* Error */}
-      {loginError && (
-        <div className="w-full text-center text-red-600 font-medium mb-2 animate-fade-in bg-red-50 border border-red-200 rounded-lg py-3 px-4">
-          {loginError}
-        </div>
-      )}
-
-      {/* Success */}
-      {showSuccess && (
-        <div className="w-full text-center font-medium mb-4 animate-fade-in text-[#11E215] bg-green-50 border border-green-200 rounded-lg py-3 px-4">
-          ✅ Login successful! Redirecting...
-        </div>
-      )}
 
       {/* Email */}
       <div className="relative">

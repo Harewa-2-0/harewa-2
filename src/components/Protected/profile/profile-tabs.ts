@@ -1,11 +1,12 @@
-import { User, Package, Activity, Heart, LogOut } from 'lucide-react';
+import { User, Package, Activity, Heart, Trash2, LogOut } from 'lucide-react';
 
 export const menuItems = [
   { id: 'orders', label: 'My Orders', icon: Package, active: true },
   { id: 'activity', label: 'Activity feed', icon: Activity, active: false },
   { id: 'wishlist', label: 'Wishlist', icon: Heart, active: false },
   { id: 'info', label: 'My info', icon: User, active: false },
-  { id: 'logout', label: 'Sign Out', icon: LogOut, active: false, isLogout: true }
+  { id: 'logout', label: 'Logout', icon: LogOut, active: false },
+  { id: 'delete-account', label: 'Delete Account', icon: Trash2, active: false }
 ];
 
 export const orderTabs = [

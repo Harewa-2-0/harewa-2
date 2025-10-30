@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
 import { ok, badRequest, serverError } from "@/lib/response";
