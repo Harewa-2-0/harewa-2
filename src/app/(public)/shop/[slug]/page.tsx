@@ -1,12 +1,13 @@
-"use client"
+"use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAuthStore } from '@/store/authStore';
+import { api } from '@/utils/api'; // ✅ Use your API utility
 import ProductBreadcrumb from '@/components/Public_C/Ready_To_Wear/ProductBreadcrumb';
 import ProductImageGallery from '@/components/Public_C/Ready_To_Wear/ProductImageGallery';
 import ProductCheckoutCard from '@/components/Public_C/Ready_To_Wear/ProductCheckoutCard';
 import RecommendedProducts from '@/components/Public_C/Ready_To_Wear/RecommendedProducts';
 
-// Types
 interface Product {
   _id: string;
   name: string;
@@ -51,64 +52,70 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
   const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const { isAuthenticated } = useAuthStore();
 
-  // Fetch product data
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         setLoading(true);
-        
-        // Fetch individual product
-        const productResponse = await fetch(`/api/product/${resolvedParams.slug}`);
-        if (!productResponse.ok) {
+
+        // ✅ Fetch both in parallel using Promise.all
+        const [productData, allProductsData] = await Promise.all([
+          // Fetch single product
+          api<any>(`/api/product/${resolvedParams.slug}`).catch(() => null),
+          // Fetch all products (your api.ts will deduplicate if called elsewhere)
+          api<any>('/api/product').catch(() => [])
+        ]);
+
+        // Handle product data
+        if (!productData) {
           throw new Error('Product not found');
         }
-        const productResponseData = await productResponse.json();
-        
-        // Handle the API response structure: { success: true, data: { product } }
-        if (productResponseData.success && productResponseData.data) {
-          setProduct(productResponseData.data);
-        } else {
+
+        const product = productData.success && productData.data 
+          ? productData.data 
+          : productData;
+
+        if (!product || !product._id) {
           throw new Error('Invalid product data format');
         }
-        
-        // Fetch recommended products
-        const recommendedResponse = await fetch('/api/product');
-        if (recommendedResponse.ok) {
-          const recommendedData = await recommendedResponse.json();
-          
-          // Handle different API response structures
-          let productsArray: Product[] = [];
-          if (recommendedData.success && recommendedData.data) {
-            productsArray = recommendedData.data;
-          } else if (Array.isArray(recommendedData)) {
-            productsArray = recommendedData;
-          }
-          
-          // Filter out current product and take first 8
-          const filtered = productsArray.filter((p: Product) => p._id !== resolvedParams.slug).slice(0, 8);
-          setRecommendedProducts(filtered);
+
+        setProduct(product);
+
+        // Handle recommendations
+        let productsArray: Product[] = [];
+        if (allProductsData?.success && allProductsData?.data) {
+          productsArray = allProductsData.data;
+        } else if (Array.isArray(allProductsData)) {
+          productsArray = allProductsData;
         }
+
+        // Filter out current product and limit to 8
+        const filtered = productsArray
+          .filter((p: Product) => p._id !== resolvedParams.slug)
+          .slice(0, 8);
+
+        setRecommendedProducts(filtered);
+
       } catch (err) {
+        console.error('[ProductDetails] Error:', err);
         setError(err instanceof Error ? err.message : 'Failed to load product');
       } finally {
         setLoading(false);
       }
     };
 
-    if (resolvedParams.slug) {
-      fetchProduct();
-    }
+    if (resolvedParams.slug) fetchProduct();
   }, [resolvedParams.slug]);
 
-  const handleAddToCart = () => {
-    if (!selectedSize) {
-      alert('Please select a size');
-      return;
+  const handleAddToCart = async () => {
+    setIsAddingToCart(true);
+    try {
+      // Cart logic handled by child component
+    } finally {
+      setIsAddingToCart(false);
     }
-    // Add to cart logic
-    console.log('Added to cart:', { productId: product?._id, size: selectedSize });
-    alert('Added to cart!');
   };
 
   const toggleLike = () => setIsLiked((prev) => !prev);
@@ -118,7 +125,6 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading product...</p>
         </div>
       </div>
     );
@@ -139,17 +145,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Breadcrumb */}
       <ProductBreadcrumb productName={product.name} gender={product.gender} />
-      
-      {/* Main Content */}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        {/* Desktop Layout */}
+        {/* Desktop */}
         <div className="hidden lg:block">
           <div className="grid grid-cols-12 gap-8">
-            {/* Left Column - Images */}
-            <div className="col-span-8">
-              {/* Image Gallery */}
+            <div className="col-span-7">
               <ProductImageGallery
                 images={product.images || []}
                 selectedImageIndex={selectedImageIndex}
@@ -157,13 +159,12 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
                 productName={product.name}
               />
             </div>
-            
-            {/* Right Column - Checkout Card */}
-            <div className="col-span-4">
+            <div className="col-span-5">
               <ProductCheckoutCard
                 product={product}
                 selectedSize={selectedSize}
                 isLiked={isLiked}
+                isAddingToCart={isAddingToCart}
                 onSizeSelect={setSelectedSize}
                 onAddToCart={handleAddToCart}
                 onToggleLike={toggleLike}
@@ -172,30 +173,27 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
           </div>
         </div>
 
-        {/* Mobile Layout */}
+        {/* Mobile */}
         <div className="lg:hidden">
           <div className="flex flex-col lg:flex-row gap-10">
-            {/* Image Gallery */}
             <ProductImageGallery
               images={product.images || []}
               selectedImageIndex={selectedImageIndex}
               onImageSelect={setSelectedImageIndex}
               productName={product.name}
             />
-            
-            {/* Checkout Card */}
             <ProductCheckoutCard
               product={product}
               selectedSize={selectedSize}
               isLiked={isLiked}
+              isAddingToCart={isAddingToCart}
               onSizeSelect={setSelectedSize}
               onAddToCart={handleAddToCart}
               onToggleLike={toggleLike}
             />
           </div>
         </div>
-        
-        {/* Recommended Products */}
+
         <RecommendedProducts products={recommendedProducts} />
       </div>
     </div>

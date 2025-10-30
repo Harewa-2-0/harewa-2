@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { Order } from "@/lib/models/Order";
 import { User } from "@/lib/models/User";
 import { Profile } from "@/lib/models/Profile";

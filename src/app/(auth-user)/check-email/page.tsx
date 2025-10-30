@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 
-const CheckEmail = () => {
+function CheckEmailContent() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('user@example.com');
 
@@ -20,8 +20,6 @@ const CheckEmail = () => {
 
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen px-4 py-10 bg-white font-sans">
-      
-
       {/* Logo */}
       <div className="absolute top-4 left-4">
         <Image src="/logo.webp" alt="logo" width={120} height={40} />
@@ -80,6 +78,18 @@ const CheckEmail = () => {
       </div>
     </div>
   );
+}
+
+const CheckEmail = () => {
+  return (
+    <Suspense fallback={
+      <div className="relative flex flex-col items-center justify-center min-h-screen px-4 py-10 bg-white">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    }>
+      <CheckEmailContent />
+    </Suspense>
+  );
 };
 
-export default CheckEmail; 
+export default CheckEmail;

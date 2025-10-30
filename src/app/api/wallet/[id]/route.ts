@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { Wallet } from "@/lib/models/Wallet";
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";

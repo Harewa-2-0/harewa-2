@@ -1,0 +1,483 @@
+/* ===========================
+   Print-specific styles for order documents
+   =========================== */
+
+/* Base print styles */
+@media print {
+    .order-print-container {
+      width: 100% !important;
+      max-width: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+      color: black !important;
+      font-family: 'Arial', 'Helvetica', sans-serif !important;
+      font-size: 12pt !important;
+      line-height: 1.4 !important;
+    }
+  
+    .print-content {
+      width: 100% !important;
+      max-width: 8.5in !important;
+      margin: 0 auto !important;
+      padding: 0.5in !important;
+    }
+  
+    /* Hide non-printable elements */
+    .no-print,
+    .print-button,
+    .admin-actions,
+    .expand-button,
+    .print-modal-overlay {
+      display: none !important;
+    }
+  
+    /* Page breaks */
+    .page-break {
+      page-break-before: always !important;
+    }
+  
+    .avoid-break {
+      page-break-inside: avoid !important;
+    }
+  
+    /* Force white page background */
+    html, body {
+      background: #ffffff !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+  
+  /* ===========================
+     Screen styles for print preview
+     =========================== */
+  .order-print-container {
+    background: white;
+    color: #333;
+    font-family: 'Arial', 'Helvetica', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 8.5in;
+    margin: 0 auto;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .print-content {
+    width: 100%;
+  }
+  
+  /* Header Styles */
+  .print-header {
+    margin-bottom: 30px;
+    border-bottom: 2px solid #D4AF37;
+    padding-bottom: 20px;
+  }
+  
+  .company-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+  }
+  
+  .company-logo {
+    flex: 1;
+  }
+  
+.logo-container {
+  margin-bottom: 10px;
+}
+
+.company-logo-image {
+  max-width: 180px;
+  height: auto;
+  object-fit: contain;
+}
+  
+  
+  .order-info {
+    text-align: right;
+    flex: 1;
+  }
+  
+  .order-title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+    margin: 0 0 15px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  
+  .order-details {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .order-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-width: 200px;
+  }
+  
+  .order-detail-row .label {
+    font-weight: 600;
+    color: #666;
+    margin-right: 10px;
+  }
+  
+  .order-detail-row .value {
+    font-weight: 500;
+    color: #333;
+  }
+  
+  .order-detail-row .value.status {
+    background: #D4AF37;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+  
+  .order-detail-row .value.total {
+    font-weight: bold;
+    font-size: 16px;
+    color: #D4AF37;
+  }
+  
+  /* Customer Section */
+  .customer-section {
+    margin-top: 20px;
+  }
+  
+  .section-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    margin: 0 0 15px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+  }
+  
+  .customer-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .customer-detail-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .customer-detail-row .label {
+    font-weight: 600;
+    color: #666;
+    min-width: 120px;
+  }
+  
+  .customer-detail-row .value {
+    color: #333;
+    flex: 1;
+  }
+  
+  /* Items Section */
+  .print-items-section {
+    margin: 30px 0;
+  }
+  
+  .items-table-container {
+    overflow-x: auto;
+    margin-top: 15px;
+  }
+  
+  .items-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #ddd;
+  }
+  
+  .items-table th {
+    background: #f8f9fa;
+    color: #333;
+    font-weight: bold;
+    text-align: left;
+    padding: 12px 8px;
+    border: 1px solid #ddd;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .items-table td {
+    padding: 10px 8px;
+    border: 1px solid #ddd;
+    font-size: 12px;
+  }
+  
+  .item-row:nth-child(even) {
+    background: #f9f9f9;
+  }
+  
+  .item-row:hover {
+    background: #f0f0f0;
+  }
+  
+  .col-number {
+    width: 40px;
+    text-align: center;
+  }
+  
+  .col-sku {
+    width: 80px;
+  }
+  
+  .col-name {
+    width: auto;
+    font-weight: 500;
+  }
+  
+  .col-price,
+  .col-quantity,
+  .col-discount,
+  .col-total {
+    width: 80px;
+    text-align: right;
+  }
+  
+  .no-items-row {
+    text-align: center;
+  }
+  
+  .no-items-message {
+    color: #666;
+    font-style: italic;
+    padding: 20px;
+  }
+  
+  /* Summary Section */
+  .print-summary-section {
+    margin: 30px 0;
+  }
+  
+  .summary-container {
+    max-width: 400px;
+    margin-left: auto;
+    background: #f8f9fa;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+  }
+  
+  .summary-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+  }
+  
+  .summary-label {
+    font-weight: 500;
+    color: #666;
+  }
+  
+  .summary-value {
+    font-weight: 500;
+    color: #333;
+  }
+  
+  .total-row {
+    border-top: 2px solid #D4AF37;
+    margin-top: 10px;
+    padding-top: 15px;
+  }
+  
+  .total-row .summary-label,
+  .total-row .summary-value {
+    font-weight: bold;
+    font-size: 16px;
+  }
+  
+  .total-amount {
+    color: #D4AF37;
+    font-size: 18px;
+  }
+  
+  .profit-row {
+    border-top: 1px solid #ddd;
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+  
+  .profit-row .summary-label {
+    color: #28a745;
+    font-weight: 600;
+  }
+  
+  .profit-amount {
+    color: #28a745;
+    font-weight: bold;
+  }
+  
+  /* Footer Styles */
+  .print-footer {
+    margin-top: 40px;
+    border-top: 2px solid #D4AF37;
+    padding-top: 20px;
+  }
+  
+  .footer-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .thank-you-section {
+    text-align: center;
+  }
+  
+  .thank-you-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #D4AF37;
+    margin: 0 0 10px 0;
+  }
+  
+  .thank-you-message {
+    color: #666;
+    margin: 0;
+    line-height: 1.6;
+  }
+  
+  .contact-section,
+  .terms-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .contact-title,
+  .terms-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .contact-details {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .contact-label {
+    font-weight: 600;
+    color: #666;
+    min-width: 60px;
+  }
+  
+  .contact-value {
+    color: #333;
+  }
+  
+  .terms-text {
+    color: #666;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  
+  .footer-bottom {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+  }
+  
+  .footer-note {
+    color: #999;
+    font-size: 11px;
+    margin: 0;
+    font-style: italic;
+  }
+  
+  /* ===========================
+     Modal overlay for preview
+     =========================== */
+  .print-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 999;
+  }
+  
+  /* Ensure modal sits above overlay */
+  .print-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  /* ===========================
+     Print-specific adjustments
+     =========================== */
+  @media print {
+    .order-print-container {
+      box-shadow: none !important;
+      padding: 0 !important;
+    }
+  
+    .print-content {
+      padding: 0.5in !important;
+    }
+  
+    .summary-container {
+      background: #f8f9fa !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+  
+    .items-table th {
+      background: #f8f9fa !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+  
+  .item-row:nth-child(even) {
+    background: #f9f9f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  .company-logo-image {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+  

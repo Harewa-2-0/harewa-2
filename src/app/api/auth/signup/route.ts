@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // app/api/admin/signup/route.ts
 import { NextResponse } from "next/server";
 import { z } from "zod";

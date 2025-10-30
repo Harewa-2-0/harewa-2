@@ -1,14 +1,21 @@
-import { ActivityLog } from "@/lib/models/ActivityLog";
-import { Order } from "@/lib/models/Order";
-import { User } from "@/lib/models/User";
-import { Cart } from "@/lib/models/Cart";
+import { NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { ok, badRequest } from "@/lib/response";
 
-export async function GET() {
-    await connectDB();
+// Mark this route as dynamic to prevent prerendering during build
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
+export async function GET() {
     try {
+        await connectDB();
+
+        // Dynamically import models only when the route is called
+        const { ActivityLog } = await import("@/lib/models/ActivityLog");
+        const { Order } = await import("@/lib/models/Order");
+        const { User } = await import("@/lib/models/User");
+        const { Cart } = await import("@/lib/models/Cart");
+
         // ---------- TOTALS ----------
         const totalOrders = await Order.countDocuments();
         const totalCustomers = await User.countDocuments({ role: "client" });
@@ -82,6 +89,6 @@ export async function GET() {
         });
     } catch (error) {
         console.error("Analytics error:", error);
-        return badRequest("Failed to fetch analytics: " + error);
+        return badRequest("Failed to fetch analytics: " + (error instanceof Error ? error.message : String(error)));
     }
 }
