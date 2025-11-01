@@ -7,6 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/contexts/toast-context';
+import { useUpdateCartQuantityMutation, useRemoveFromCartMutation, cartKeys } from '@/hooks/useCart';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function CartItems() {
   const { addToast } = useToast();
@@ -17,10 +19,14 @@ export default function CartItems() {
   const items = useCartStore((s) => s.items);
   const cartId = useCartStore((s) => s.cartId);
   const isLoading = useCartStore((s) => s.isLoading);
-  const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const removeItem = useCartStore((s) => s.removeItem);
-  const fetchCart = useCartStore((s) => s.fetchCart);
+  const updateQuantityLocal = useCartStore((s) => s.updateQuantity);
+  const removeItemLocal = useCartStore((s) => s.removeItem);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // React Query mutations and client
+  const queryClient = useQueryClient();
+  const updateCartMutation = useUpdateCartQuantityMutation();
+  const removeCartMutation = useRemoveFromCartMutation();
 
   // Items should already be deduplicated by the cartStore, but ensure no duplicates
   const uniqueItems = useMemo(() => {
@@ -67,23 +73,22 @@ export default function CartItems() {
       setPendingOperations(prev => new Set(prev).add(id));
       
       // Update local state immediately for optimistic UI
-      updateQuantity(id, qty);
-      
-      // Quantity updated - no toast notification needed
+      updateQuantityLocal(id, qty);
       
       // Sync to server in background if authenticated
       if (isAuthenticated && cartId) {
         try {
-          // Use the truly optimistic UPDATE endpoint that uses local state
-          const { updateProductQuantityOptimistic } = await import('@/services/cart');
-          await updateProductQuantityOptimistic(cartId, id, qty, items);
-          // Don't refetch cart - trust the update operation succeeded
+          await updateCartMutation.mutateAsync({
+            cartId,
+            productId: id,
+            quantity: qty,
+            currentItems: items,
+          });
+          // React Query handles refetch automatically
         } catch (serverError) {
           console.error('Failed to update quantity on server:', serverError);
-          // Revert the local state on server error
-          addToast("Failed to update quantity on server. Please try again.", "error");
-          // Revert to server state by refetching cart
-          await fetchCart();
+          addToast("Failed to update quantity. Changes may not be saved.", "error");
+          // React Query will handle rollback automatically
         }
       }
     } catch (error) {
@@ -101,7 +106,7 @@ export default function CartItems() {
   const onRemove = async (id: string) => {
     try {
       // Update local state immediately for optimistic UI
-      removeItem(id);
+      removeItemLocal(id);
       
       // Show success toast immediately
       addToast('Item removed from cart', 'success');
@@ -109,16 +114,12 @@ export default function CartItems() {
       // Sync to server in background if authenticated
       if (isAuthenticated && cartId) {
         try {
-          // Use the optimistic DELETE endpoint that doesn't fetch cart first
-          const { removeProductFromCartById } = await import('@/services/cart');
-          await removeProductFromCartById(cartId, id);
-          // Don't refetch cart - trust the delete operation succeeded
+          await removeCartMutation.mutateAsync({ cartId, productId: id });
+          // React Query handles refetch automatically
         } catch (serverError) {
           console.error('Failed to remove item from server:', serverError);
-          // Revert the local state on server error
-          addToast('Failed to remove item from server. Please try again.', 'error');
-          // Re-add the item to local state by refetching cart
-          await fetchCart();
+          addToast('Failed to remove item. Changes may not be saved.', 'error');
+          // React Query will handle rollback automatically
         }
       }
     } catch (error) {

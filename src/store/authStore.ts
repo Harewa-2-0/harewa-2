@@ -72,17 +72,8 @@ export const useAuthStore = create<AuthState>()(
         
         // Trigger cart merge after login
         if (typeof window !== 'undefined') {
-          setTimeout(async () => {
-            try {
-              const { useCartStore } = await import('@/store/cartStore');
-              const guestCart = useCartStore.getState().getGuestCart();
-              if (guestCart.length > 0) {
-                await useCartStore.getState().mergeCart(guestCart);
-              }
-            } catch (error) {
-              console.error('Failed to merge cart after login:', error);
-            }
-          }, 100);
+          // Cart merge is now handled by CartHydration component with React Query
+          // No manual merge needed here
         }
       },
 
@@ -162,17 +153,8 @@ export const useAuthStore = create<AuthState>()(
           // Start proactive token refresh
           get().startRefreshTimer();
           
-          setTimeout(async () => {
-            try {
-              const { useCartStore } = await import('@/store/cartStore');
-              const guestCart = useCartStore.getState().getGuestCart();
-              if (guestCart.length > 0) {
-                await useCartStore.getState().mergeCart(guestCart);
-              }
-            } catch (error) {
-              console.error('Failed to merge cart after setUser:', error);
-            }
-          }, 100);
+          // Cart merge is now handled by CartHydration component with React Query
+          // No manual merge needed here
         }
       },
 
@@ -307,17 +289,8 @@ export const useAuthStore = create<AuthState>()(
           // Start proactive token refresh
           get().startRefreshTimer();
           
-          setTimeout(async () => {
-            try {
-              const { useCartStore } = await import('@/store/cartStore');
-              const guestCart = useCartStore.getState().getGuestCart();
-              if (guestCart.length > 0) {
-                await useCartStore.getState().mergeCart(guestCart);
-              }
-            } catch (error) {
-              console.error('Failed to merge cart after hydration:', error);
-            }
-          }, 100);
+          // Cart merge is now handled by CartHydration component with React Query
+          // No manual merge needed here
         } catch (error: any) {
           if (error?.status !== 401 && error?.status !== 403) {
             console.warn('[Auth] Hydration failed:', error.message);

@@ -1,83 +1,139 @@
 "use client";
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import { useCartDrawerStore } from '@/store/cartDrawerStore';
+import { useCartQuery, useCartRawQuery, useReplaceCartMutation, cartKeys } from '@/hooks/useCart';
+import { addLinesToMyCart, deduplicateCartItems } from '@/services/cart';
+import { useQueryClient } from '@tanstack/react-query';
 import { CartErrorBoundary } from './cart-error-boundary';
 
 /**
- * Cart Hydration Component
+ * Cart Hydration Component (React Query Version)
  * 
- * This component automatically hydrates the cart state when:
- * 1. User logs in (isAuthenticated changes from false to true)
- * 2. Component mounts and user is already authenticated
- * 
- * It ensures the cart badge and drawer always show the correct data
- * from the server without requiring user interaction.
+ * Automatically syncs cart when user authenticates:
+ * 1. Merges guest cart with server cart on login
+ * 2. Loads server cart for authenticated users
+ * 3. Handles guest cart for non-authenticated users
  */
 export function CartHydration() {
-  const { isAuthenticated, hasHydratedAuth } = useAuthStore();
+  const { isAuthenticated, hasHydratedAuth, user } = useAuthStore();
   const { 
-    fetchCart, 
-    isMerging,
-    isRefreshing
+    items: localItems,
+    getGuestCart,
+    clearGuestCart,
+    setItems,
+    setCartId,
+    setIsGuestCart,
   } = useCartStore();
   const { isOpen: isCartDrawerOpen } = useCartDrawerStore();
   
-  const [retryCount, setRetryCount] = useState(0);
-  const hasInitiallyFetchedRef = useRef(false);
+  const queryClient = useQueryClient();
   const previousAuthStateRef = useRef(isAuthenticated);
+  const hasMergedRef = useRef(false);
 
+  // Fetch server cart for authenticated users (React Query handles caching)
+  const { data: serverCartItems = [], isLoading } = useCartQuery(
+    isAuthenticated && hasHydratedAuth && !isCartDrawerOpen
+  );
+
+  // Also fetch the raw cart to get cartId
+  const { data: rawCart } = useCartRawQuery(
+    isAuthenticated && hasHydratedAuth && !isCartDrawerOpen
+  );
+
+  const replaceCartMutation = useReplaceCartMutation();
+
+  // Sync server cart to local store for UI (including cartId!)
   useEffect(() => {
-    // Only run after auth has hydrated
-    if (!hasHydratedAuth) {
-      return;
+    if (isAuthenticated && rawCart) {
+      const cartId = (rawCart as any)._id || (rawCart as any).id;
+      setCartId(cartId);
+      setItems(serverCartItems);
+      setIsGuestCart(false);
     }
+  }, [rawCart, serverCartItems, isAuthenticated, setCartId, setItems, setIsGuestCart]);
 
-    // Don't fetch cart if cart drawer is open to prevent GET request before DELETE
-    if (isCartDrawerOpen) {
-      return;
-    }
+  // Handle login: merge guest cart with server cart
+  useEffect(() => {
+    if (!hasHydratedAuth) return;
 
-    // Don't fetch cart if merge or refresh is in progress to prevent race conditions
-    // The merge process handles cart fetching during login, so we should not interfere
-    if (isMerging || isRefreshing) {
-      return;
-    }
-
-    if (isAuthenticated) {
-      // Only fetch on initial load or when user just logged in
-      const justLoggedIn = !previousAuthStateRef.current && isAuthenticated;
+    const justLoggedIn = !previousAuthStateRef.current && isAuthenticated;
+    
+    if (justLoggedIn && !hasMergedRef.current) {
+      hasMergedRef.current = true;
       
-      if (!hasInitiallyFetchedRef.current || justLoggedIn) {
-        hasInitiallyFetchedRef.current = true;
+      const guestCart = getGuestCart();
+      
+      if (guestCart.length > 0) {
+        console.log('[CartHydration] Merging guest cart with server cart...');
         
-        fetchCart().catch((error) => {
-          console.error('Failed to fetch cart during hydration:', error);
+        // Merge guest items with server items
+        const merged = deduplicateCartItems([...serverCartItems, ...guestCart]);
+        
+        // If there's a difference, sync to server
+        if (merged.length > serverCartItems.length || 
+            !merged.every((item, i) => serverCartItems[i]?.id === item.id)) {
           
-          // If it's an auth error, try to retry once
-          const isAuthError = error.message?.includes('expired') || 
-                             error.message?.includes('jwt expired') ||
-                             error.status === 401;
-          
-          if (isAuthError && retryCount < 1) {
-            setTimeout(() => {
-              setRetryCount(prev => prev + 1);
-              fetchCart().catch(console.error);
-            }, 2000); // Wait 2 seconds before retry
-          }
-        });
+          addLinesToMyCart(merged.map(i => ({
+            productId: i.id,
+            quantity: i.quantity,
+            price: i.price,
+          }))).then(() => {
+            // Refetch cart after merge
+            queryClient.invalidateQueries({ queryKey: cartKeys.mine() });
+            // Clear guest cart after successful merge
+            clearGuestCart();
+            console.log('[CartHydration] Guest cart merged successfully');
+          }).catch((error) => {
+            console.error('[CartHydration] Failed to merge guest cart:', error);
+          });
+        } else {
+          // No merge needed, just clear guest cart
+          clearGuestCart();
+        }
       }
-    } else {
-      // User is not logged in - reset flags
-      setRetryCount(0);
-      hasInitiallyFetchedRef.current = false;
+      
+      // Update local state
+      setIsGuestCart(false);
+    }
+
+    // Handle logout: switch to guest mode
+    if (previousAuthStateRef.current && !isAuthenticated) {
+      hasMergedRef.current = false;
+      setIsGuestCart(true);
+      setCartId(null);
+      
+      // Load guest cart from localStorage
+      const guestCart = getGuestCart();
+      if (guestCart.length > 0) {
+        setItems(guestCart);
+      }
     }
     
-    // Update previous auth state
     previousAuthStateRef.current = isAuthenticated;
-  }, [hasHydratedAuth, isAuthenticated, fetchCart, retryCount, isCartDrawerOpen, isMerging, isRefreshing]);
+  }, [
+    hasHydratedAuth, 
+    isAuthenticated, 
+    serverCartItems, 
+    getGuestCart, 
+    clearGuestCart, 
+    setIsGuestCart, 
+    setCartId, 
+    setItems,
+    queryClient
+  ]);
+
+  // Load guest cart on mount (for non-authenticated users)
+  useEffect(() => {
+    if (!isAuthenticated && hasHydratedAuth) {
+      const guestCart = getGuestCart();
+      if (guestCart.length > 0 && localItems.length === 0) {
+        setItems(guestCart);
+      }
+    }
+  }, [isAuthenticated, hasHydratedAuth, getGuestCart, setItems, localItems.length]);
 
   // This component doesn't render anything
   return null;
