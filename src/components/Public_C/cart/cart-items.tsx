@@ -2,10 +2,11 @@
 
 import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
-import { Minus, Plus, Trash2, Heart, ChevronDown } from 'lucide-react';
+import { Minus, Plus, Trash2, Heart, ChevronDown, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
+import { useOrderStore } from '@/store/orderStore';
 import { useToast } from '@/contexts/toast-context';
 import { useUpdateCartQuantityMutation, useRemoveFromCartMutation, cartKeys } from '@/hooks/useCart';
 import { useQueryClient } from '@tanstack/react-query';
@@ -22,6 +23,10 @@ export default function CartItems() {
   const updateQuantityLocal = useCartStore((s) => s.updateQuantity);
   const removeItemLocal = useCartStore((s) => s.removeItem);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  
+  // Check for pending order
+  const { currentOrder } = useOrderStore();
+  const hasPendingOrder = currentOrder && currentOrder.status === 'pending';
 
   // React Query mutations and client
   const queryClient = useQueryClient();
@@ -179,6 +184,23 @@ export default function CartItems() {
 
   return (
     <div className="space-y-3 md:space-y-4">
+      {/* Pending Order Warning Banner */}
+      {hasPendingOrder && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800">
+                Active Order in Progress
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                Changes to your cart will automatically update your pending order.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cart Items */}
       <AnimatePresence>
         {uniqueItems.map((item) => {
