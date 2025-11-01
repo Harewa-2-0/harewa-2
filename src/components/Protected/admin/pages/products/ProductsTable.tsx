@@ -65,8 +65,11 @@ export default function ProductsTable({
       try {
         setIsLoading(true);
         setError(null);
-        const data = await adminGetProducts();
-        setProducts(data);
+        const response = await adminGetProducts({ page: 1, limit: 100 });
+        
+        // Handle paginated response or legacy array
+        const data = 'items' in response ? response.items : response;
+        setProducts(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Error fetching products:', err);
         setError('Failed to fetch products. Please check your connection and try again.');

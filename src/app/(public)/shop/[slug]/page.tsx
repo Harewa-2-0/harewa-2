@@ -60,13 +60,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
       try {
         setLoading(true);
 
-        // ✅ Fetch both in parallel using Promise.all
-        const [productData, allProductsData] = await Promise.all([
-          // Fetch single product
-          api<any>(`/api/product/${resolvedParams.slug}`).catch(() => null),
-          // Fetch all products (your api.ts will deduplicate if called elsewhere)
-          api<any>('/api/product').catch(() => [])
-        ]);
+        // Step 1: Fetch single product first
+        const productData = await api<any>(`/api/product/${resolvedParams.slug}`);
 
         // Handle product data
         if (!productData) {
@@ -83,20 +78,45 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
 
         setProduct(product);
 
-        // Handle recommendations
-        let productsArray: Product[] = [];
-        if (allProductsData?.success && allProductsData?.data) {
-          productsArray = allProductsData.data;
-        } else if (Array.isArray(allProductsData)) {
-          productsArray = allProductsData;
+        // Step 2: Fetch recommendations from same category (smarter!)
+        const categoryId = typeof product.category === 'object' && product.category?._id 
+          ? product.category._id 
+          : product.category;
+
+        if (categoryId) {
+          // Fetch products from same category (limit to 9, we'll filter out current)
+          const categoryProductsData = await api<any>(
+            `/api/product?category=${categoryId}&limit=9`
+          ).catch(() => ({ data: { items: [] } }));
+
+          // Handle recommendations
+          let productsArray: Product[] = [];
+          if (categoryProductsData?.success && categoryProductsData?.data) {
+            // Check if it's a paginated response
+            if ('items' in categoryProductsData.data) {
+              productsArray = categoryProductsData.data.items;
+            } else {
+              productsArray = categoryProductsData.data;
+            }
+          } else if (Array.isArray(categoryProductsData)) {
+            productsArray = categoryProductsData;
+          }
+
+          // Ensure it's an array before filtering
+          if (!Array.isArray(productsArray)) {
+            productsArray = [];
+          }
+
+          // Filter out current product and limit to 8
+          const filtered = productsArray
+            .filter((p: Product) => p._id !== resolvedParams.slug)
+            .slice(0, 8);
+
+          setRecommendedProducts(filtered);
+        } else {
+          // No category - show empty recommendations
+          setRecommendedProducts([]);
         }
-
-        // Filter out current product and limit to 8
-        const filtered = productsArray
-          .filter((p: Product) => p._id !== resolvedParams.slug)
-          .slice(0, 8);
-
-        setRecommendedProducts(filtered);
 
       } catch (err) {
         console.error('[ProductDetails] Error:', err);

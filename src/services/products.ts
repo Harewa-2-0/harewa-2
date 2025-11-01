@@ -26,6 +26,19 @@ export type Product = {
   [k: string]: Json | undefined;
 };
 
+export type PaginationMetadata = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+};
+
+export type PaginatedResponse<T> = {
+  items: T[];
+  pagination: PaginationMetadata;
+};
+
 export type CreateProductInput = Omit<Product, "_id" | "id">;
 
 export type AdminProductInput = {
@@ -132,17 +145,12 @@ export async function adminDeleteProduct(id: string) {
   return unwrap<{ deleted: boolean }>(raw);
 }
 
-// Admin: Get all products (for admin dashboard)
-export async function adminGetProducts(params?: Record<string, string | number | boolean | undefined>) {
-  // Add populate parameter to get category names
-  const paramsWithPopulate = {
-    ...params,
-    populate: 'category,fabricType' // Populate both category and fabricType
-  };
-  const url = `${ADMIN_PATHS.list}${toQS(paramsWithPopulate)}`;
+// Admin: Get all products (for admin dashboard) - with pagination support
+export async function adminGetProducts(params?: Record<string, string | number | boolean | undefined>): Promise<Product[] | PaginatedResponse<Product>> {
+  const url = `${ADMIN_PATHS.list}${toQS(params)}`;
   
   try {
-    const raw = await api<MaybeWrapped<Product[] | { items: Product[] }>>(
+    const raw = await api<MaybeWrapped<Product[] | PaginatedResponse<Product>>>(
       url,
       { 
         method: 'GET',
@@ -153,8 +161,15 @@ export async function adminGetProducts(params?: Record<string, string | number |
       },
       { timeout: 30000 } // 30 second timeout for fetching products
     );
-    const data = unwrap<Product[] | { items: Product[] }>(raw);
-    return Array.isArray(data) ? data : data?.items ?? [];
+    const data = unwrap<Product[] | PaginatedResponse<Product>>(raw);
+    
+    // Check if it's a paginated response
+    if (data && typeof data === 'object' && 'items' in data && 'pagination' in data) {
+      return data as PaginatedResponse<Product>;
+    }
+    
+    // Legacy support: return as array
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error('Error fetching products:', error);
     
@@ -210,12 +225,19 @@ export async function deleteProduct(id: string) {
 /** ---------- Reads ---------- */
 
 // List (supports pagination/filters via params)
-export async function getProducts(params?: Record<string, string | number | boolean | undefined>) {
-  const raw = await api<MaybeWrapped<Product[] | { items: Product[] }>>(
+export async function getProducts(params?: Record<string, string | number | boolean | undefined>): Promise<Product[] | PaginatedResponse<Product>> {
+  const raw = await api<MaybeWrapped<Product[] | PaginatedResponse<Product>>>(
     `${paths.list}${toQS(params)}`
   );
-  const data = unwrap<Product[] | { items: Product[] }>(raw);
-  return Array.isArray(data) ? data : data?.items ?? [];
+  const data = unwrap<Product[] | PaginatedResponse<Product>>(raw);
+  
+  // Check if it's a paginated response
+  if (data && typeof data === 'object' && 'items' in data && 'pagination' in data) {
+    return data as PaginatedResponse<Product>;
+  }
+  
+  // Legacy support: return as array
+  return Array.isArray(data) ? data : [];
 }
 
 export async function getProductById(id: string) {
