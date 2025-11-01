@@ -25,6 +25,7 @@ export interface TrendingFashionState {
   
   // Actions
   setActiveCategory: (category: string) => void;
+  setProducts: (products: Product[]) => void;
   fetchAllProducts: () => Promise<void>;
   fetchCategories: () => Promise<void>;
   initializeData: () => Promise<void>;
@@ -77,6 +78,17 @@ export const useTrendingFashionStore = create<TrendingFashionState>()(
       setActiveCategory: (category: string) => {
         set({ activeCategory: category });
         get().filterProductsByCategory(category);
+      },
+
+      setProducts: (products: Product[]) => {
+        set({ 
+          allProducts: products,
+          hasInitialized: true,
+          isLoading: false,
+          error: null
+        });
+        // Filter products for the active category
+        get().filterProductsByCategory(get().activeCategory);
       },
 
       fetchCategories: async () => {
@@ -170,10 +182,14 @@ export const useTrendingFashionStore = create<TrendingFashionState>()(
         set({ isLoading: true, error: null });
 
         try {
-          const products = await getProducts();
+          // Fetch products with pagination (optimized for 8 categories × ~4 products each)
+          const response = await getProducts({ page: 1, limit: 30 });
+          
+          // Handle paginated response or legacy array
+          const products = 'items' in response ? response.items : response;
           
           set({ 
-            allProducts: products,
+            allProducts: Array.isArray(products) ? products : [],
             isLoading: false,
             hasInitialized: true,
             error: null
@@ -192,7 +208,8 @@ export const useTrendingFashionStore = create<TrendingFashionState>()(
       filterProductsByCategory: (categoryName: string) => {
         const { allProducts } = get();
         
-        if (allProducts.length === 0) {
+        // Ensure allProducts is an array
+        if (!Array.isArray(allProducts) || allProducts.length === 0) {
           set({ filteredProducts: [] });
           return;
         }
