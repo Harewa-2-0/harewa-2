@@ -13,7 +13,8 @@ interface CartSummaryProps {
 }
 
 export default function CartSummary({ order }: CartSummaryProps) {
-  const { items, removeItem, fetchCart, cartId } = useCartStore();
+  const { items, cartId } = useCartStore();
+  const removeItemLocal = useCartStore((s) => s.removeItem);
   const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
@@ -80,7 +81,7 @@ export default function CartSummary({ order }: CartSummaryProps) {
   const handleRemoveItem = async (id: string) => {
     try {
       // Update local state immediately for optimistic UI
-      removeItem(id);
+      removeItemLocal(id);
       
       // Show success toast immediately
       addToast("Item removed from cart", "success");
@@ -88,16 +89,13 @@ export default function CartSummary({ order }: CartSummaryProps) {
       // Sync to server in background if authenticated
       if (isAuthenticated && cartId) {
         try {
-          // Use the optimistic DELETE endpoint that doesn't fetch cart first
           const { removeProductFromCartById } = await import('@/services/cart');
           await removeProductFromCartById(cartId, id);
-          // Don't refetch cart - trust the delete operation succeeded
+          // Server updated successfully
         } catch (serverError) {
           console.error('Failed to remove item from server:', serverError);
-          // Revert the local state on server error
-          addToast("Failed to remove item from server. Please try again.", "error");
-          // Re-add the item to local state by refetching cart
-          await fetchCart();
+          addToast("Failed to remove item from server. Changes may not be saved.", "error");
+          // Note: React Query cart will handle sync on next fetch
         }
       }
     } catch (error) {

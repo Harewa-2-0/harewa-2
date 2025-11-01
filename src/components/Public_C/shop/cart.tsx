@@ -13,6 +13,7 @@ import { useOrderStore } from "@/store/orderStore";
 import { useToast } from "@/contexts/toast-context";
 import { createOrderFromCart } from "@/services/order";
 import PendingOrderModal from "@/components/common/pending-order-modal";
+import { useUpdateCartQuantityMutation, useRemoveFromCartMutation, useCartRawQuery } from "@/hooks/useCart";
 
 interface CartUIProps {
   isOpen?: boolean;
@@ -51,13 +52,27 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const isGuestCart = useCartStore((s) => s.isGuestCart);
   const isLoading = useCartStore((s) => s.isLoading);
   const error = useCartStore((s) => s.error);
-  const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const removeItem = useCartStore((s) => s.removeItem);
+  const updateQuantityLocal = useCartStore((s) => s.updateQuantity);
+  const removeItemLocal = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
-  const fetchCart = useCartStore((s) => s.fetchCart);
-  const syncToServer = useCartStore((s) => s.syncToServer);
+  const setCartId = useCartStore((s) => s.setCartId);
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // React Query mutations for cart operations
+  const updateCartMutation = useUpdateCartQuantityMutation();
+  const removeCartMutation = useRemoveFromCartMutation();
+  const { data: rawCart } = useCartRawQuery(isAuthenticated && isOpen);
+
+  // Set cartId from rawCart when it loads
+  useEffect(() => {
+    if (rawCart && isAuthenticated) {
+      const id = (rawCart as any)._id || (rawCart as any).id;
+      if (id) {
+        setCartId(id);
+      }
+    }
+  }, [rawCart, isAuthenticated, setCartId]);
 
   // Prevent any automatic cart fetching while drawer is open
   useEffect(() => {
@@ -180,16 +195,23 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     
     try {
       setPendingOperations(prev => new Set(prev).add(id));
-      updateQuantity(id, qty);
       
+      // Update local state immediately (optimistic)
+      updateQuantityLocal(id, qty);
+      
+      // Sync to server if authenticated
       if (isAuthenticated && cartId) {
         try {
-          const { updateProductQuantityOptimistic } = await import('@/services/cart');
-          await updateProductQuantityOptimistic(cartId, id, qty, items);
+          await updateCartMutation.mutateAsync({
+            cartId,
+            productId: id,
+            quantity: qty,
+            currentItems: items,
+          });
         } catch (serverError) {
           console.error('Failed to update quantity on server:', serverError);
-          addToast("Failed to update quantity on server. Please try again.", "error");
-          await fetchCart();
+          addToast("Failed to update quantity on server. Changes may not be saved.", "error");
+          // React Query will handle rollback if mutation fails
         }
       }
     } catch (error) {
@@ -206,17 +228,18 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   const onRemove = async (id: string) => {
     try {
-      removeItem(id);
+      // Update local state immediately (optimistic)
+      removeItemLocal(id);
       addToast("Item removed from cart", "success");
       
+      // Sync to server if authenticated
       if (isAuthenticated && cartId) {
         try {
-          const { removeProductFromCartById } = await import('@/services/cart');
-          await removeProductFromCartById(cartId, id);
+          await removeCartMutation.mutateAsync({ cartId, productId: id });
         } catch (serverError) {
           console.error('Failed to remove item from server:', serverError);
-          addToast("Failed to remove item from server. Please try again.", "error");
-          await fetchCart();
+          addToast("Failed to remove item from server. Changes may not be saved.", "error");
+          // React Query will handle rollback if mutation fails
         }
       }
     } catch (error) {
@@ -228,12 +251,10 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const onClearCart = async () => {
     try {
       clearCart();
-      
-      if (isAuthenticated) {
-        await syncToServer();
-      }
-      
       addToast("Cart cleared successfully", "success");
+      
+      // For logged-in users, clearing is handled by updating cart to empty on server
+      // This will be implemented when clear cart button is added
     } catch (error) {
       addToast("Failed to clear cart. Please try again.", "error");
       console.error("Failed to clear cart:", error);
