@@ -20,36 +20,7 @@ export default function CartSummary({ order }: CartSummaryProps) {
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
 
   const orderSummary = useMemo(() => {
-    // If we have order data, use it; otherwise fall back to cart data
-    if (order?.carts?.products) {
-      const orderItems = order.carts.products.map(cartProduct => ({
-        id: typeof cartProduct.product === 'string' ? cartProduct.product : (cartProduct.product as any)?._id || '',
-        quantity: cartProduct.quantity,
-        price: (cartProduct.product as any)?.price || 0,
-        name: (cartProduct.product as any)?.name || 'Product',
-        image: (cartProduct.product as any)?.images?.[0] || '/placeholder.png',
-      }));
-
-      const subtotal = orderItems.reduce((total, item) => {
-        const itemPrice = typeof item.price === 'number' ? item.price : 0;
-        return total + itemPrice * item.quantity;
-      }, 0);
-
-      const shipping = 15000;
-      const total = subtotal + shipping;
-      const itemCount = orderItems.reduce((t, i) => t + i.quantity, 0);
-
-      return {
-        itemCount,
-        subtotal,
-        shipping,
-        total,
-        savings: subtotal * 0.1,
-        items: orderItems,
-      };
-    }
-
-    // Fallback to cart data
+    // Always use cart data since orders only store cart ID reference
     const uniqueItems = items.reduce((acc, item) => {
       const existing = acc.find(i => i.id === item.id);
       if (existing) existing.quantity += item.quantity;
@@ -74,7 +45,7 @@ export default function CartSummary({ order }: CartSummaryProps) {
       savings: subtotal * 0.1,
       items: uniqueItems,
     };
-  }, [order, items]);
+  }, [items]);
 
   const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
 
@@ -131,17 +102,15 @@ export default function CartSummary({ order }: CartSummaryProps) {
                 transition={{ duration: 0.2 }}
                 className="relative flex gap-3 p-4 rounded-xl border border-gray-100 bg-white shadow-sm"
               >
-                {/* Floating delete button (top-right) - only show for cart items, not order items */}
-                {!order && (
-                  <button
-                    onClick={() => handleRemoveItem(item.id)}
-                    disabled={isPending}
-                    aria-label="Remove item"
-                    className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-[#D4AF37] text-white flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
+                {/* Floating delete button (top-right) */}
+                <button
+                  onClick={() => handleRemoveItem(item.id)}
+                  disabled={isPending}
+                  aria-label="Remove item"
+                  className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-[#D4AF37] text-white flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <X size={16} />
+                </button>
 
                 {/* Product Image */}
                 <div className="w-16 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
