@@ -22,7 +22,8 @@ export default function PaymentMethodSelector({
 
   const handleMethodSelect = (method: 'paystack' | 'stripe') => {
     if (!isEnabled) return;
-    if (method === 'stripe') return; // Stripe disabled for now
+    // if (method === 'stripe') return; // Stripe enabled now
+    if (method === 'paystack') return; // Paystack disabled for now
     setSelectedMethod(method);
     onPaymentMethodSelect?.(method);
   };
@@ -33,8 +34,8 @@ export default function PaymentMethodSelector({
       addToast('No active order found. Please create an order first.', 'error');
       return;
     }
-    if (selectedMethod !== 'paystack') {
-      addToast('Please select Paystack to continue.', 'error');
+    if (selectedMethod !== 'stripe') {
+      addToast('Please select Stripe to continue.', 'error');
       return;
     }
     
@@ -43,7 +44,7 @@ export default function PaymentMethodSelector({
       addToast('Initializing payment… This may take a few moments.', 'info');
       
       console.log('Initiating payment for order:', currentOrder._id);
-      const resp = await purchase({ type: 'gateway', orderId: currentOrder._id });
+      const resp = await purchase({ type: 'stripe-gateway', orderId: currentOrder._id });
       console.log('Payment response:', resp);
       
       const redirect = getRedirectUrl(resp);
@@ -76,7 +77,7 @@ export default function PaymentMethodSelector({
       </div>
       
       <div className="flex flex-col sm:flex-row gap-8 justify-center items-center">
-        {/* Paystack Image */}
+        {/* Paystack Image - COMMENTED OUT (using Stripe only)
         <div className="relative">
           <Image 
             src="/paystack.png" 
@@ -94,7 +95,6 @@ export default function PaymentMethodSelector({
             `}
           />
           
-          {/* Selection indicator */}
           {selectedMethod === 'paystack' && (
             <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
               <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -103,8 +103,9 @@ export default function PaymentMethodSelector({
             </div>
           )}
         </div>
+        */}
 
-        {/* Stripe Image (disabled for now) */}
+        {/* Stripe Image (ENABLED) */}
         <div className="relative">
           <Image 
             src="/stripe.png" 
@@ -113,8 +114,12 @@ export default function PaymentMethodSelector({
             height={120}
             onClick={() => handleMethodSelect('stripe')}
             className={`
-              transition-all duration-200 rounded-lg border-2 p-4 opacity-50 cursor-not-allowed
-              border-purple-200
+              cursor-pointer transition-all duration-200 rounded-lg border-2 p-4
+              ${selectedMethod === 'stripe' 
+                ? 'border-purple-500 shadow-lg' 
+                : 'border-purple-200 hover:border-purple-300 hover:shadow-md hover:scale-105'
+              }
+              ${!isEnabled ? 'opacity-50 cursor-not-allowed' : ''}
             `}
           />
           
@@ -130,14 +135,14 @@ export default function PaymentMethodSelector({
       </div>
 
       {/* Payment Button */}
-      {selectedMethod === 'paystack' && (
+      {selectedMethod === 'stripe' && (
         <div className="mt-8 text-center">
           <button
             onClick={handlePay}
             disabled={!isEnabled || isProcessing}
             className={`px-8 py-3 bg-[#D4AF37] text-black font-semibold rounded-lg hover:bg-[#B8941F] transition-colors ${(!isEnabled || isProcessing) ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
-            {isProcessing ? 'Processing…' : 'PAY WITH PAYSTACK'}
+            {isProcessing ? 'Processing…' : 'PAY WITH STRIPE'}
           </button>
           
           {isProcessing && (

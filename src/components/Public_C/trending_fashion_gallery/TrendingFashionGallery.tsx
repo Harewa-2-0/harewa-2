@@ -11,6 +11,8 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
   onProductClick,
   onCategoryChange: propOnCategoryChange,
   initialCategory,
+  products: propProducts,
+  isLoading: propIsLoading,
 }) => {
   // Use the store
   const {
@@ -18,18 +20,22 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
     filteredProducts,
     categories: storeCategories,
     activeCategory,
-    isLoading,
+    isLoading: storeIsLoading,
     isLoadingCategories,
     error,
     hasInitialized,
     hasCategoriesLoaded,
     setActiveCategory,
     initializeData,
+    setProducts,
     clearError,
   } = useTrendingFashionStore();
 
   // Use provided categories or store categories
   const categories = propCategories || storeCategories;
+  
+  // Use prop products if provided, otherwise use store products
+  const isLoading = propProducts ? propIsLoading : storeIsLoading;
 
   // Handle category change
   const handleCategoryChange = (categoryName: string) => {
@@ -42,13 +48,22 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
     onProductClick?.(product);
   };
 
-
-  // Initialize data on mount
+  // If products are provided as props, use them instead of fetching
   useEffect(() => {
-    if (!hasInitialized || !hasCategoriesLoaded) {
+    if (propProducts && propProducts.length > 0) {
+      setProducts(propProducts);
+    }
+  }, [propProducts, setProducts]);
+
+  // Initialize data on mount (only if no products provided)
+  useEffect(() => {
+    if (!propProducts && (!hasInitialized || !hasCategoriesLoaded)) {
+      initializeData();
+    } else if (!hasCategoriesLoaded) {
+      // Still need to fetch categories even if products are provided
       initializeData();
     }
-  }, [hasInitialized, hasCategoriesLoaded, initializeData]);
+  }, [propProducts, hasInitialized, hasCategoriesLoaded, initializeData]);
 
   // Set initial category if provided
   useEffect(() => {

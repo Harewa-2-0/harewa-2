@@ -206,16 +206,20 @@ export async function getDashboardData() {
   try {
     //console.log('📊 Fetching dashboard data...');
     
-    const [orders, products] = await Promise.all([
+    const [orders, productsResponse] = await Promise.all([
       getOrders().catch(err => {
         console.error('Error fetching orders:', err);
         return []; // Return empty array on error
       }),
-      adminGetProducts().catch(err => {
+      adminGetProducts({ page: 1, limit: 100 }).catch(err => {
         console.error('Error fetching products:', err);
         return []; // Return empty array on error
       })
     ]);
+
+    // Handle paginated response or legacy array
+    const products = 'items' in productsResponse ? productsResponse.items : productsResponse;
+    const productsArray = Array.isArray(products) ? products : [];
 
     //console.log('✅ Raw data received:', { 
       //ordersCount: orders.length, 
@@ -225,7 +229,7 @@ export async function getDashboardData() {
     const dashboardData = {
       recentOrders: transformOrdersToRecent(orders),
       lastTransactions: transformOrdersToTransactions(orders),
-      popularProducts: transformProductsToPopular(products),
+      popularProducts: transformProductsToPopular(productsArray),
       todayOrderChart: transformOrdersToChart(orders),
     };
 
