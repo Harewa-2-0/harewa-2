@@ -89,8 +89,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
             `/api/product?category=${categoryId}&limit=9`
           ).catch(() => ({ data: { items: [] } }));
 
-          // Handle recommendations
-          let productsArray: Product[] = [];
+        // Handle recommendations
+        let productsArray: Product[] = [];
           if (categoryProductsData?.success && categoryProductsData?.data) {
             // Check if it's a paginated response
             if ('items' in categoryProductsData.data) {
@@ -105,14 +105,14 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
           // Ensure it's an array before filtering
           if (!Array.isArray(productsArray)) {
             productsArray = [];
-          }
+        }
 
-          // Filter out current product and limit to 8
-          const filtered = productsArray
-            .filter((p: Product) => p._id !== resolvedParams.slug)
-            .slice(0, 8);
+        // Filter out current product and limit to 8
+        const filtered = productsArray
+          .filter((p: Product) => p._id !== resolvedParams.slug)
+          .slice(0, 8);
 
-          setRecommendedProducts(filtered);
+        setRecommendedProducts(filtered);
         } else {
           // No category - show empty recommendations
           setRecommendedProducts([]);

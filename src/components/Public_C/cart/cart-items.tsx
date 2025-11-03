@@ -207,8 +207,8 @@ export default function CartItems() {
         const name = item.name || 'Product Name';
         const image = item.image || '/placeholder.png';
         const itemTotal = typeof item.price === 'number' ? item.price * item.quantity : 0;
-        const originalPrice =
-          typeof item.price === 'number' ? item.price * 1.2 * item.quantity : 0; // ensure quantity applied
+        // const originalPrice =
+        //   typeof item.price === 'number' ? item.price * 1.2 * item.quantity : 0; // Fake discount - commented out
         const isFavorite = favoriteItems.has(item.id);
 
         return (
@@ -299,14 +299,16 @@ export default function CartItems() {
 
                   {/* Price */}
                   <div className="text-right ml-auto">
-                    <div className="text-sm md:text-lg font-bold text-red-600">
+                    <div className="text-sm md:text-lg font-bold text-gray-900">
                       {formatPrice(itemTotal)}
                     </div>
+                    {/* Fake original price - commented out
                     {originalPrice > 0 && (
                       <div className="text-xs md:text-sm text-gray-400 line-through">
                         {formatPrice(originalPrice)}
                       </div>
                     )}
+                    */}
                   </div>
                 </div>
 

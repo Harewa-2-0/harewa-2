@@ -113,13 +113,13 @@ export default function RootLayout({
     >
       <body data-gramm="false" className="antialiased font-sans ">
         <QueryProvider>
-          <ToastProvider>
-            <AuthBootstrap />
-            <CartHydrationWithErrorBoundary />
-            {/*<AuthDebug /> Debug Card */}
-            {children}
-            <ToastContainer />
-          </ToastProvider>
+        <ToastProvider>
+          <AuthBootstrap />
+          <CartHydrationWithErrorBoundary />
+          {/*<AuthDebug /> Debug Card */}
+          {children}
+          <ToastContainer />
+        </ToastProvider>
         </QueryProvider>
       </body>
     </html>

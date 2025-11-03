@@ -7,43 +7,14 @@ import connectDB from "@/lib/db";
 import { ok, notFound } from "@/lib/response";
 
 // GET /api/product/seller/[id]
-// Get all products for a specific seller (with pagination)
+// Get all products for a specific seller
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
     await connectDB();
-
-    // Extract pagination parameters
-    const { searchParams } = new URL(request.url);
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)));
-    const skip = (page - 1) * limit;
-
-    // Execute queries in parallel
-    const [products, total] = await Promise.all([
-        Product.find({ seller: params.id })
-            .select('-__v')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .lean(),
-        Product.countDocuments({ seller: params.id })
-    ]);
-
+    const products = await Product.find({ seller: params.id }).lean();
     if (!products || products.length === 0) {
         return notFound("No products found for this seller");
     }
-
-    const response = {
-        items: products,
-        pagination: {
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit),
-            hasMore: skip + products.length < total,
-        }
-    };
-
-    return ok(response);
+    return ok(products);
 }
 
 // PUT /api/product/seller/[id]

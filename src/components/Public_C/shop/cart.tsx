@@ -421,8 +421,8 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                     const image = item.image || '/placeholder.png';
                     const itemPrice = typeof item.price === 'number' ? item.price : 0;
                     const itemTotal = itemPrice * item.quantity;
-                    const originalPrice = itemPrice * 1.75;
-                    const savings = originalPrice - itemTotal;
+                    // const originalPrice = itemPrice * 1.75; // Fake discount - commented out
+                    // const savings = originalPrice - itemTotal; // Fake savings - commented out
                     const isPending = pendingOperations.has(item.id);
 
                     return (
@@ -446,12 +446,14 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
                             <div className="mb-2">
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-red-600">
+                                <span className="text-sm font-bold text-gray-900">
                                   {formatPrice(itemPrice)}
                                 </span>
+                                {/* Fake original price - commented out
                                 <span className="text-sm text-gray-500 line-through">
                                   {formatPrice(originalPrice)}
                                 </span>
+                                */}
                               </div>
                             </div>
 
@@ -517,9 +519,10 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                 
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold text-gray-900">Subtotal:</span>
-                  <span className="text-lg font-bold text-red-600">{formatPrice(subtotal)}</span>
+                  <span className="text-lg font-bold text-gray-900">{formatPrice(subtotal)}</span>
                 </div>
 
+                {/* Fake savings calculation - commented out
                 {(() => {
                   const totalOriginalPrice = uniqueItems.reduce((total, item) => {
                     const itemPrice = typeof item.price === 'number' ? item.price : 0;
@@ -536,6 +539,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                     </div>
                   ) : null;
                 })()}
+                */}
 
                 <div className="space-y-3">
                   <button
