@@ -124,12 +124,12 @@ const ProductCardsGrid: React.FC<ProductCardsGridProps> = ({
   // Get the 5 newest products (already sorted by createdAt desc from API)
   const products = React.useMemo(() => {
     if (!propProducts || propProducts.length === 0) return [];
-    
+
     // Sort by createdAt to ensure we get the newest ones
     const sorted = [...propProducts].sort((a, b) => {
-      const dateA = new Date(a.createdAt || 0).getTime();
-      const dateB = new Date(b.createdAt || 0).getTime();
-      return dateB - dateA;
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+            return dateB - dateA;
     });
     
     return sorted.slice(0, 5);

@@ -25,19 +25,7 @@ const productSchema = new mongoose.Schema({
   seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   shop: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop' }
 
-}, { 
-  timestamps: true,
-  // Auto-create indexes in development, manual in production (prevents blocking)
-  autoIndex: process.env.NODE_ENV !== 'production'
-});
-
-// Add indexes for performance (background: true to avoid blocking queries)
-productSchema.index({ category: 1, gender: 1 }, { background: true });
-productSchema.index({ fabricType: 1 }, { background: true });
-productSchema.index({ shop: 1 }, { background: true });
-productSchema.index({ seller: 1 }, { background: true });
-productSchema.index({ createdAt: -1 }, { background: true });
-productSchema.index({ price: 1 }, { background: true });
+}, { timestamps: true });
 
 function arrayLimit(val: string) {
   return val.length <= 3;

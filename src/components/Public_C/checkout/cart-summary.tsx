@@ -33,7 +33,7 @@ export default function CartSummary({ order }: CartSummaryProps) {
       return total + itemPrice * item.quantity;
     }, 0);
 
-    const shipping = 15000;
+    const shipping = 0; // Free shipping
     const total = subtotal + shipping;
     const itemCount = uniqueItems.reduce((t, i) => t + i.quantity, 0);
 
@@ -42,7 +42,7 @@ export default function CartSummary({ order }: CartSummaryProps) {
       subtotal,
       shipping,
       total,
-      savings: subtotal * 0.1,
+      // savings: subtotal * 0.1, // Fake savings - commented out
       items: uniqueItems,
     };
   }, [items]);
@@ -148,6 +148,7 @@ export default function CartSummary({ order }: CartSummaryProps) {
           </span>
         </div>
 
+        {/* Fake savings - commented out (no discounts from backend)
         {orderSummary.savings > 0 && (
           <div className="flex justify-between items-center">
             <span className="text-gray-600">Savings</span>
@@ -156,11 +157,12 @@ export default function CartSummary({ order }: CartSummaryProps) {
             </span>
           </div>
         )}
+        */}
 
         <div className="flex justify-between items-center">
           <span className="text-gray-600">Shipping</span>
           <span className="font-medium text-gray-900">
-            {formatPrice(orderSummary.shipping)}
+            {orderSummary.shipping === 0 ? 'Free' : formatPrice(orderSummary.shipping)}
           </span>
         </div>
       </div>

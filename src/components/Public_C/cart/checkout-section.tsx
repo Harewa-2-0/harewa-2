@@ -47,7 +47,7 @@ export default function CheckoutSection() {
       subtotal,
       shipping,
       total,
-      savings: subtotal * 0.5, // Assuming 50% savings from original prices
+      // savings: subtotal * 0.5, // Fake savings - commented out
     };
   }, [items]);
 
@@ -206,13 +206,14 @@ export default function CheckoutSection() {
           </span>
         </div>
         
-        {/* Savings */}
+        {/* Savings - commented out (no discounts from backend)
         {orderSummary.savings > 0 && (
           <div className="flex justify-between items-center mb-4">
             <span className="text-gray-600">You save</span>
             <span className="font-medium text-green-600">{formatPrice(orderSummary.savings)}</span>
           </div>
         )}
+        */}
         
         {/* Divider */}
         <div className="border-t border-gray-200 my-4"></div>

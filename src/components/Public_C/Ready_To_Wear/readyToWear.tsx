@@ -49,27 +49,27 @@ const ReadyToWearPage: React.FC = () => {
 
   // Normalize product images
   const products = useMemo(() => {
-    // Basic validator: if images missing/empty/clearly placeholder -> use single fallback
-    const isBadUrl = (u?: string) => {
-      if (!u) return true;
-      // allow site-relative paths
-      if (u.startsWith("/")) return false;
-      try {
-        const { hostname } = new URL(u);
-        return ["example.com", "placehold.co"].includes(hostname);
-      } catch {
-        return true;
-      }
-    };
+        // Basic validator: if images missing/empty/clearly placeholder -> use single fallback
+        const isBadUrl = (u?: string) => {
+          if (!u) return true;
+          // allow site-relative paths
+          if (u.startsWith("/")) return false;
+          try {
+            const { hostname } = new URL(u);
+            return ["example.com", "placehold.co"].includes(hostname);
+          } catch {
+            return true;
+          }
+        };
 
     return fetchedProducts.map((product: any) => {
-      let images: string[] = Array.isArray(product?.images) ? product.images : [];
-      images = images.filter(Boolean);
-      if (images.length === 0 || images.every(isBadUrl)) {
-        images = ["/placeholder.png"];
-      }
-      return { ...product, images };
-    });
+          let images: string[] = Array.isArray(product?.images) ? product.images : [];
+          images = images.filter(Boolean);
+          if (images.length === 0 || images.every(isBadUrl)) {
+            images = ["/placeholder.png"];
+          }
+          return { ...product, images };
+        });
   }, [fetchedProducts]);
 
   const error = queryError ? queryError.message : null;
