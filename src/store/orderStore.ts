@@ -152,7 +152,7 @@ export const useOrderStore = create<OrderState>()(
 
       // Delete pending order
       deletePendingOrder: async () => {
-        const { pendingOrder } = get();
+        const { pendingOrder, allOrders, currentOrder } = get();
         
         if (!pendingOrder) {
           return false;
@@ -163,9 +163,11 @@ export const useOrderStore = create<OrderState>()(
           
           await deleteOrder(pendingOrder._id);
           
+          // Remove from allOrders array and clear current/pending order
           set({ 
+            allOrders: allOrders.filter(o => o._id !== pendingOrder._id),
             pendingOrder: null,
-            currentOrder: null,
+            currentOrder: currentOrder?._id === pendingOrder._id ? null : currentOrder,
             error: null 
           });
           

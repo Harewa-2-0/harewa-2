@@ -28,10 +28,10 @@ const Toast = ({ toast, onRemove }: ToastProps) => {
         };
       case 'info':
         return {
-          bg: 'bg-blue-500',
-          text: 'text-white',
-          icon: <Info size={20} className="text-white" />,
-          border: 'border-blue-500'
+          bg: 'bg-[#F5F5F4]',
+          text: 'text-gray-800',
+          icon: <Info size={20} className="text-gray-800" />,
+          border: 'border-gray-300'
         };
       default:
         return {

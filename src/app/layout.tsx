@@ -5,6 +5,7 @@ import AuthBootstrap from "./auth-bootstrap";
 import { CartHydrationWithErrorBoundary } from "@/components/Public_C/cart/cart-hydration";
 import ToastContainer from '@/components/ui/toast-container';
 import { ToastProvider } from '@/contexts/toast-context';
+import { QueryProvider } from '@/providers/QueryProvider';
 //import AuthDebug from "@/components/Public_C/auth-debug";
 
 const geistSans = Geist({
@@ -111,6 +112,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${mulish.variable}`}
     >
       <body data-gramm="false" className="antialiased font-sans ">
+        <QueryProvider>
         <ToastProvider>
           <AuthBootstrap />
           <CartHydrationWithErrorBoundary />
@@ -118,6 +120,7 @@ export default function RootLayout({
           {children}
           <ToastContainer />
         </ToastProvider>
+        </QueryProvider>
       </body>
     </html>
   );

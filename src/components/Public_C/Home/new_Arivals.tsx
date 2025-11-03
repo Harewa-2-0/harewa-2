@@ -1,8 +1,8 @@
 "use client"
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShoppingCart, Loader2 } from 'lucide-react';
-import { getProducts, type Product } from '@/services/products';
+import { type Product } from '@/services/products';
 import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
 
@@ -110,42 +110,30 @@ const ProductCard: React.FC<ProductCardProps> = ({
   );
 };
 
-const ProductCardsGrid: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+interface ProductCardsGridProps {
+  products?: Product[];
+  isLoading?: boolean;
+}
 
-  useEffect(() => {
-    const fetchNewArrivals = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+const ProductCardsGrid: React.FC<ProductCardsGridProps> = ({ 
+  products: propProducts = [], 
+  isLoading = false 
+}) => {
+  const error = null; // Error handling is done at the parent level
+  
+  // Get the 5 newest products (already sorted by createdAt desc from API)
+  const products = React.useMemo(() => {
+    if (!propProducts || propProducts.length === 0) return [];
 
-        // Fetch products and sort by creation date to get the most recent ones
-        const allProducts = await getProducts();
-
-        // Sort by createdAt date (most recent first) and take first 5
-        const sortedProducts = allProducts
-          .sort((a, b) => {
+    // Sort by createdAt to ensure we get the newest ones
+    const sorted = [...propProducts].sort((a, b) => {
             const dateA = new Date(a.createdAt || 0).getTime();
             const dateB = new Date(b.createdAt || 0).getTime();
             return dateB - dateA;
-          })
-          .slice(0, 5);
-
-        setProducts(sortedProducts);
-      } catch (err) {
-        console.error('Error fetching new arrivals:', err);
-        setError('Failed to load new arrivals');
-        // Fallback to empty array
-        setProducts([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchNewArrivals();
-  }, []);
+    });
+    
+    return sorted.slice(0, 5);
+  }, [propProducts]);
 
   // Loading state
   if (isLoading) {

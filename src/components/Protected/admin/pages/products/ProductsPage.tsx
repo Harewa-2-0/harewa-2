@@ -84,8 +84,11 @@ export default function ProductsPage() {
     const fetchProducts = async () => {
       try {
         setIsLoading(true);
-        const data = await adminGetProducts();
-        setProducts(data);
+        const response = await adminGetProducts({ page: 1, limit: 100 });
+        
+        // Handle paginated response or legacy array
+        const data = 'items' in response ? response.items : response;
+        setProducts(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error fetching products:', error);
       } finally {
