@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, MapPin, Check, X, Loader2 } from 'lucide-react';
-import { useProfileStore } from '@/store/profile-store';
+import { useProfileQuery, useUpdateProfileMutation } from '@/hooks/useProfile';
+import { useToast } from '@/contexts/toast-context';
 import type { ProfileAddress } from '@/store/profile-store';
 
 interface AddressSectionProps {
@@ -16,7 +17,9 @@ export default function AddressSection({
   onAddressSelect, 
   onAddressChange 
 }: AddressSectionProps) {
-  const { profileData } = useProfileStore();
+  const { data: profileData } = useProfileQuery();
+  const updateProfileMutation = useUpdateProfileMutation();
+  const { addToast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newAddress, setNewAddress] = useState({
@@ -42,7 +45,9 @@ export default function AddressSection({
     try {
       // Add the new address to the profile
       const updatedAddresses = [...(profileData?.addresses || []), newAddress];
-      await useProfileStore.getState().saveProfile({ addresses: updatedAddresses });
+      await updateProfileMutation.mutateAsync({ addresses: updatedAddresses });
+      
+      addToast('Address added successfully', 'success');
       
       // Select the newly created address
       onAddressSelect(newAddress);

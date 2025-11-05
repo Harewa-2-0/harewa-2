@@ -1,18 +1,13 @@
 'use client';
 
 import { type Order } from '@/services/order';
+import { formatPrice } from '@/utils/currency';
 
 interface OrderPrintSummaryProps {
   order: Order;
 }
 
 export default function OrderPrintSummary({ order }: OrderPrintSummaryProps) {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-    }).format(amount);
-  };
 
   // Calculate profit (using the same logic as in OrdersTable)
   const calculateProfit = (amount: number) => {
@@ -33,27 +28,27 @@ export default function OrderPrintSummary({ order }: OrderPrintSummaryProps) {
         <div className="summary-details">
           <div className="summary-row">
             <span className="summary-label">Subtotal:</span>
-            <span className="summary-value">{formatCurrency(subtotal)}</span>
+            <span className="summary-value">{formatPrice(subtotal)}</span>
           </div>
           
           <div className="summary-row">
             <span className="summary-label">Shipping:</span>
-            <span className="summary-value">{formatCurrency(shipping)}</span>
+            <span className="summary-value">{formatPrice(shipping)}</span>
           </div>
           
           <div className="summary-row">
             <span className="summary-label">Discount:</span>
-            <span className="summary-value">-{formatCurrency(discount)}</span>
+            <span className="summary-value">-{formatPrice(discount)}</span>
           </div>
           
           <div className="summary-row total-row">
             <span className="summary-label">Total Amount:</span>
-            <span className="summary-value total-amount">{formatCurrency(total)}</span>
+            <span className="summary-value total-amount">{formatPrice(total)}</span>
           </div>
           
           <div className="summary-row profit-row">
             <span className="summary-label">Estimated Profit:</span>
-            <span className="summary-value profit-amount">{formatCurrency(profit)}</span>
+            <span className="summary-value profit-amount">{formatPrice(profit)}</span>
           </div>
         </div>
       </div>

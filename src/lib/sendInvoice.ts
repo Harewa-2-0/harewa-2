@@ -95,8 +95,8 @@ export const generateInvoiceHtml = (data: {
         <tr>
           <td style="padding: 10px; border: 1px solid #ddd;">${name}</td>
           <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${quantity}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₦${price.toLocaleString()}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₦${total}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">$${price.toLocaleString()}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">$${total}</td>
         </tr>
       `
       })
@@ -157,7 +157,7 @@ ${data.payUrl ? `
       </table>
 
       <div class="total">
-        <p>Total Amount: ₦${totalAmount.toLocaleString()}</p>
+        <p>Total Amount: $${totalAmount.toLocaleString()}</p>
       </div>
 
       <div class="footer">

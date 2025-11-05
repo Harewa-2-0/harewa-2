@@ -1,133 +1,29 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
-import { api } from '@/utils/api'; // ✅ Use your API utility
+import { useProductByIdQuery, useRecommendedProductsQuery } from '@/hooks/useProducts';
+import { ProductDetailSkeleton } from '@/components/common/skeletons';
 import ProductBreadcrumb from '@/components/Public_C/Ready_To_Wear/ProductBreadcrumb';
 import ProductImageGallery from '@/components/Public_C/Ready_To_Wear/ProductImageGallery';
 import ProductCheckoutCard from '@/components/Public_C/Ready_To_Wear/ProductCheckoutCard';
 import RecommendedProducts from '@/components/Public_C/Ready_To_Wear/RecommendedProducts';
-
-interface Product {
-  _id: string;
-  name: string;
-  price: number;
-  images: string[];
-  rating?: number;
-  reviews?: number;
-  isLiked?: boolean;
-  description?: string;
-  gender?: string;
-  sizes?: string[];
-  quantity?: number;
-  remainingInStock?: number;
-  location?: string;
-  category?: string;
-  fabricType?: string;
-  seller?: string;
-  shop?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  style?: string;
-  fitType?: string;
-  color?: string;
-}
-
-interface RecommendedProduct {
-  _id: string;
-  name: string;
-  price: number;
-  images: string[];
-  rating?: number;
-  reviews?: number;
-  isLiked?: boolean;
-}
 
 export default function ProductDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = React.use(params);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
   const [isLiked, setIsLiked] = useState(false);
-  const [product, setProduct] = useState<Product | null>(null);
-  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const { isAuthenticated } = useAuthStore();
 
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setLoading(true);
+  // React Query: Fetch product by ID (cached 5min)
+  const { data: product, isLoading: loading, error: queryError } = useProductByIdQuery(resolvedParams.slug);
 
-        // Step 1: Fetch single product first
-        const productData = await api<any>(`/api/product/${resolvedParams.slug}`);
+  // React Query: Fetch recommended products (PARALLEL! Fetches independently)
+  const { data: recommendedProducts = [] } = useRecommendedProductsQuery(resolvedParams.slug);
 
-        // Handle product data
-        if (!productData) {
-          throw new Error('Product not found');
-        }
-
-        const product = productData.success && productData.data 
-          ? productData.data 
-          : productData;
-
-        if (!product || !product._id) {
-          throw new Error('Invalid product data format');
-        }
-
-        setProduct(product);
-
-        // Step 2: Fetch recommendations from same category (smarter!)
-        const categoryId = typeof product.category === 'object' && product.category?._id 
-          ? product.category._id 
-          : product.category;
-
-        if (categoryId) {
-          // Fetch products from same category (limit to 9, we'll filter out current)
-          const categoryProductsData = await api<any>(
-            `/api/product?category=${categoryId}&limit=9`
-          ).catch(() => ({ data: { items: [] } }));
-
-        // Handle recommendations
-        let productsArray: Product[] = [];
-          if (categoryProductsData?.success && categoryProductsData?.data) {
-            // Check if it's a paginated response
-            if ('items' in categoryProductsData.data) {
-              productsArray = categoryProductsData.data.items;
-            } else {
-              productsArray = categoryProductsData.data;
-            }
-          } else if (Array.isArray(categoryProductsData)) {
-            productsArray = categoryProductsData;
-          }
-
-          // Ensure it's an array before filtering
-          if (!Array.isArray(productsArray)) {
-            productsArray = [];
-        }
-
-        // Filter out current product and limit to 8
-        const filtered = productsArray
-          .filter((p: Product) => p._id !== resolvedParams.slug)
-          .slice(0, 8);
-
-        setRecommendedProducts(filtered);
-        } else {
-          // No category - show empty recommendations
-          setRecommendedProducts([]);
-        }
-
-      } catch (err) {
-        console.error('[ProductDetails] Error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load product');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (resolvedParams.slug) fetchProduct();
-  }, [resolvedParams.slug]);
+  const error = queryError ? queryError.message : null;
 
   const handleAddToCart = async () => {
     setIsAddingToCart(true);
@@ -141,13 +37,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
   const toggleLike = () => setIsLiked((prev) => !prev);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-        </div>
-      </div>
-    );
+    return <ProductDetailSkeleton />;
   }
 
   if (error || !product) {

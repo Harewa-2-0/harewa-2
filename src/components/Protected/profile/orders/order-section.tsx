@@ -1,40 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { OrderCard } from '@/components/Protected/profile/orders/order-card';
 import { OrderTabs } from '@/components/Protected/profile/orders/order-tab';
 import EmptyState from '@/components/common/empty-state';
 import { mapOrderStatusToCategory, type Order } from '@/services/order';
-import { useOrderStore } from '@/store/orderStore';
-import { useToast } from '@/contexts/toast-context';
+import { useOrdersQuery } from '@/hooks/useOrders';
 
 export default function OrdersSection() {
   const [activeOrderTab, setActiveOrderTab] = useState('active');
-  const { addToast } = useToast();
   
-  // Use order store instead of local state
-  const { 
-    allOrders, 
-    isLoading, 
-    error, 
-    fetchAllOrders,
-    pendingOrder,
-    deletePendingOrder 
-  } = useOrderStore();
-
-  // Fetch orders from order store
-  const fetchOrders = async () => {
-    try {
-      await fetchAllOrders();
-    } catch (err) {
-      console.error('Failed to fetch orders:', err);
-      addToast('Failed to load orders. Please try again.', 'error');
-    }
-  };
-
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchAllOrders, addToast]);
+  // React Query hook for orders (auto-fetches, caches, and manages state)
+  const { data: allOrders = [], isLoading, error } = useOrdersQuery();
 
   // Filter orders by category
   const filteredOrders = allOrders.filter((order) => {
@@ -96,7 +73,7 @@ export default function OrdersSection() {
       <div className="p-4 md:p-6 space-y-4">
         {filteredOrders.length > 0 ? (
           filteredOrders.map((order) => (
-            <OrderCard key={order._id} order={order} onOrderDeleted={fetchOrders} />
+            <OrderCard key={order._id} order={order} />
           ))
         ) : (
           <EmptyState

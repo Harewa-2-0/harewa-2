@@ -6,6 +6,7 @@ import { X, Package, Calendar, ArrowLeft, Loader2 } from 'lucide-react';
 import { getOrderById, getOrderStatusInfo, type Order } from '@/services/order';
 import { useOrderStore } from '@/store/orderStore';
 import { useToast } from '@/contexts/toast-context';
+import { formatPrice } from '@/utils/currency';
 import { useRouter } from 'next/navigation';
 
 interface OrderDetailsModalProps {
@@ -50,7 +51,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     fetchOrder();
   }, [orderId, isOpen, addToast, onClose]);
 
-  const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',

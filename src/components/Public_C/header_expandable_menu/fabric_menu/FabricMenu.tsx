@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useFabricStore } from '@/store/fabricStore';
+import { useFabricsQuery } from '@/hooks/useFabrics';
 import { type Fabric } from '@/services/fabric';
 
 interface FabricMenuProps {
@@ -15,25 +15,15 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
   const [selectedFabric, setSelectedFabric] = useState<Fabric | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   
-  const { fabrics, isLoading, fetchFabrics } = useFabricStore();
+  // React Query: Fetch fabrics (cached 10min, shared across components)
+  const { data: fabrics = [], isLoading } = useFabricsQuery();
 
-  // Fetch fabrics on component mount with cleanup
+  // Auto-select first fabric when data loads
   useEffect(() => {
-    let isMounted = true;
-    
-    const loadFabrics = async () => {
-      await fetchFabrics();
-      if (isMounted && fabrics.length > 0 && !selectedFabric) {
-        setSelectedFabric(fabrics[0]);
-      }
-    };
-    
-    loadFabrics();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchFabrics, fabrics.length, selectedFabric]);
+    if (fabrics.length > 0 && !selectedFabric) {
+      setSelectedFabric(fabrics[0]);
+    }
+  }, [fabrics, selectedFabric]);
 
   // Close menu when clicking outside
   useEffect(() => {

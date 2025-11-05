@@ -6,6 +6,7 @@ import { useToast } from '@/contexts/toast-context';
 import { useAuthStore } from '@/store/authStore';
 import { createCustomization, type CustomizationInput } from '@/services/customization';
 import { ApiError } from '@/utils/api';
+import { formatPrice } from '@/utils/currency';
 import OutfitSelector from './OutfitSelector';
 import FabricTypeDropdown from './FabricTypeDropdown';
 import ColorPalette from './ColorPalette';
@@ -39,8 +40,6 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
   const { addToast } = useToast();
   const { isAuthenticated } = useAuthStore();
   const router = useRouter();
-
-  const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
 
   const renderStars = (rating: number = 4) => (
     <div className="flex items-center space-x-1">

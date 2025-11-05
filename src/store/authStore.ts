@@ -88,8 +88,8 @@ export const useAuthStore = create<AuthState>()(
             const { useCartStore } = await import('@/store/cartStore');
             useCartStore.getState().clearCart();
             
-            const { useProfileStore } = await import('@/store/profile-store');
-            useProfileStore.getState().clearCache();
+            // React Query caches are automatically disabled when isAuthenticated = false
+            // No manual cache clearing needed
           } catch (error) {
             console.warn('Failed to clear stores:', error);
           }

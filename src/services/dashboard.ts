@@ -40,7 +40,7 @@ export function transformOrdersToRecent(orders: any[]): Order[] {
         id: order._id,
         customer: customerName,
         status,
-        amount: `NGN${Number(order.amount || order.total || 0).toLocaleString()}`
+        amount: formatPrice(Number(order.amount || order.total || 0))
       };
     });
 }
@@ -68,7 +68,7 @@ export function transformOrdersToTransactions(orders: any[]): Transaction[] {
       return {
         id: order._id,
         issuedDate,
-        total: `NGN${Number(order.amount || order.total || 0).toLocaleString()}`,
+        total: formatPrice(Number(order.amount || order.total || 0)),
         status: order.status || 'pending'
       };
     });
@@ -89,7 +89,7 @@ export function transformProductsToPopular(products: any[]): Product[] {
         : '#UNKNOWN';
 
       const price = Number(product.price || 0);
-      const priceFormatted = `NGN${price.toLocaleString()}`;
+      const priceFormatted = formatPrice(price);
 
       // Handle image - could be array or single string
       let image = undefined;

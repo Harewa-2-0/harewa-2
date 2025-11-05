@@ -9,6 +9,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useOrderStore } from '@/store/orderStore';
 import { useToast } from '@/contexts/toast-context';
 import { useUpdateCartQuantityMutation, useRemoveFromCartMutation, cartKeys } from '@/hooks/useCart';
+import { usePendingOrderQuery } from '@/hooks/useOrders';
+import { formatPrice } from '@/utils/currency';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function CartItems() {
@@ -24,9 +26,8 @@ export default function CartItems() {
   const removeItemLocal = useCartStore((s) => s.removeItem);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   
-  // Check for pending order
-  const { currentOrder } = useOrderStore();
-  const hasPendingOrder = currentOrder && currentOrder.status === 'pending';
+  // React Query hook for pending order
+  const { hasPendingOrder } = usePendingOrderQuery();
 
   // React Query mutations and client
   const queryClient = useQueryClient();
@@ -47,7 +48,6 @@ export default function CartItems() {
     return Array.from(productMap.values());
   }, [items]);
 
-  const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
   const sizeOptions = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
   const toggleSizeDropdown = (itemId: string) => {

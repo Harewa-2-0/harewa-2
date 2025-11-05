@@ -177,7 +177,7 @@ export const generateReceiptHtml = (data: {
             </div>
 
             <div class="amount">
-                Amount Paid: ₦${data.amountPaid.toLocaleString()}
+                Amount Paid: $${data.amountPaid.toLocaleString()}
             </div>
 
             <div class="footer">

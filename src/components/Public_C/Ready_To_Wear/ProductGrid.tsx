@@ -2,6 +2,7 @@ import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import ProductCard, { Product } from "./ProductCard";
+import { ProductGridSkeleton } from "@/components/common/skeletons";
 
 interface ProductGridProps {
   products: Product[];
@@ -25,11 +26,7 @@ const ProductGrid: React.FC<ProductGridProps> = ({
   isLoggedIn,
 }) => {
   if (loading) {
-    return (
-      <div className="w-full flex items-center justify-center py-10">
-        <div className="w-10 h-10 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <ProductGridSkeleton count={12} />;
   }
 
   if (error) {
