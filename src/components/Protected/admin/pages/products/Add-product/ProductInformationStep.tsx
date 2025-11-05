@@ -139,7 +139,7 @@ export default function ProductInformationStep({ formData, onFormDataChange, onN
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div>
           <label className="mb-3 block text-base font-medium text-gray-700">
-            Price (₦)<span className="text-red-500">*</span>
+            Price ($)<span className="text-red-500">*</span>
           </label>
           <input
             type="number"

@@ -5,6 +5,8 @@ import { ShoppingCart, Loader2 } from 'lucide-react';
 import { type Product } from '@/services/products';
 import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
+import { formatPrice } from '@/utils/currency';
+import { NewArrivalsSkeleton } from '@/components/common/skeletons';
 
 interface ProductCardProps {
   product: Product;
@@ -72,7 +74,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-white font-bold text-base">
-                NGN{displayPrice.toLocaleString()}
+                {formatPrice(displayPrice)}
               </span>
             </div>
 
@@ -135,22 +137,9 @@ const ProductCardsGrid: React.FC<ProductCardsGridProps> = ({
     return sorted.slice(0, 5);
   }, [propProducts]);
 
-  // Loading state
+  // Loading state - custom skeleton matching the masonry layout
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-white p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4">
-              New Arrivals
-            </h1>
-          </div>
-          <div className="flex justify-center items-center h-96">
-            <div className="w-10 h-10 border-4 border-[#FDC713] border-t-transparent rounded-full animate-spin" />
-          </div>
-        </div>
-      </div>
-    );
+    return <NewArrivalsSkeleton />;
   }
 
   // Error state

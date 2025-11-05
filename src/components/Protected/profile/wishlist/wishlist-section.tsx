@@ -9,16 +9,16 @@ export default function WishlistSection() {
       id: 1,
       name: "(name of outfit)",
       image: "/cart_1.webp",
-      price: "₦12,000",
-      originalPrice: "₦21,000",
+      price: "$12,000",
+      originalPrice: "$21,000",
       dateAdded: "June 21, 2023"
     },
     {
       id: 2,
       name: "(name of outfit)",
       image: "/cart_2.webp", 
-      price: "₦12,000",
-      originalPrice: "₦21,000",
+      price: "$12,000",
+      originalPrice: "$21,000",
       dateAdded: "June 21, 2023"
     }
   ];

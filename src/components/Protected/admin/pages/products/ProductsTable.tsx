@@ -5,6 +5,7 @@ import { DataTable, TableColumn } from '../components/shared';
 import DeleteProductModal from './DeleteProductModal';
 import EditProductModal from './EditProductModal';
 import { adminGetProducts, adminUpdateProduct, type Product as ApiProduct } from '@/services/products';
+import { formatPrice } from '@/utils/currency';
 import { TableSpinner } from '../../components/Spinner';
 
 // Use the API Product type with flexible id field
@@ -252,10 +253,10 @@ export default function ProductsTable({
       key: 'price',
       label: 'Price',
       render: (product) => {
-        const price = typeof product.price === 'number' 
-          ? product.price 
+        const price = typeof product.price === 'number'
+          ? product.price
           : parseInt(String(product.price || '0')) || 0;
-        return `₦${price.toLocaleString()}`;
+        return formatPrice(price);
       },
       sortable: true
     },

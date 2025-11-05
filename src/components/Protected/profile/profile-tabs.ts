@@ -1,7 +1,7 @@
 import { User, Package, Activity, Heart, Trash2, LogOut } from 'lucide-react';
 
 export const menuItems = [
-  { id: 'orders', label: 'My Orders', icon: Package, active: true },
+  // { id: 'orders', label: 'My Orders', icon: Package, active: true }, // Temporarily hidden until backend meeting
   { id: 'activity', label: 'Activity feed', icon: Activity, active: false },
   { id: 'wishlist', label: 'Wishlist', icon: Heart, active: false },
   { id: 'info', label: 'My info', icon: User, active: false },

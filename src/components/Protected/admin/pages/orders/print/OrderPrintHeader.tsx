@@ -16,10 +16,10 @@ export default function OrderPrintHeader({ order }: OrderPrintHeaderProps) {
     });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
+  const formatPrice = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'NGN',
+      currency: 'USD',
     }).format(amount);
   };
 
@@ -66,7 +66,7 @@ export default function OrderPrintHeader({ order }: OrderPrintHeaderProps) {
             </div>
             <div className="order-detail-row">
               <span className="label">Total:</span>
-              <span className="value total">{formatCurrency(order.amount)}</span>
+              <span className="value total">{formatPrice(order.amount)}</span>
             </div>
           </div>
         </div>

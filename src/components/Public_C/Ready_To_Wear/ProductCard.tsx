@@ -3,6 +3,7 @@ import { Heart, ShoppingCart, Star, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
+import { formatPrice } from '@/utils/currency';
 
 export interface Product {
   _id: string;
@@ -37,8 +38,6 @@ interface ProductCardProps {
   /** Optional: show a gold ring spinner while products load */
   isLoading?: boolean;
 }
-
-const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
 
 const renderStars = (rating: number = 4) => (
   Array.from({ length: 5 }, (_, index) => (

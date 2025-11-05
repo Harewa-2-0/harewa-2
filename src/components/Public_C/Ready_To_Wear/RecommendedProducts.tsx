@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Heart, ShoppingCart, Star, Loader2 } from 'lucide-react';
 import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
+import { formatPrice } from '@/utils/currency';
 
 interface RecommendedProduct {
   _id: string;
@@ -21,8 +22,6 @@ interface RecommendedProductsProps {
 const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) => {
   const { addToCart: addToCartAction, isAuthenticated } = useAuthAwareCartActions();
   const { addToast } = useToast();
-
-  const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
 
   const renderStars = (rating: number = 4) => (
     <div className="flex items-center space-x-1">

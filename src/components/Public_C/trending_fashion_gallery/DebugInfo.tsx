@@ -2,16 +2,19 @@
 
 import React from 'react';
 import { useTrendingFashionStore } from '@/store/trendingFashionStore';
+import { useHomepageProducts } from '@/hooks/useProducts';
+import { useCategoriesQuery } from '@/hooks/useCategories';
 
 const DebugInfo: React.FC = () => {
+  // UI state from Zustand
   const { 
-    allProducts, 
     filteredProducts, 
     activeCategory, 
-    categories, 
-    isLoadingCategories,
-    hasCategoriesLoaded 
   } = useTrendingFashionStore();
+
+  // Server data from React Query
+  const { data: allProducts = [], isLoading: isLoadingProducts } = useHomepageProducts();
+  const { data: categories = [], isLoading: isLoadingCategories } = useCategoriesQuery();
 
   // Get unique categories from products
   const getProductCategoryName = (product: any): string => {
@@ -32,12 +35,12 @@ const DebugInfo: React.FC = () => {
 
   return (
     <div className="fixed bottom-4 right-4 bg-black/80 text-white p-4 rounded-lg text-xs max-w-sm z-50">
-      <h4 className="font-bold mb-2">Debug Info</h4>
+      <h4 className="font-bold mb-2">Debug Info (React Query)</h4>
       <div className="space-y-1">
         <p>Total Products: {allProducts.length}</p>
         <p>Filtered Products: {filteredProducts.length}</p>
         <p>Active Category: {activeCategory}</p>
-        <p>Categories Loaded: {hasCategoriesLoaded ? 'Yes' : 'No'}</p>
+        <p>Loading Products: {isLoadingProducts ? 'Yes' : 'No'}</p>
         <p>Loading Categories: {isLoadingCategories ? 'Yes' : 'No'}</p>
         <div>
           <p className="font-semibold">API Categories ({categories.length}):</p>

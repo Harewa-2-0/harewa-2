@@ -2,56 +2,48 @@ import { useState } from 'react';
 import { Package, MoreVertical, X, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { deleteOrder, getOrderStatusInfo, type Order } from '@/services/order';
+import { getOrderStatusInfo, type Order } from '@/services/order';
 import { useOrderStore } from '@/store/orderStore';
 import { useToast } from '@/contexts/toast-context';
+import { formatPrice } from '@/utils/currency';
+import { useDeleteOrderMutation } from '@/hooks/useOrders';
 import OrderDetailsModal from './order-details-modal';
 
 export const OrderCard = ({ order, onOrderDeleted }: { order: Order; onOrderDeleted?: () => void }) => {
   const router = useRouter();
   const { addToast } = useToast();
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const { deletePendingOrder, setCurrentOrder } = useOrderStore();
+  const { setCurrentOrder } = useOrderStore();
+  
+  // React Query mutation for deleting orders
+  const deleteOrderMutation = useDeleteOrderMutation();
 
   const handleDelete = async () => {
-    if (isDeleting) return;
+    if (deleteOrderMutation.isPending) return;
     
     try {
-      setIsDeleting(true);
-      await deleteOrder(order._id);
+      await deleteOrderMutation.mutateAsync(order._id);
       addToast('Order deleted successfully', 'success');
-      onOrderDeleted?.(); // Refresh the orders list
+      // No need to call onOrderDeleted - React Query auto-updates the cache
     } catch (error) {
       console.error('Failed to delete order', error);
       addToast('Failed to delete order. Please try again.', 'error');
-    } finally {
-      setIsDeleting(false);
     }
   };
 
   const handleCancelPending = async () => {
-    if (isCancelling) return;
+    if (deleteOrderMutation.isPending) return;
     
     try {
-      setIsCancelling(true);
-      const success = await deletePendingOrder();
-      if (success) {
-        addToast('Pending order cancelled successfully', 'success');
-        onOrderDeleted?.(); // Refresh the orders list
-      } else {
-        addToast('Failed to cancel pending order. Please try again.', 'error');
-      }
+      await deleteOrderMutation.mutateAsync(order._id);
+      addToast('Pending order cancelled successfully', 'success');
+      // No need to call onOrderDeleted - React Query auto-updates the cache
     } catch (error) {
       console.error('Failed to cancel pending order', error);
       addToast('Failed to cancel pending order. Please try again.', 'error');
-    } finally {
-      setIsCancelling(false);
     }
   };
 
-  const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -77,7 +69,7 @@ export const OrderCard = ({ order, onOrderDeleted }: { order: Order; onOrderDele
     >
       <button
         onClick={isPendingOrder ? handleCancelPending : handleDelete}
-        disabled={isDeleting || isCancelling}
+        disabled={deleteOrderMutation.isPending}
         className={`absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors ${
           isPendingOrder 
             ? 'bg-[#D4AF37] text-black hover:bg-[#B8941F]' 
@@ -85,7 +77,7 @@ export const OrderCard = ({ order, onOrderDeleted }: { order: Order; onOrderDele
         }`}
         aria-label={isPendingOrder ? "Cancel pending order" : "Delete order"}
       >
-        {(isDeleting || isCancelling) ? (
+        {deleteOrderMutation.isPending ? (
           <div className={`w-4 h-4 border-2 border-gray-300 rounded-full animate-spin ${
             isPendingOrder ? 'border-t-black' : 'border-t-red-500'
           }`}></div>

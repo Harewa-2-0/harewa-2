@@ -9,10 +9,10 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCartStore, useCartTotalItems, useCartTotalItemsOptimistic } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
-import { useOrderStore } from "@/store/orderStore";
 import { useToast } from "@/contexts/toast-context";
-import { createOrderFromCart } from "@/services/order";
 import { useUpdateCartQuantityMutation, useRemoveFromCartMutation, useCartRawQuery } from "@/hooks/useCart";
+import { usePendingOrderQuery } from "@/hooks/useOrders";
+import { formatPrice } from "@/utils/currency";
 import { AlertCircle } from "lucide-react";
 
 interface CartUIProps {
@@ -40,12 +40,8 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   // Track pending operations per product to prevent double-submit
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
   
-  // Track order creation state
-  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
-  
-  // Order store state
-  const { fetchPendingOrder, deletePendingOrder, currentOrder, setCurrentOrder } = useOrderStore();
-  const hasPendingOrder = currentOrder && currentOrder.status === 'pending';
+  // React Query hook for pending order warning
+  const { hasPendingOrder } = usePendingOrderQuery();
   
   const items = useCartStore((s) => s.items);
   const cartId = useCartStore((s) => s.cartId);
@@ -188,8 +184,6 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     };
   }, [isOpen, setIsOpen]);
 
-  const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
-
   const onChangeQty = async (id: string, qty: number) => {
     if (pendingOperations.has(id)) return;
     
@@ -261,74 +255,24 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     }
   };
 
-  // Simplified checkout logic - auto-delete pending orders
-  const handleCheckout = async () => {
-    if (isCreatingOrder) return;
-    
+  // Instant navigation - order creation moved to checkout page
+  const handleCheckout = () => {
     if (uniqueItems.length === 0) {
       addToast("Your cart is empty. Add some items before checkout.", "error");
       return;
     }
     
-    try {
-      setIsCreatingOrder(true);
-
-      // Auth gate first
-      if (!isAuthenticated) {
-        addToast('Please sign in or create an account to checkout', 'error');
-        setIsOpen?.(false);
-        router.push('/signin');
-        return;
-      }
-
-      // Check for pending orders and auto-delete
-      console.log('[CartDrawer] Checking for pending orders...');
-      const existingPendingOrder = await fetchPendingOrder();
-      
-      if (existingPendingOrder) {
-        console.log('[CartDrawer] Found pending order, auto-deleting...');
-        await deletePendingOrder();
-        addToast('Previous order cancelled. Creating new order...', 'info');
-      }
-      
-      console.log('[CartDrawer] Creating new order...');
-
-      // Create new order
-      const result = await createOrderFromCart();
-      const errMsg = (result.error || '').toLowerCase();
-
-      if (result.success && result.order) {
-        console.log('[CartDrawer] New order created:', result.order);
-        setCurrentOrder(result.order);
-        await new Promise(resolve => setTimeout(resolve, 100));
-        addToast('Order created successfully! Please complete payment to confirm your order.', 'success');
-        setIsOpen?.(false);
-        router.push('/checkout');
-        return;
-      }
-
-      // Handle errors
-      if (result.errorCode === 'NO_ADDRESS' || errMsg.includes('no delivery address')) {
-        addToast('Add a delivery address to your profile before checkout', 'error');
-        setIsOpen?.(false);
-        router.push('/profile');
-        return;
-      }
-
-      if (result.errorCode === 'NETWORK_ERROR') {
-        addToast('Order failed. Check your network and try again.', 'error');
-      } else if (result.error && result.error.trim().length > 0) {
-        addToast(result.error, 'error');
-      } else {
-        addToast('Order failed. Check your network and try again.', 'error');
-      }
-
-    } catch (error) {
-      console.error('Checkout error:', error);
-      addToast('Order failed. Check your network and try again.', 'error');
-    } finally {
-      setIsCreatingOrder(false);
+    // Auth gate first
+    if (!isAuthenticated) {
+      addToast('Please sign in or create an account to checkout', 'error');
+      setIsOpen?.(false);
+      router.push('/signin');
+      return;
     }
+
+    // Navigate immediately - order will be created on payment
+    setIsOpen?.(false);
+    router.push('/checkout');
   };
 
   if (!isOpen) return null;
@@ -544,17 +488,10 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                 <div className="space-y-3">
                   <button
                     onClick={handleCheckout}
-                    disabled={isCreatingOrder || uniqueItems.length === 0}
+                    disabled={uniqueItems.length === 0}
                     className="w-full bg-[#D4AF37] text-black font-medium py-3 px-4 rounded-lg hover:bg-[#B8941F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isCreatingOrder ? (
-                      <div className="flex items-center justify-center">
-                        <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
-                        PROCESSING...
-                      </div>
-                    ) : (
-                      'CHECKOUT'
-                    )}
+                    CHECKOUT
                   </button>
                   
                   <button
