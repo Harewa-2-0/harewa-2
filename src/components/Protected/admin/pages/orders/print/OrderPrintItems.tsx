@@ -7,6 +7,7 @@ interface OrderPrintItemsProps {
   order: Order;
 }
 
+export default function OrderPrintItems({ order }: OrderPrintItemsProps) {
   return (
     <div className="print-items-section">
       <h3 className="section-title">Order Items</h3>
