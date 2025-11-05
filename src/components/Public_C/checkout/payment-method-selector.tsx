@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { useOrderStore } from '@/store/orderStore';
 import { purchase, getRedirectUrl } from '@/services/payments';
 import { useToast } from '@/contexts/toast-context';
+import { useCreateOrderMutation, useDeleteOrderMutation, usePendingOrderQuery } from '@/hooks/useOrders';
+import { useRouter } from 'next/navigation';
 
 interface PaymentMethodSelectorProps {
   isEnabled: boolean;
@@ -17,8 +19,14 @@ export default function PaymentMethodSelector({
 }: PaymentMethodSelectorProps) {
   const [selectedMethod, setSelectedMethod] = useState<'paystack' | 'stripe' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { currentOrder } = useOrderStore();
   const { addToast } = useToast();
+  const router = useRouter();
+  
+  // React Query hooks for order operations
+  const { data: pendingOrder } = usePendingOrderQuery();
+  const createOrderMutation = useCreateOrderMutation();
+  const deleteOrderMutation = useDeleteOrderMutation();
+  const { setCurrentOrder } = useOrderStore();
 
   const handleMethodSelect = (method: 'paystack' | 'stripe') => {
     if (!isEnabled) return;
@@ -30,10 +38,6 @@ export default function PaymentMethodSelector({
 
   const handlePay = async () => {
     if (!isEnabled) return;
-    if (!currentOrder?._id) {
-      addToast('No active order found. Please create an order first.', 'error');
-      return;
-    }
     if (selectedMethod !== 'stripe') {
       addToast('Please select Stripe to continue.', 'error');
       return;
@@ -41,11 +45,41 @@ export default function PaymentMethodSelector({
     
     try {
       setIsProcessing(true);
-      addToast('Initializing payment… This may take a few moments.', 'info');
       
-      console.log('Initiating payment for order:', currentOrder._id);
-      const resp = await purchase({ type: 'stripe-gateway', orderId: currentOrder._id });
-      console.log('Payment response:', resp);
+      // Step 1: Delete any existing pending order
+      if (pendingOrder) {
+        console.log('[Payment] Deleting old pending order...');
+        await deleteOrderMutation.mutateAsync(pendingOrder._id);
+      }
+      
+      // Step 2: Create new order from current cart
+      console.log('[Payment] Creating order from cart...');
+      addToast('Creating order...', 'info');
+      const orderResult = await createOrderMutation.mutateAsync();
+      
+      if (!orderResult.success || !orderResult.order) {
+        const errMsg = orderResult.error || 'Failed to create order';
+        
+        // Handle specific errors
+        if (orderResult.errorCode === 'NO_ADDRESS') {
+          addToast('Please add a delivery address to your profile', 'error');
+          router.push('/profile');
+          return;
+        }
+        
+        addToast(errMsg, 'error');
+        return;
+      }
+      
+      // Store order for reference
+      setCurrentOrder(orderResult.order);
+      
+      // Step 3: Initiate payment with the new order
+      console.log('[Payment] Initiating payment for order:', orderResult.order._id);
+      addToast('Initializing payment...', 'info');
+      
+      const resp = await purchase({ type: 'stripe-gateway', orderId: orderResult.order._id });
+      console.log('[Payment] Payment response:', resp);
       
       const redirect = getRedirectUrl(resp);
       if (redirect) {

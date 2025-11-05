@@ -2,21 +2,16 @@
 
 import React, { useState, useMemo } from 'react';
 import { useCartStore } from '@/store/cartStore';
-import { useOrderStore } from '@/store/orderStore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/toast-context';
-import { createOrderFromCart } from '@/services/order';
+import { formatPrice } from '@/utils/currency';
 
 export default function CheckoutSection() {
   const [promoCode, setPromoCode] = useState('');
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
-  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const { addToast } = useToast();
   const router = useRouter();
-  
-  // Order store state
-  const { fetchPendingOrder, deletePendingOrder, setCurrentOrder } = useOrderStore();
   
   const items = useCartStore((s) => s.items);
   const isLoading = useCartStore((s) => s.isLoading);
@@ -51,8 +46,6 @@ export default function CheckoutSection() {
     };
   }, [items]);
 
-  const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
-
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) {
       addToast("Please enter a promo code", "error");
@@ -79,63 +72,14 @@ export default function CheckoutSection() {
     addToast("Promo code removed", "info");
   };
 
-  const handleCheckout = async () => {
-    if (isCreatingOrder) return;
-    
+  const handleCheckout = () => {
     if (orderSummary.itemCount === 0) {
       addToast("Your cart is empty. Add some items before checkout.", "error");
       return;
     }
     
-    try {
-      setIsCreatingOrder(true);
-
-      // Check for pending orders and auto-delete
-      console.log('[Checkout] Checking for pending orders...');
-      const existingPendingOrder = await fetchPendingOrder();
-      
-      if (existingPendingOrder) {
-        console.log('[Checkout] Found pending order, auto-deleting...');
-        await deletePendingOrder();
-        addToast('Previous order cancelled. Creating new order...', 'info');
-      }
-      
-      console.log('[Checkout] Creating new order...');
-
-      // Create new order
-      const result = await createOrderFromCart();
-      const errMsg = (result.error || '').toLowerCase();
-
-      if (result.success && result.order) {
-        console.log('[Checkout] New order created:', result.order);
-        setCurrentOrder(result.order);
-        await new Promise(resolve => setTimeout(resolve, 100));
-        addToast('Order created successfully! Please complete payment to confirm your order.', 'success');
-        router.push('/checkout');
-        return;
-      }
-
-      // Handle errors
-      if (result.errorCode === 'NO_ADDRESS' || errMsg.includes('no delivery address')) {
-        addToast('Add a delivery address to your profile before checkout', 'error');
-        router.push('/profile');
-        return;
-      }
-
-      if (result.errorCode === 'NETWORK_ERROR') {
-        addToast('Order failed. Check your network and try again.', 'error');
-      } else if (result.error && result.error.trim().length > 0) {
-        addToast(result.error, 'error');
-      } else {
-        addToast('Order failed. Check your network and try again.', 'error');
-      }
-
-    } catch (error) {
-      console.error('Checkout error:', error);
-      addToast('Order failed. Check your network and try again.', 'error');
-    } finally {
-      setIsCreatingOrder(false);
-    }
+    // Navigate immediately - order will be created on payment page
+    router.push('/checkout');
   };
 
   return (
@@ -227,19 +171,10 @@ export default function CheckoutSection() {
         {/* Checkout Button */}
         <button
           onClick={handleCheckout}
-          disabled={orderSummary.itemCount === 0 || isCreatingOrder}
+          disabled={orderSummary.itemCount === 0}
           className="w-full py-4 bg-[#D4AF37] cursor-pointer text-black font-bold rounded-lg hover:bg-[#B8941F] hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
-          {isCreatingOrder ? (
-            <div className="flex items-center justify-center">
-              <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
-              PROCESSING...
-            </div>
-          ) : orderSummary.itemCount === 0 ? (
-            'Cart is Empty'
-          ) : (
-            'PROCEED TO CHECKOUT'
-          )}
+          {orderSummary.itemCount === 0 ? 'Cart is Empty' : 'PROCEED TO CHECKOUT'}
         </button>
       </div>
     </div>

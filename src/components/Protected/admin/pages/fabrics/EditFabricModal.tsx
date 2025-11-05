@@ -381,7 +381,7 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
                 <input id="supplier" name="supplier" type="text" value={formData.supplier} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]" required />
               </div>
               <div>
-                <label htmlFor="pricePerMeter" className="block text-sm font-medium text-gray-700 mb-1">Price per meter (₦)</label>
+                <label htmlFor="pricePerMeter" className="block text-sm font-medium text-gray-700 mb-1">Price per meter ($)</label>
                 <input id="pricePerMeter" name="pricePerMeter" type="number" step="0.01" min="0" value={formData.pricePerMeter} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]" required />
               </div>
               <div className="flex items-center space-x-2 mt-2">
@@ -421,7 +421,7 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
                 <div><span className="text-gray-500">Width:</span> {formData.width || '-'} {formData.width ? formData.widthUnit : ''}</div>
                 <div className="md:col-span-2"><span className="text-gray-500">Composition:</span> {formData.composition || '-'}</div>
                 <div><span className="text-gray-500">Supplier:</span> {formData.supplier || '-'}</div>
-                <div><span className="text-gray-500">Price/m:</span> {formData.pricePerMeter || '-'} {formData.pricePerMeter ? '₦' : ''}</div>
+                <div><span className="text-gray-500">Price/m:</span> {formData.pricePerMeter ? `$${formData.pricePerMeter}` : '-'}</div>
                 <div><span className="text-gray-500">In stock:</span> {formData.inStock ? 'Yes' : 'No'}</div>
               </div>
             </div>

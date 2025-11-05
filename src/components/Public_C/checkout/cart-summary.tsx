@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/contexts/toast-context';
+import { formatPrice } from '@/utils/currency';
 import type { Order } from '@/services/order';
 
 interface CartSummaryProps {
@@ -46,8 +47,6 @@ export default function CartSummary({ order }: CartSummaryProps) {
       items: uniqueItems,
     };
   }, [items]);
-
-  const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
 
   const handleRemoveItem = async (id: string) => {
     try {

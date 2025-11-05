@@ -102,9 +102,6 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `NGN${amount.toLocaleString()}`;
-  };
 
   const formatRelativeTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -238,25 +235,25 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
               <div className="flex justify-between text-sm">
                 <span className="text-[#8B909A]">Subtotal:</span>
                 <span className="text-[#23272E]">
-                  <span className="font-bold">NGN</span> {order.amount.toLocaleString()}
+                  {formatPrice(order.amount)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-[#8B909A]">Shipping:</span>
                 <span className="text-[#23272E]">
-                  <span className="font-bold">NGN</span> 0
+                  {formatPrice(0)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-[#8B909A]">Discount:</span>
                 <span className="text-[#23272E]">
-                  <span className="font-bold">NGN</span> 0
+                  {formatPrice(0)}
                 </span>
               </div>
               <div className="flex justify-between text-sm font-semibold border-t pt-2">
                 <span className="text-[#8B909A]">TOTAL:</span>
                 <span className="text-[#23272E]">
-                  <span className="font-bold">NGN</span> {order.amount.toLocaleString()}
+                  {formatPrice(order.amount)}
                 </span>
               </div>
             </div>

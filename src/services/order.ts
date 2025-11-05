@@ -1,7 +1,6 @@
 import { api, unwrap, type MaybeWrapped, type Json } from "@/utils/api";
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
-import { useProfileStore } from '@/store/profile-store';
 
 /** ---------- Types ---------- */
 export type Order = {
@@ -217,11 +216,9 @@ export async function createOrderFromCart(): Promise<OrderPlacementResult> {
   try {
     const cartStore = useCartStore.getState();
     const authStore = useAuthStore.getState();
-    const profileStore = useProfileStore.getState();
     
     const { items, cartId } = cartStore;
     const { isAuthenticated } = authStore;
-    let { profileData } = profileStore;
     
     // Validate authentication
     if (!isAuthenticated) {
@@ -247,18 +244,17 @@ export async function createOrderFromCart(): Promise<OrderPlacementResult> {
       throw new Error('INVALID_AMOUNT: Invalid order amount');
     }
     
-    // Ensure profile addresses are loaded (fetch once if missing)
-    if (!profileData?.addresses || profileData.addresses.length === 0) {
-      try {
-        await profileStore.fetchProfile(true);
-        profileData = useProfileStore.getState().profileData;
-      } catch (e) {
-        // ignore, handled below
-      }
+    // Fetch profile data directly from API
+    let profileData: any = null;
+    try {
+      const response = await api<any>('/api/auth/me');
+      profileData = response.profile;
+    } catch (e) {
+      console.error('Failed to fetch profile:', e);
     }
 
     // Get default address
-    const defaultAddress = profileData?.addresses?.find(addr => addr.isDefault)
+    const defaultAddress = profileData?.addresses?.find((addr: any) => addr.isDefault)
       || profileData?.addresses?.[0];
     
     if (!defaultAddress) {
@@ -318,15 +314,15 @@ export async function createOrderFromCart(): Promise<OrderPlacementResult> {
 
 /**
  * Gets the current cart data for order creation
+ * Note: This is a synchronous helper - cannot fetch profile data
+ * Address should be passed explicitly or fetched separately
  */
 export function getCartDataForOrder() {
   const cartStore = useCartStore.getState();
   const authStore = useAuthStore.getState();
-  const profileStore = useProfileStore.getState();
   
   const { items, cartId } = cartStore;
   const { isAuthenticated } = authStore;
-  const { profileData } = profileStore;
   
   // Calculate total amount
   const totalAmount = items.reduce((total, item) => {
@@ -334,20 +330,10 @@ export function getCartDataForOrder() {
     return total + (itemPrice * item.quantity);
   }, 0);
   
-  // Get default address
-  const defaultAddress = profileData?.addresses?.find(addr => addr.isDefault) 
-    || profileData?.addresses?.[0];
-  
-  const addressString = defaultAddress 
-    ? `${defaultAddress.line1}, ${defaultAddress.city}, ${defaultAddress.state}, ${defaultAddress.zip}`
-    : '';
-  
   return {
     cartId: cartId || '',
     totalAmount,
-    address: addressString,
     isAuthenticated,
-    hasAddress: !!defaultAddress,
     itemCount: items.length,
   };
 }

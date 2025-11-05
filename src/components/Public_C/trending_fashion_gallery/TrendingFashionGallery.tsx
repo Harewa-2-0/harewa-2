@@ -1,10 +1,24 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import CategorySidebar from './CategorySidebar';
 import ProductGrid from './ProductGrid';
-import { Category, TrendingFashionGalleryProps } from './types';
+import { TrendingFashionGalleryProps } from './types';
 import { useTrendingFashionStore } from '@/store/trendingFashionStore';
+import { useHomepageProducts } from '@/hooks/useProducts';
+import { useCategoriesQuery } from '@/hooks/useCategories';
+import { type Product } from '@/services/products';
+
+// Helper to get category name from product
+const getProductCategoryName = (product: Product): string => {
+  if (typeof product.category === 'string') {
+    return product.category;
+  }
+  if (product.category && typeof product.category === 'object') {
+    return product.category.name;
+  }
+  return '';
+};
 
 const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
   categories: propCategories,
@@ -14,28 +28,51 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
   products: propProducts,
   isLoading: propIsLoading,
 }) => {
-  // Use the store
+  // Zustand UI state (active category, filtered products)
   const {
-    allProducts,
-    filteredProducts,
-    categories: storeCategories,
     activeCategory,
-    isLoading: storeIsLoading,
-    isLoadingCategories,
-    error,
-    hasInitialized,
-    hasCategoriesLoaded,
+    filteredProducts,
     setActiveCategory,
-    initializeData,
-    setProducts,
-    clearError,
+    setFilteredProducts,
   } = useTrendingFashionStore();
 
-  // Use provided categories or store categories
-  const categories = propCategories || storeCategories;
-  
-  // Use prop products if provided, otherwise use store products
-  const isLoading = propProducts ? propIsLoading : storeIsLoading;
+  // React Query: Fetch categories (cached 10min)
+  const { data: queryCategories = [], isLoading: isLoadingCategories } = useCategoriesQuery();
+
+  // React Query: Fetch products (cached 5min) - only if not provided as props
+  const { data: queryProducts = [], isLoading: isLoadingProducts } = useHomepageProducts();
+
+  // Use provided categories/products or fetched ones
+  const categories = propCategories || queryCategories;
+  const allProducts = propProducts || queryProducts;
+  const isLoading = propProducts ? propIsLoading : isLoadingProducts;
+
+  // Filter products by active category (client-side filtering)
+  const filtered = useMemo(() => {
+    if (!Array.isArray(allProducts) || allProducts.length === 0) {
+      return [];
+    }
+
+    const matched = allProducts.filter(product => {
+      const productCategoryName = getProductCategoryName(product);
+      return productCategoryName === activeCategory;
+    });
+
+    // Limit to 9 products for performance
+    return matched.slice(0, 9);
+  }, [allProducts, activeCategory]);
+
+  // Update Zustand store with filtered products (for child components)
+  useEffect(() => {
+    setFilteredProducts(filtered);
+  }, [filtered, setFilteredProducts]);
+
+  // Set initial category if provided
+  useEffect(() => {
+    if (initialCategory && initialCategory !== activeCategory) {
+      setActiveCategory(initialCategory);
+    }
+  }, [initialCategory, activeCategory, setActiveCategory]);
 
   // Handle category change
   const handleCategoryChange = (categoryName: string) => {
@@ -48,32 +85,10 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
     onProductClick?.(product);
   };
 
-  // If products are provided as props, use them instead of fetching
-  useEffect(() => {
-    if (propProducts && propProducts.length > 0) {
-      setProducts(propProducts);
-    }
-  }, [propProducts, setProducts]);
+  // Show error state if React Query failed (categories would be fallback)
+  const hasError = categories.length === 0 && !isLoadingCategories;
 
-  // Initialize data on mount (only if no products provided)
-  useEffect(() => {
-    if (!propProducts && (!hasInitialized || !hasCategoriesLoaded)) {
-      initializeData();
-    } else if (!hasCategoriesLoaded) {
-      // Still need to fetch categories even if products are provided
-      initializeData();
-    }
-  }, [propProducts, hasInitialized, hasCategoriesLoaded, initializeData]);
-
-  // Set initial category if provided
-  useEffect(() => {
-    if (initialCategory && initialCategory !== activeCategory) {
-      setActiveCategory(initialCategory);
-    }
-  }, [initialCategory, activeCategory, setActiveCategory]);
-
-  // Show network error state if there's an error
-  if (error) {
+  if (hasError) {
     return (
       <section className="w-full bg-gray-50 py-16">
         <div className="max-w-7xl mx-auto md:px-8 px-6">
@@ -104,17 +119,8 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
             </p>
             <div className="space-y-3">
               <button
-                onClick={() => {
-                  clearError();
-                  initializeData();
-                }}
-                className="inline-flex items-center px-6 py-3 bg-[#D4AF37] hover:bg-[#B8941F] text-white font-medium rounded-lg transition-colors"
-              >
-                Try Again
-              </button>
-              <button
                 onClick={() => window.location.reload()}
-                className="inline-flex items-center px-6 py-3 bg-white text-gray-700 font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center px-6 py-3 bg-[#D4AF37] hover:bg-[#B8941F] text-white font-medium rounded-lg transition-colors"
               >
                 Refresh Page
               </button>
