@@ -156,7 +156,7 @@ const FabricsTable = forwardRef<FabricsTableRef, FabricsTableProps>(({ onFabricC
       render: (fabric) => (
         <div className="text-sm text-gray-900">
           <div className="font-medium">
-            {fabric.pricePerMeter ? `₦${fabric.pricePerMeter.toLocaleString()}/m` : 'N/A'}
+            {fabric.pricePerMeter ? `${formatPrice(fabric.pricePerMeter)}/m` : 'N/A'}
           </div>
           <div className={`text-xs ${fabric.inStock ? 'text-green-600' : 'text-red-600'}`}>
             {fabric.inStock ? 'In Stock' : 'Out of Stock'}

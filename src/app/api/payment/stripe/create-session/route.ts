@@ -7,8 +7,8 @@ export async function POST(req: NextRequest) {
         const session = await createCheckoutSession({
             amount: body.amount,
             email: body.email,
-            successUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/cancel`,
+            successUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/payment/cancel`,
             metadata: {
                 items: body.items ?? [],
                 type: body.type ?? "",

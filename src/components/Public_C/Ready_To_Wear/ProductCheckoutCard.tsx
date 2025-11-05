@@ -7,6 +7,7 @@ import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/contexts/toast-context';
 import { api } from '@/utils/api';
+import { formatPrice } from '@/utils/currency';
 import SizeGuide from './SizeGuide';
 
 interface ProductCheckoutCardProps {
@@ -45,8 +46,6 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
   const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
   const router = useRouter();
-
-  const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
 
   const renderStars = (rating: number = 4) => (
     <div className="flex items-center space-x-1">

@@ -37,7 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     <FilterDropdown label="Fit type" value={filters.fitType} options={fitTypes} onChange={value => handleFilterChange('fitType', value)} />
     <FilterDropdown label="Colour" value={filters.color} options={colors} onChange={value => handleFilterChange('color', value)} />
     <div className="mb-4 mt-8">
-      <label className="block text-base font-medium text-gray-600 mb-4">Price range (₦ NGN 20,000)</label>
+      <label className="block text-base font-medium text-gray-600 mb-4">Price range ($ USD 20,000)</label>
       <div className="flex items-center space-x-2 w-full">
         <input
           type="range"

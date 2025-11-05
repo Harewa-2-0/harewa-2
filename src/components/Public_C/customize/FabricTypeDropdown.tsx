@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
-import { useFabricStore } from '@/store/fabricStore';
+import { useFabricsQuery } from '@/hooks/useFabrics';
+import { formatPrice } from '@/utils/currency';
 
 interface FabricTypeDropdownProps {
   selectedFabric: string;
@@ -15,15 +16,8 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Get fabrics from store
-  const { fabrics, isLoading, error, fetchFabrics, hasLoaded } = useFabricStore();
-
-  // Fetch fabrics on mount
-  useEffect(() => {
-    if (!hasLoaded && !isLoading) {
-      fetchFabrics();
-    }
-  }, [fetchFabrics, hasLoaded, isLoading]);
+  // React Query: Fetch fabrics (cached 10min, shared with FabricMenu!)
+  const { data: fabrics = [], isLoading, error } = useFabricsQuery();
 
   // Filter fabrics based on search term
   const filteredFabrics = fabrics.filter(fabric =>
@@ -157,7 +151,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
                           {/* Show price if available */}
                           {fabric.pricePerMeter && (
                             <span className="text-xs text-[#D4AF37] font-medium mt-1">
-                              ₦{fabric.pricePerMeter.toLocaleString()}/meter
+                              {formatPrice(fabric.pricePerMeter)}/meter
                             </span>
                           )}
                           {/* Show stock status */}
@@ -209,7 +203,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
               )}
               {selectedFabricOption.pricePerMeter && (
                 <p className="text-xs text-[#D4AF37] font-medium mt-1">
-                  ₦{selectedFabricOption.pricePerMeter.toLocaleString()} per meter
+                  {formatPrice(selectedFabricOption.pricePerMeter)} per meter
                 </p>
               )}
             </div>

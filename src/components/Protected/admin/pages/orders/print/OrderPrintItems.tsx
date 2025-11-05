@@ -1,18 +1,11 @@
 'use client';
 
 import { type Order } from '@/services/order';
+import { formatPrice } from '@/utils/currency';
 
 interface OrderPrintItemsProps {
   order: Order;
 }
-
-export default function OrderPrintItems({ order }: OrderPrintItemsProps) {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-    }).format(amount);
-  };
 
   return (
     <div className="print-items-section">

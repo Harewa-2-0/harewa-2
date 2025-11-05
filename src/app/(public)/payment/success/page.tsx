@@ -4,15 +4,20 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { useOrderStore } from '@/store/orderStore';
+import { useCartStore } from '@/store/cartStore';
 import { useToast } from '@/contexts/toast-context';
+import { useQueryClient } from '@tanstack/react-query';
+import { orderKeys } from '@/hooks/useOrders';
 
 function PaymentSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const [orderReference, setOrderReference] = useState<string>('');
   const [isVerifying, setIsVerifying] = useState(true);
   const [verificationStatus, setVerificationStatus] = useState<'verifying' | 'success' | 'failed'>('verifying');
-  const { clearCurrentOrder, fetchAllOrders } = useOrderStore();
+  const { clearCurrentOrder } = useOrderStore();
+  const { clearCart } = useCartStore();
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -49,8 +54,26 @@ function PaymentSuccessContent() {
           // Clear current order from frontend state
           clearCurrentOrder();
           
-          // Refresh orders to get updated status
-          await fetchAllOrders();
+          // Delete the cart from backend using existing endpoint
+          const cartId = useCartStore.getState().cartId;
+          if (cartId) {
+            try {
+              await fetch(`/api/cart/${cartId}`, { 
+                method: 'DELETE',
+                credentials: 'include'
+              });
+              console.log(`Cart ${cartId} deleted successfully after payment`);
+            } catch (error) {
+              console.error('Failed to delete cart:', error);
+              // Continue anyway - don't block success flow
+            }
+          }
+          
+          // Clear the cart from frontend state
+          clearCart();
+          
+          // Refresh orders using React Query
+          await queryClient.invalidateQueries({ queryKey: orderKeys.mine() });
           
           addToast('Payment verified successfully!', 'success');
         } else {
@@ -73,7 +96,7 @@ function PaymentSuccessContent() {
     };
 
     verifyPayment();
-  }, [searchParams, clearCurrentOrder, fetchAllOrders, addToast, router]);
+  }, [searchParams, clearCurrentOrder, clearCart, queryClient, addToast, router]);
 
   return (
     <div className="min-h-screen bg-[#FFF9E5] flex flex-col">
@@ -141,15 +164,15 @@ function PaymentSuccessContent() {
               {/* Thank You Message */}
               <p className="text-gray-700 mb-8 max-w-md mx-auto">
                 Thank you for your purchase! Your order has been confirmed and will be processed shortly.
-                You can track your order status in your orders page.
+                A confirmation email with your order details has been sent to you.
               </p>
 
               {/* Action Button */}
               <button
-                onClick={() => router.push('/orders')}
+                onClick={() => router.push('/shop')}
                 className="w-full md:w-auto px-8 py-4 bg-[#D4AF37] text-black font-semibold rounded-lg hover:bg-[#B8941F] transition-colors shadow-md hover:shadow-lg"
               >
-                VIEW MY ORDERS
+                CONTINUE SHOPPING
               </button>
 
               {/* Additional Actions */}
@@ -158,14 +181,14 @@ function PaymentSuccessContent() {
                   onClick={() => router.push('/')}
                   className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
                 >
-                  Continue Shopping
+                  Go to Homepage
                 </button>
                 <span className="hidden sm:inline text-gray-400">•</span>
                 <button
-                  onClick={() => router.push('/orders')}
+                  onClick={() => router.push('/profile')}
                   className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
                 >
-                  View Order Details
+                  View Profile
                 </button>
               </div>
             </>
