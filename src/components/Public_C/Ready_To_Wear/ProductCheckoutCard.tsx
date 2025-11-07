@@ -9,12 +9,13 @@ import { useToast } from '@/contexts/toast-context';
 import { api } from '@/utils/api';
 import { formatPrice } from '@/utils/currency';
 import SizeGuide from './SizeGuide';
+import { useToggleWishlistMutation, useIsInWishlist } from '@/hooks/useWishlist';
 
 interface ProductCheckoutCardProps {
   product: {
-    _id: string;
+    _id?: string;
     name: string;
-    price: number;
+    price: number | string;
     images: string[];
     description?: string;
     rating?: number;
@@ -46,6 +47,8 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
   const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
   const router = useRouter();
+  const toggleWishlistMutation = useToggleWishlistMutation();
+  const isInWishlist = useIsInWishlist(product._id);
 
   const renderStars = (rating: number = 4) => (
     <div className="flex items-center space-x-1">
@@ -96,6 +99,29 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
       console.error('Failed to add item to cart:', error);
     } finally {
       setIsAddingToCartLocal(false);
+    }
+  };
+
+  const handleToggleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!product._id) {
+      console.error('Product ID is missing');
+      return;
+    }
+    
+    if (!isAuthenticated) {
+      addToast('Please login to add to wishlist', 'error');
+      return;
+    }
+    
+    try {
+      const result = await toggleWishlistMutation.mutateAsync({ productId: product._id });
+      addToast(result.message, result.added ? 'success' : 'info');
+    } catch (error) {
+      addToast('Failed to update wishlist', 'error');
+      console.error('Failed to toggle wishlist:', error);
     }
   };
 
@@ -231,10 +257,10 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
               ) : 'ADD TO CART'}
             </button>
             <button
-              onClick={onToggleLike}
-              className={`w-10 h-10 flex items-center justify-center rounded-full border-2 ${isLiked ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'} transition-colors`}
+              onClick={handleToggleWishlist}
+              className={`w-10 h-10 flex items-center justify-center rounded-full border-2 ${isInWishlist ? 'border-[#D4AF37] bg-[#FFF9E5]' : 'border-gray-300 bg-white'} transition-colors`}
             >
-              <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+              <Heart className={`w-5 h-5 ${isInWishlist ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-gray-400'}`} />
             </button>
           </div>
 

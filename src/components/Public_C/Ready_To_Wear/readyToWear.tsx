@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Product } from "./ProductCard";
+//import { Product } from "./ProductCard";
 import Sidebar from "./Sidebar";
 import HeaderSection from "./HeaderSection";
 import FilterControls from "./FilterControls";
@@ -11,7 +11,7 @@ import { useResponsivePagination } from "../../../hooks/useResponsivePagination"
 import { useShopProducts } from "@/hooks/useProducts";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/contexts/toast-context";
-import Image from "next/image";
+//import Image from "next/image";
 
 interface FilterState {
   category: string;

@@ -8,6 +8,7 @@ import { useCartStore } from '@/store/cartStore';
 import { useToast } from '@/contexts/toast-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { orderKeys } from '@/hooks/useOrders';
+import { cartKeys, useCreateEmptyCartMutation } from '@/hooks/useCart';
 
 function PaymentSuccessContent() {
   const router = useRouter();
@@ -19,6 +20,7 @@ function PaymentSuccessContent() {
   const { clearCurrentOrder } = useOrderStore();
   const { clearCart } = useCartStore();
   const { addToast } = useToast();
+  const createEmptyCartMutation = useCreateEmptyCartMutation();
 
   useEffect(() => {
     const verifyPayment = async () => {
@@ -54,22 +56,17 @@ function PaymentSuccessContent() {
           // Clear current order from frontend state
           clearCurrentOrder();
           
-          // Delete the cart from backend using existing endpoint
-          const cartId = useCartStore.getState().cartId;
-          if (cartId) {
-            try {
-              await fetch(`/api/cart/${cartId}`, { 
-                method: 'DELETE',
-                credentials: 'include'
-              });
-              console.log(`Cart ${cartId} deleted successfully after payment`);
-            } catch (error) {
-              console.error('Failed to delete cart:', error);
-              // Continue anyway - don't block success flow
-            }
+          // Create a new empty cart (old cart preserved for order)
+          console.log('[PaymentSuccess] Creating new empty cart for future purchases...');
+          try {
+            const newCart = await createEmptyCartMutation.mutateAsync();
+            console.log('[PaymentSuccess] New cart created:', newCart?._id || newCart?.id);
+          } catch (error) {
+            console.error('[PaymentSuccess] Failed to create new cart:', error);
+            // Continue anyway - not critical, user can still add items later
           }
           
-          // Clear the cart from frontend state
+          // Clear Zustand state to reset UI
           clearCart();
           
           // Refresh orders using React Query
