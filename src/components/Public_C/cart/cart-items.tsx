@@ -6,7 +6,7 @@ import { Minus, Plus, Trash2, Heart, ChevronDown, AlertCircle } from 'lucide-rea
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
-import { useOrderStore } from '@/store/orderStore';
+//import { useOrderStore } from '@/store/orderStore';
 import { useToast } from '@/contexts/toast-context';
 import { useUpdateCartQuantityMutation, useRemoveFromCartMutation, cartKeys } from '@/hooks/useCart';
 import { usePendingOrderQuery } from '@/hooks/useOrders';
@@ -231,7 +231,7 @@ export default function CartItems() {
                 >
                   <Heart
                     size={12}
-                    className={`${isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-400'} md:w-4 md:h-4`}
+                    className={`${isFavorite ? 'text-[#D4AF37] fill-[#D4AF37]' : 'text-gray-400'} md:w-4 md:h-4`}
                   />
                 </button>
               </div>
