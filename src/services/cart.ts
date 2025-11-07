@@ -182,6 +182,23 @@ export async function addLinesToMyCart(
   return unwrap<Cart>(raw);
 }
 
+/** Create a new empty cart for the current user (after payment) */
+export async function createNewEmptyCart(): Promise<Cart | null> {
+  try {
+    const raw = await api<MaybeWrapped<Cart>>('/api/cart', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([]), // Empty products array
+      credentials: "include",
+      cache: "no-store",
+    });
+    return unwrap<Cart>(raw);
+  } catch (error) {
+    console.error("Failed to create new empty cart:", error);
+    throw error;
+  }
+}
+
 /** Replace entire products array for a cart (PUT /api/cart/:id) */
 export async function replaceCartProducts(id: string, products: UpdateCartInput["products"]) {
   const body = products.map(toBackendLine);

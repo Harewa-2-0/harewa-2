@@ -48,7 +48,7 @@ export default function OrdersSection() {
         <div className="p-4 md:p-6">
           <EmptyState
             title="Error loading orders"
-            description={error}
+            description={error?.message || String(error) || 'Failed to load orders. Please try again.'}
           />
         </div>
       </div>
