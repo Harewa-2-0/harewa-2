@@ -19,8 +19,8 @@ export default function ProfileLayout() {
 
   const renderContent = () => {
     switch (activeTab) {
-      // case 'orders': // Temporarily hidden until backend meeting
-      //   return <OrdersSection />;
+      case 'orders': 
+      return <OrdersSection />;
       case 'activity':
         return (
           <div className="p-6">

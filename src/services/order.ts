@@ -342,16 +342,17 @@ export function getCartDataForOrder() {
 
 /**
  * Maps backend order status to frontend categories
+ * Note: 'pending' orders are rare (payment initialization failures) and treated as cancelled
  */
 export function mapOrderStatusToCategory(status: Order['status']): 'active' | 'completed' | 'cancelled' {
   switch (status) {
-    case 'pending':
     case 'initiated':
     case 'paid':
     case 'shipped':
       return 'active';
     case 'delivered':
       return 'completed';
+    case 'pending':
     default:
       return 'cancelled';
   }
@@ -363,7 +364,7 @@ export function mapOrderStatusToCategory(status: Order['status']): 'active' | 'c
 export function getOrderStatusInfo(status: Order['status']) {
   switch (status) {
     case 'pending':
-      return { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' };
+      return { label: 'Payment Failed', color: 'bg-red-100 text-red-800' };
     case 'initiated':
       return { label: 'Payment Initiated', color: 'bg-blue-100 text-blue-800' };
     case 'paid':

@@ -4,11 +4,12 @@ import { Heart, ShoppingCart, Star, Loader2 } from 'lucide-react';
 import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
 import { formatPrice } from '@/utils/currency';
+import { useToggleWishlistMutation, useIsInWishlist } from '@/hooks/useWishlist';
 
 interface RecommendedProduct {
-  _id: string;
+  _id?: string;
   name: string;
-  price: number;
+  price: number | string;
   images: string[];
   rating?: number;
   reviews?: number;
@@ -36,6 +37,31 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
 
   const RecommendedProductCard: React.FC<{ product: RecommendedProduct }> = ({ product }) => {
     const [isAddingToCart, setIsAddingToCart] = useState(false);
+    const toggleWishlistMutation = useToggleWishlistMutation();
+    const isInWishlist = useIsInWishlist(product._id);
+
+    const handleToggleWishlist = async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      if (!product._id) {
+        console.error('Product ID is missing');
+        return;
+      }
+      
+      if (!isAuthenticated) {
+        addToast('Please login to add to wishlist', 'error');
+        return;
+      }
+      
+      try {
+        const result = await toggleWishlistMutation.mutateAsync({ productId: product._id });
+        addToast(result.message, result.added ? 'success' : 'info');
+      } catch (error) {
+        addToast('Failed to update wishlist', 'error');
+        console.error('Failed to toggle wishlist:', error);
+      }
+    };
 
     const handleAddToCart = async (e: React.MouseEvent) => {
       e.preventDefault();
@@ -79,8 +105,11 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
               alt={product.name}
               className="w-full h-36 sm:h-40 object-cover"
             />
-            <button className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow">
-              <Heart className={`w-5 h-5 ${product.isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+            <button 
+              onClick={handleToggleWishlist}
+              className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
+            >
+              <Heart className={`w-5 h-5 ${isInWishlist ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-gray-400'}`} />
             </button>
           </div>
           <div className="p-2.5">

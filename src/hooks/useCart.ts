@@ -7,6 +7,7 @@ import {
   updateProductQuantityOptimistic,
   replaceCartProducts,
   mapServerCartToStoreItems,
+  createNewEmptyCart,
   type Cart
 } from '@/services/cart';
 import type { CartLine } from '@/store/cartStore';
@@ -180,6 +181,30 @@ export function useReplaceCartMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: cartKeys.mine() });
+    },
+  });
+}
+
+/**
+ * Mutation to create a new empty cart after payment
+ * Used to separate paid orders from future purchases
+ */
+export function useCreateEmptyCartMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Cart | null, Error, void>({
+    mutationFn: async () => {
+      return await createNewEmptyCart();
+    },
+    onSuccess: (newCart) => {
+      const cartId = newCart?._id || newCart?.id;
+      console.log('[useCreateEmptyCartMutation] New empty cart created:', cartId);
+      
+      // Invalidate cart queries to refetch and get the new cart
+      queryClient.invalidateQueries({ queryKey: cartKeys.all });
+    },
+    onError: (error) => {
+      console.error('[useCreateEmptyCartMutation] Failed to create empty cart:', error);
     },
   });
 }
