@@ -8,14 +8,14 @@ import AddressSection from '@/components/Public_C/checkout/address-section';
 import CartSummary from '@/components/Public_C/checkout/cart-summary';
 // import PaymentMethods from '@/components/Public_C/checkout/payment-methods';
 import PaymentMethodSelector from '@/components/Public_C/checkout/payment-method-selector';
-import type { ProfileAddress } from '@/store/profile-store';
+import type { Address } from '@/services/profile';
 
 export default function CheckoutPage() {
   const { isAuthenticated, hasHydratedAuth } = useAuthStore();
   const { data: profileData } = useProfileQuery();
   const router = useRouter();
   
-  const [selectedAddress, setSelectedAddress] = useState<ProfileAddress | undefined>();
+  const [selectedAddress, setSelectedAddress] = useState<Address | undefined>();
   const [isAddressValid, setIsAddressValid] = useState(false);
 
   // Redirect unauthenticated users

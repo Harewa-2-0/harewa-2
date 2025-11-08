@@ -175,7 +175,7 @@ export default function Header() {
               
               {/* Mobile menu - starts from top of screen */}
               <motion.div
-                className="md:hidden fixed top-0 left-0 right-0 w-full bg-black px-4 pb-8 text-white text-base font-medium flex flex-col overflow-y-auto z-[101]"
+                className="md:hidden fixed top-0 left-0 right-0 w-full bg-black px-4 pb-4 text-white text-base font-medium flex flex-col overflow-y-auto z-[101]"
                 style={{
                   height: '100vh',
                 }}
@@ -185,7 +185,7 @@ export default function Header() {
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
               >
                 {/* Mobile Header inside menu */}
-                <div className="flex items-center justify-between py-3 border-b border-gray-700 mb-6">
+                <div className="flex items-center justify-between py-2 border-b border-gray-700 mb-4">
                   <Link href="/home" onClick={closeMobileNav}>
                     <Image src="/logo.webp" alt="Harewa Logo" width={120} height={40} priority />
                   </Link>
@@ -199,7 +199,7 @@ export default function Header() {
                 </div>
 
                 {/* Navigation Links */}
-                <div className="flex flex-col space-y-8 pt-2">
+                <div className="flex flex-col space-y-4 pt-2">
                   <FabricMenu isMobile={true} />
                   <AboutMenu isMobile={true} />
                   {navItems.map(({ label, href }) => (
@@ -210,7 +210,7 @@ export default function Header() {
                 </div>
 
                 {/* Auth Buttons & CTA */}
-                <div className="mt-auto flex flex-col space-y-3 pt-8">
+                <div className="mt-auto flex flex-col space-y-3 pt-3">
                   {isReady && !isLoggedIn && (
                     <div className="flex gap-4">
                       <Link
