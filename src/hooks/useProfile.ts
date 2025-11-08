@@ -22,7 +22,7 @@ export const profileKeys = {
  * Uses /api/auth/me endpoint (which returns profile nested in response)
  */
 export function useProfileQuery(enabled: boolean = true) {
-  const { isAuthenticated, updateUser } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   
   return useQuery<Profile, Error>({
     queryKey: profileKeys.mine(),
@@ -52,28 +52,8 @@ export function useProfileQuery(enabled: boolean = true) {
         
         console.log('[ProfileQuery] Transformed data:', transformedData);
         
-        // Sync avatar to authStore for navbar consistency
-        if (transformedData.profilePicture) {
-          console.log('[ProfileQuery] Syncing avatar to authStore:', transformedData.profilePicture);
-          updateUser({ avatar: transformedData.profilePicture });
-          
-          // Also update the auth-snapshot in localStorage for persistence
-          if (typeof window !== 'undefined') {
-            try {
-              const snapshot = localStorage.getItem('auth-snapshot');
-              if (snapshot) {
-                const cached = JSON.parse(snapshot);
-                if (cached.user) {
-                  cached.user.avatar = transformedData.profilePicture;
-                  localStorage.setItem('auth-snapshot', JSON.stringify(cached));
-                  console.log('[ProfileQuery] Updated auth-snapshot with avatar');
-                }
-              }
-            } catch (e) {
-              console.warn('[ProfileQuery] Failed to update auth-snapshot:', e);
-            }
-          }
-        }
+        // NOTE: We do NOT auto-sync avatar here to prevent race conditions
+        // Avatar syncing happens only on user actions (upload, edit) in mutations
         
         return transformedData;
       }
@@ -184,6 +164,23 @@ export function useUpdateProfileMutation() {
         name: updatedProfile.user.username || fullName || undefined,
       });
       
+      // Update localStorage snapshot for persistence
+      if (typeof window !== 'undefined') {
+        try {
+          const snapshot = localStorage.getItem('auth-snapshot');
+          if (snapshot) {
+            const cached = JSON.parse(snapshot);
+            if (cached.user) {
+              cached.user.fullName = fullName || cached.user.fullName;
+              cached.user.name = updatedProfile.user.username || fullName || cached.user.name;
+              localStorage.setItem('auth-snapshot', JSON.stringify(cached));
+            }
+          }
+        } catch (e) {
+          console.warn('[Profile Update] Failed to update auth-snapshot:', e);
+        }
+      }
+      
       console.log('[Profile] Profile updated successfully and synced with auth');
     },
   });
@@ -269,6 +266,22 @@ export function useUploadAvatarMutation() {
       
       // Sync authStore with final profile picture URL
       updateUser({ avatar: updatedProfile.profilePicture });
+      
+      // Update localStorage snapshot for persistence
+      if (typeof window !== 'undefined') {
+        try {
+          const snapshot = localStorage.getItem('auth-snapshot');
+          if (snapshot) {
+            const cached = JSON.parse(snapshot);
+            if (cached.user) {
+              cached.user.avatar = updatedProfile.profilePicture;
+              localStorage.setItem('auth-snapshot', JSON.stringify(cached));
+            }
+          }
+        } catch (e) {
+          console.warn('[Avatar Upload] Failed to update auth-snapshot:', e);
+        }
+      }
       
       // Force a background refetch to ensure we have the latest server data
       queryClient.invalidateQueries({ queryKey: profileKeys.mine() });
