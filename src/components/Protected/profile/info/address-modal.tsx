@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2 } from 'lucide-react';
-import type { ProfileAddress } from '@/store/profile-store';
 
 export type AddressValues = {
   line1: string;

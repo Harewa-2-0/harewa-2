@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { Plus, MapPin, Check, X, Loader2 } from 'lucide-react';
 import { useProfileQuery, useUpdateProfileMutation } from '@/hooks/useProfile';
 import { useToast } from '@/contexts/toast-context';
-import type { ProfileAddress } from '@/store/profile-store';
+import type { Profile } from '@/services/profile';
+
+// Type for address (extracted from Profile type)
+type ProfileAddress = Profile['addresses'][number];
 
 interface AddressSectionProps {
   selectedAddress?: ProfileAddress;
@@ -79,9 +82,12 @@ export default function AddressSection({
         isDefault: addr._id === addressId
       }));
       
-      await useProfileStore.getState().saveProfile({ addresses: updatedAddresses });
+      // Use React Query mutation instead of old Zustand store
+      await updateProfileMutation.mutateAsync({ addresses: updatedAddresses });
+      addToast('Default address updated', 'success');
     } catch (error) {
       console.error('Failed to set default address:', error);
+      addToast('Failed to update default address', 'error');
     }
   };
 

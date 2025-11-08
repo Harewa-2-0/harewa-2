@@ -22,24 +22,26 @@ export const profileKeys = {
  * Uses /api/auth/me endpoint (which returns profile nested in response)
  */
 export function useProfileQuery(enabled: boolean = true) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, updateUser } = useAuthStore();
   
   return useQuery<Profile, Error>({
     queryKey: profileKeys.mine(),
     queryFn: async () => {
+      console.log('[ProfileQuery] Fetching profile from /api/auth/me');
       // Use /api/auth/me endpoint (correct endpoint that exists)
       const response = await api<any>('/api/auth/me');
+      console.log('[ProfileQuery] Raw response:', response);
       
       if (response.profile) {
         // Transform the data to match our expected Profile structure
         const transformedData: Profile = {
           _id: response.profile._id,
           user: {
-            email: response.profile.user.email,
-            username: response.profile.user.username,
-            isVerified: response.profile.user.isVerified,
-            role: response.profile.user.role,
-            phoneNumber: response.profile.user.phoneNumber,
+            email: response.profile.user?.email || '',
+            username: response.profile.user?.username || '',
+            isVerified: response.profile.user?.isVerified || false,
+            role: response.profile.user?.role || 'user',
+            phoneNumber: response.profile.user?.phoneNumber || '',
           },
           firstName: response.profile.firstName || '',
           lastName: response.profile.lastName || '',
@@ -48,9 +50,35 @@ export function useProfileQuery(enabled: boolean = true) {
           addresses: response.profile.addresses || []
         };
         
+        console.log('[ProfileQuery] Transformed data:', transformedData);
+        
+        // Sync avatar to authStore for navbar consistency
+        if (transformedData.profilePicture) {
+          console.log('[ProfileQuery] Syncing avatar to authStore:', transformedData.profilePicture);
+          updateUser({ avatar: transformedData.profilePicture });
+          
+          // Also update the auth-snapshot in localStorage for persistence
+          if (typeof window !== 'undefined') {
+            try {
+              const snapshot = localStorage.getItem('auth-snapshot');
+              if (snapshot) {
+                const cached = JSON.parse(snapshot);
+                if (cached.user) {
+                  cached.user.avatar = transformedData.profilePicture;
+                  localStorage.setItem('auth-snapshot', JSON.stringify(cached));
+                  console.log('[ProfileQuery] Updated auth-snapshot with avatar');
+                }
+              }
+            } catch (e) {
+              console.warn('[ProfileQuery] Failed to update auth-snapshot:', e);
+            }
+          }
+        }
+        
         return transformedData;
       }
       
+      console.error('[ProfileQuery] Invalid response structure:', response);
       throw new Error('Invalid profile response');
     },
     enabled: enabled && isAuthenticated,
@@ -77,9 +105,11 @@ export function useAddressesQuery(enabled: boolean = true) {
 /**
  * Hook to update user profile
  * Includes optimistic updates for instant UI feedback
+ * Syncs important changes with authStore for navbar consistency
  */
 export function useUpdateProfileMutation() {
   const queryClient = useQueryClient();
+  const { updateUser } = useAuthStore();
 
   return useMutation<Profile, Error, ProfileUpdatePayload>({
     mutationFn: async (payload: ProfileUpdatePayload) => {
@@ -146,22 +176,62 @@ export function useUpdateProfileMutation() {
     onSuccess: (updatedProfile) => {
       // Update cache with server response
       queryClient.setQueryData(profileKeys.mine(), updatedProfile);
-      console.log('[Profile] Profile updated successfully');
+      
+      // Sync critical user data with authStore (for navbar display)
+      const fullName = [updatedProfile.firstName, updatedProfile.lastName].filter(Boolean).join(' ');
+      updateUser({ 
+        fullName: fullName || undefined,
+        name: updatedProfile.user.username || fullName || undefined,
+      });
+      
+      console.log('[Profile] Profile updated successfully and synced with auth');
     },
   });
 }
 
 /**
  * Hook to upload avatar/profile picture
- * Includes optimistic updates
+ * Includes optimistic updates and syncs with authStore
  */
 export function useUploadAvatarMutation() {
   const queryClient = useQueryClient();
+  const { updateUser } = useAuthStore();
 
   return useMutation<Profile, Error, File>({
     mutationFn: async (file: File) => {
       const response = await uploadAvatar(file);
-      return response;
+      
+      // The backend returns the raw profile, we need to transform it to match our Profile type
+      // If response already has the correct structure, return it; otherwise transform it
+      if (response && typeof response === 'object') {
+        // Check if it's already in the correct format
+        if ('_id' in response && 'user' in response) {
+          return response as Profile;
+        }
+        
+        // Otherwise, it might be nested or need transformation
+        const profileData = (response as any).profile || response;
+        
+        const transformedData: Profile = {
+          _id: profileData._id,
+          user: {
+            email: profileData.user?.email || '',
+            username: profileData.user?.username || '',
+            isVerified: profileData.user?.isVerified || false,
+            role: profileData.user?.role || 'user',
+            phoneNumber: profileData.user?.phoneNumber || '',
+          },
+          firstName: profileData.firstName || '',
+          lastName: profileData.lastName || '',
+          bio: profileData.bio || '',
+          profilePicture: profileData.profilePicture || '',
+          addresses: profileData.addresses || []
+        };
+        
+        return transformedData;
+      }
+      
+      throw new Error('Invalid avatar upload response');
     },
     onMutate: async (file) => {
       // Cancel outgoing refetches
@@ -177,6 +247,9 @@ export function useUploadAvatarMutation() {
           ...previousProfile,
           profilePicture: previewUrl,
         });
+        
+        // Also update authStore for immediate navbar update
+        updateUser({ avatar: previewUrl });
       }
 
       return { previousProfile };
@@ -186,12 +259,22 @@ export function useUploadAvatarMutation() {
       // Rollback on error
       if (context?.previousProfile) {
         queryClient.setQueryData(profileKeys.mine(), context.previousProfile);
+        // Rollback authStore too
+        updateUser({ avatar: context.previousProfile.profilePicture });
       }
     },
     onSuccess: (updatedProfile) => {
       // Update cache with server response
       queryClient.setQueryData(profileKeys.mine(), updatedProfile);
-      console.log('[Profile] Avatar uploaded successfully');
+      
+      // Sync authStore with final profile picture URL
+      updateUser({ avatar: updatedProfile.profilePicture });
+      
+      // Force a background refetch to ensure we have the latest server data
+      queryClient.invalidateQueries({ queryKey: profileKeys.mine() });
+      
+      console.log('[Profile] Avatar uploaded successfully and synced with auth');
+      console.log('[Profile] Updated profile data:', updatedProfile);
     },
   });
 }
