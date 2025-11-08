@@ -175,7 +175,7 @@ export default function Header() {
               
               {/* Mobile menu - starts from top of screen */}
               <motion.div
-                className="md:hidden fixed top-0 left-0 right-0 w-full bg-black px-4 pb-4 text-white text-base font-medium flex flex-col overflow-y-auto z-[101]"
+                className="md:hidden fixed top-0 left-0 right-0 w-full bg-black px-4 pb-3 text-white text-base font-medium flex flex-col overflow-y-auto z-[101]"
                 style={{
                   height: '100vh',
                 }}
@@ -185,7 +185,7 @@ export default function Header() {
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
               >
                 {/* Mobile Header inside menu */}
-                <div className="flex items-center justify-between py-2 border-b border-gray-700 mb-4">
+                <div className="flex items-center justify-between py-1.5 border-b border-gray-700 mb-3">
                   <Link href="/home" onClick={closeMobileNav}>
                     <Image src="/logo.webp" alt="Harewa Logo" width={120} height={40} priority />
                   </Link>
@@ -199,40 +199,40 @@ export default function Header() {
                 </div>
 
                 {/* Navigation Links */}
-                <div className="flex flex-col space-y-4 pt-2">
+                <div className="flex flex-col space-y-3 pt-1">
                   <FabricMenu isMobile={true} />
                   <AboutMenu isMobile={true} />
                   {navItems.map(({ label, href }) => (
-                    <Link key={label} href={href} onClick={closeMobileNav} className="block hover:text-[#FFE181] text-lg">
+                    <Link key={label} href={href} onClick={closeMobileNav} className="block hover:text-[#FFE181] text-base">
                       {label}
                     </Link>
                   ))}
                 </div>
 
                 {/* Auth Buttons & CTA */}
-                <div className="mt-auto flex flex-col space-y-3 pt-3">
+                <div className="mt-auto flex flex-col space-y-2.5 pt-2">
                   {isReady && !isLoggedIn && (
-                    <div className="flex gap-4">
+                    <div className="flex gap-3">
                       <Link
                         href="/signup"
                         onClick={closeMobileNav}
-                        className="flex-1 border border-white text-[#D4AF37] text-center px-4 py-2 rounded-full hover:bg-white hover:text-black transition-colors"
+                        className="flex-1 border border-white text-[#D4AF37] text-center px-3 py-1.5 rounded-full hover:bg-white hover:text-black transition-colors text-sm"
                       >
                         Sign Up
                       </Link>
                       <Link
                         href="/signin"
                         onClick={closeMobileNav}
-                        className="flex-1 bg-[#FFE181] text-black text-center px-4 py-2 rounded-full hover:bg-yellow-200 transition-colors"
+                        className="flex-1 bg-[#FFE181] text-black text-center px-3 py-1.5 rounded-full hover:bg-yellow-200 transition-colors text-sm"
                       >
-                        Login <ArrowUpRight size={16} className="inline ml-1" />
+                        Login <ArrowUpRight size={14} className="inline ml-1" />
                       </Link>
                     </div>
                   )}
                   <Link
-                    href="/customize"
+                    href="/shop"
                     onClick={closeMobileNav}
-                    className="bg-[#F4D35E] text-black text-center text-sm py-3 rounded-full hover:bg-[#F4D35E]/90 transition-colors"
+                    className="bg-[#F4D35E] text-black text-center text-xs py-2.5 rounded-full hover:bg-[#F4D35E]/90 transition-colors"
                   >
                     Customise Your Fabric
                   </Link>
