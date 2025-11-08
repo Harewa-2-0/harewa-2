@@ -51,12 +51,17 @@ export default function UserMenu({
         <button
           onClick={handleToggle}
           aria-label="User menu"
-          className="focus:outline-none rounded-full"
-          style={{ cursor: 'pointer' }}
+          className="focus:outline-none active:outline-none outline-none rounded-full"
+          style={{ 
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent'
+          }}
         >
           {/* Just the bare circular initial OR avatar */}
           <span
-            className="inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 border-[#D4AF37]"
+            className={`inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 transition-colors ${
+              open ? 'border-transparent' : 'border-[#D4AF37]'
+            }`}
             style={{ width: avatarPx, height: avatarPx }}
           >
             {(profile?.profilePicture || user?.avatar) ? (
