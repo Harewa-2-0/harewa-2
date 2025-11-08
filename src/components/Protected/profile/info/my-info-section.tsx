@@ -57,7 +57,7 @@ export default function MyInfoSection() {
           onUpload={handleAvatarUpload}
         />
         <div>
-          <h2 className="text-lg font-semibold text-black">Hello {profileData?.firstName || profileData?.user.username?.split(' ')[0] || 'User'}</h2>
+          <h2 className="text-lg font-semibold text-black">Hello {profileData?.firstName || profileData?.user?.username?.split(' ')[0] || 'User'}</h2>
           <p className="text-sm text-gray-500">Welcome to your account</p>
         </div>
       </div>

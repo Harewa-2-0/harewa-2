@@ -6,7 +6,6 @@ import { CartHydrationWithErrorBoundary } from "@/components/Public_C/cart/cart-
 import ToastContainer from '@/components/ui/toast-container';
 import { ToastProvider } from '@/contexts/toast-context';
 import { QueryProvider } from '@/providers/QueryProvider';
-//import AuthDebug from "@/components/Public_C/auth-debug";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -116,7 +115,6 @@ export default function RootLayout({
         <ToastProvider>
           <AuthBootstrap />
           <CartHydrationWithErrorBoundary />
-          {/*<AuthDebug /> Debug Card */}
           {children}
           <ToastContainer />
         </ToastProvider>

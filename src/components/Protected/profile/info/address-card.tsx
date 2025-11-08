@@ -1,7 +1,7 @@
 'use client';
 
 import { Pencil } from 'lucide-react';
-import type { ProfileAddress } from '@/store/profile-store';
+import type { Address } from '@/services/profile';
 
 export type AddressValues = {
   line1: string;
@@ -18,7 +18,7 @@ export default function AddressCard({
   onEdit,
 }: {
   title: string;
-  address?: ProfileAddress;
+  address?: Address;
   onEdit: () => void;
 }) {
   return (
