@@ -44,7 +44,7 @@ const ReadyToWearPage: React.FC = () => {
   // Fetch products using React Query - automatic caching and deduplication
   const { data: fetchedProducts = [], isLoading: loading, error: queryError } = useShopProducts({ 
     page: 1, 
-    limit: 100 
+    limit: 10 
   });
 
   // Normalize product images
