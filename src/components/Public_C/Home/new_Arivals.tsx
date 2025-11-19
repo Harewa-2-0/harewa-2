@@ -170,8 +170,27 @@ const ProductCardsGrid: React.FC<ProductCardsGridProps> = ({
               New Arrivals
             </h1>
           </div>
-          <div className="flex justify-center items-center h-96">
-            <p className="text-gray-500 text-lg">No new arrivals available at the moment</p>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            {/* Illustration - Same as Trending Styles section */}
+            <div className="mx-auto mb-6 flex h-32 w-32 items-center justify-center">
+              <img
+                src="/unauthorized.png"
+                alt="No Products"
+                width={128}
+                height={128}
+                className=""
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            </div>
+            
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No new arrivals available
+            </h3>
+            <p className="text-gray-500 mb-6 max-w-md">
+              We couldn't find any new arrivals at the moment. Please check back later.
+            </p>
           </div>
         </div>
       </div>

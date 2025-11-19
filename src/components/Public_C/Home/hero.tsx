@@ -35,9 +35,8 @@ const HeroSection = () => {
   };
 
   const ctaVariants: Variants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { y: 20 },
     visible: {
-      opacity: 1,
       y: 0,
       transition: { duration: 0.5, ease: "easeOut" },
     },
@@ -88,8 +87,8 @@ const HeroSection = () => {
               whileHover="hover"
               whileTap="tap"
             >
-              Customise your fabric
-              <ArrowRight size={20} />
+              <span className="opacity-100">Customise your fabric</span>
+              <ArrowRight size={20} className="opacity-100" />
             </motion.button>
           </div>
 
@@ -170,8 +169,8 @@ const HeroSection = () => {
               whileHover="hover"
               whileTap="tap"
             >
-              Customise your fabric
-              <ArrowRight size={20} />
+              <span className="opacity-100">Customise your fabric</span>
+              <ArrowRight size={20} className="opacity-100" />
             </motion.button>
 
             {/* Mobile Image */}
