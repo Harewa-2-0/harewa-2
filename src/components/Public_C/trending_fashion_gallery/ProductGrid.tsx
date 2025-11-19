@@ -9,14 +9,12 @@ import { Product } from './types';
 interface ProductGridProps {
   products: Product[];
   activeCategory: string;
-  onProductClick?: (product: Product) => void;
   loading?: boolean;
 }
 
 const ProductGrid: React.FC<ProductGridProps> = ({
   products,
   activeCategory,
-  onProductClick,
   loading = false,
 }) => {
   const containerVariants = {
@@ -108,7 +106,6 @@ const ProductGrid: React.FC<ProductGridProps> = ({
             <ProductCard
               key={product._id}
               product={product}
-              onProductClick={onProductClick}
               variants={itemVariants}
             />
           ))}

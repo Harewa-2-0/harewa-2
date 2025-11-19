@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { OrderTabId } from './order-tabs';
 import { type Order } from '@/services/order';
 import { OrderPrint } from './print';
+import { PageSpinner } from '../../components/Spinner';
+import { formatPrice } from '@/utils/currency';
 
 interface OrderItem {
   id: string;
@@ -122,14 +124,49 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
     }
   };
 
+  // Helper to get user name safely
+  const getUserName = (order: Order): string => {
+    if (!order.user) return 'Unknown';
+    if (typeof order.user === 'string') return 'User ' + order.user.substring(0, 8);
+    return order.user.name || 'Unknown';
+  };
+
+  // Helper to get product information safely
+  const getProductInfo = (cartProduct: { product: string | null | { _id?: string; name?: string; price?: number; images?: string[]; [key: string]: any } }) => {
+    if (!cartProduct.product) {
+      return { id: null, name: 'Product not found', price: undefined, image: undefined };
+    }
+    
+    if (typeof cartProduct.product === 'string') {
+      // Product is just an ID string
+      return { 
+        id: cartProduct.product, 
+        name: `Product ${cartProduct.product.substring(0, 8)}`, 
+        price: undefined, 
+        image: undefined 
+      };
+    }
+    
+    // Product is a populated object
+    return {
+      id: cartProduct.product._id || null,
+      name: cartProduct.product.name || 'Product not found',
+      price: typeof cartProduct.product.price === 'number' ? cartProduct.product.price : undefined,
+      image: Array.isArray(cartProduct.product.images) && cartProduct.product.images.length > 0 
+        ? cartProduct.product.images[0] 
+        : undefined,
+    };
+  };
+
   // Filter orders based on search and date filters (tab filtering is done at API level)
   const filteredOrders = orders.filter(order => {
     // Filter by search term
     let matchesSearch = true;
     if (filters.search.trim()) {
       const searchTerm = filters.search.toLowerCase().trim();
+      const userName = getUserName(order).toLowerCase();
       matchesSearch = order._id.toLowerCase().includes(searchTerm) ||
-                     order.user.name.toLowerCase().includes(searchTerm) ||
+                     userName.includes(searchTerm) ||
                      order.address.toLowerCase().includes(searchTerm);
     }
 
@@ -198,26 +235,39 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {order.carts?.products?.map((product, index) => (
-                <tr key={product._id}>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{order._id}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">-</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                    {product.product || 'Product not found'}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">-</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">x{product.quantity}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">0%</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">-</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                    <button className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                      </svg>
-                    </button>
-                  </td>
-                </tr>
-              )) || (
+              {order.carts?.products?.map((cartProduct, index) => {
+                const productInfo = getProductInfo(cartProduct);
+                const itemTotal = productInfo.price && cartProduct.quantity 
+                  ? productInfo.price * cartProduct.quantity 
+                  : undefined;
+                
+                return (
+                  <tr key={cartProduct._id || index}>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                      {productInfo.id ? productInfo.id.substring(0, 8) : '-'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                      {productInfo.name}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                      {productInfo.price ? formatPrice(productInfo.price) : '-'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">x{cartProduct.quantity}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">0%</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
+                      {itemTotal ? formatPrice(itemTotal) : '-'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                      <button className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }) || (
                 <tr>
                   <td colSpan={8} className="px-4 py-2 text-center text-sm text-gray-500">
                     No cart items available
@@ -267,9 +317,7 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow">
-        <div className="p-8 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D4AF37] mx-auto"></div>
-        </div>
+        <PageSpinner className="h-64" />
       </div>
     );
   }
@@ -328,14 +376,14 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
                       {formatRelativeTime(order.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {order.user.name}
+                      {getUserName(order)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(order.amount)}
+                      {formatPrice(order.amount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-900">{formatCurrency(profit)}</span>
+                        <span className="text-sm text-gray-900">{formatPrice(profit)}</span>
                         {getProfitBadge(profitPercentage)}
                       </div>
                     </td>

@@ -4,7 +4,10 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { DataTable, TableColumn } from '../components/shared';
 import EditFabricModal from './EditFabricModal';
 import DeleteFabricModal from './DeleteFabricModal';
-import { getFabrics, type Fabric as ServiceFabric } from '@/services/fabric';
+import { formatPrice } from '@/utils/currency';
+import { useFabricsQuery, fabricKeys } from '@/hooks/useFabrics';
+import { useQueryClient } from '@tanstack/react-query';
+import { type Fabric as ServiceFabric } from '@/services/fabric';
 
 // Use the service type directly
 export type Fabric = ServiceFabric;
@@ -24,47 +27,31 @@ const FabricsTable = forwardRef<FabricsTableRef, FabricsTableProps>(({ onFabricC
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedFabric, setSelectedFabric] = useState<Fabric | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [fabrics, setFabrics] = useState<Fabric[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchFabrics = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await getFabrics();
-      setFabrics(data);
-    } catch (err) {
-      console.error('Error fetching fabrics:', err);
-      setError('Failed to fetch fabrics');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let isMounted = true;
-    const loadFabrics = async () => {
-      if (isMounted) {
-        await fetchFabrics();
-      }
-    };
-    loadFabrics();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  
+  const queryClient = useQueryClient();
+  
+  // Fetch fabrics using React Query
+  const { data: fabrics = [], isLoading, error: queryError } = useFabricsQuery();
 
   useImperativeHandle(ref, () => ({
-    refresh: fetchFabrics,
+    refresh: () => {
+      queryClient.invalidateQueries({ queryKey: fabricKeys.lists() });
+    },
     addFabric: (newFabric: Fabric) => {
-      setFabrics(prev => [newFabric, ...prev]);
+      // Optimistically add to cache (mutation hook already handles this, but this allows manual adds)
+      queryClient.setQueryData<Fabric[]>(fabricKeys.lists(), (old = []) => {
+        const exists = old.some(f => f._id === newFabric._id);
+        if (exists) return old;
+        return [newFabric, ...old];
+      });
     }
   }));
 
   useEffect(() => {
     onFabricCountChange?.(fabrics.length);
   }, [fabrics.length, onFabricCountChange]);
+
+  const error = queryError ? 'Failed to fetch fabrics' : null;
 
   const totalPages = Math.ceil(Math.max(1, fabrics.length) / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -81,10 +68,14 @@ const FabricsTable = forwardRef<FabricsTableRef, FabricsTableProps>(({ onFabricC
   };
 
   const handleEditSuccess = (updatedFabric: Fabric) => {
-    setFabrics(prev => 
-      prev.map(f => f._id === updatedFabric._id ? updatedFabric : f)
-    );
+    // React Query mutation handles cache update, just close modal
     setShowEditModal(false);
+    setSelectedFabric(null);
+  };
+
+  const handleDeleteSuccess = (fabricId: string) => {
+    // React Query mutation handles cache update, just close modal
+    setShowDeleteModal(false);
     setSelectedFabric(null);
   };
 
@@ -245,11 +236,7 @@ const FabricsTable = forwardRef<FabricsTableRef, FabricsTableProps>(({ onFabricC
           isOpen={showDeleteModal}
           onClose={() => { setShowDeleteModal(false); setSelectedFabric(null); }}
           fabric={selectedFabric}
-          onSuccess={(fabricId) => {
-            setFabrics(prev => prev.filter(f => f._id !== fabricId));
-            setShowDeleteModal(false);
-            setSelectedFabric(null);
-          }}
+          onSuccess={handleDeleteSuccess}
         />
       )}
     </>

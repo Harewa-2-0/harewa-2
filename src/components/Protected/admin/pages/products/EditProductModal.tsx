@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/contexts/toast-context';
-import { adminUpdateProduct } from '@/services/products';
+import { useUpdateProductMutation } from '@/hooks/useProducts';
 import { getCategories, type ProductCategory } from '@/services/product-category';
 import { getFabrics, type Fabric } from '@/services/fabric';
 import { ButtonSpinner } from '../../components/Spinner';
@@ -42,6 +42,7 @@ export default function EditProductModal({
   onSuccess
 }: EditProductModalProps) {
   const { addToast } = useToast();
+  const updateProductMutation = useUpdateProductMutation();
   const [formData, setFormData] = useState<Product>({
     id: '',
     _id: '',
@@ -61,8 +62,8 @@ export default function EditProductModal({
   });
 
   const overlayRef = useRef<HTMLDivElement>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isLoading = updateProductMutation.isPending;
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [fabrics, setFabrics] = useState<Fabric[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
@@ -293,15 +294,18 @@ export default function EditProductModal({
       // }
       
       console.log('Sending update payload:', updatePayload);
-      const updatedProduct = await adminUpdateProduct(productId, updatePayload);
+      const updatedProduct = await updateProductMutation.mutateAsync({
+        id: productId,
+        payload: updatePayload,
+      });
       console.log('Product updated successfully:', updatedProduct);
       
       // Show success toast
       addToast('Product updated successfully!', 'success');
       
-      // Call success callback to refresh the list
+      // Call success callback (mutation handles cache update automatically)
       if (onSuccess) {
-        onSuccess(updatedProduct); // Pass the actual API response
+        onSuccess(updatedProduct);
       }
       
       // Close modal
@@ -325,8 +329,6 @@ export default function EditProductModal({
       
       setError(errorMessage);
       addToast(errorMessage, 'error');
-    } finally {
-      setIsLoading(false);
     }
   };
 

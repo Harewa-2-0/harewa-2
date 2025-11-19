@@ -28,11 +28,9 @@ export default function CartButton({
 }: CartButtonProps) {
   // Get count using optimistic counter and loading states
   const count = useCartTotalItemsOptimistic();
-  const { isMerging, isRefreshing } = useCartStore(
-    useShallow((s) => ({ isMerging: s.isMerging, isRefreshing: s.isRefreshing }))
-  );
+  const isMerging = useCartStore((s) => s.isMerging);
   
-  // Show spinner only during merge, not during refresh
+  // Show spinner during merge to prevent showing "0" then updating
   const isLoading = isMerging;
   
   const isOpen = useCartOpen();

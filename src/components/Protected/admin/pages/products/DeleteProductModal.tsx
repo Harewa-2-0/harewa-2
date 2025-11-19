@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { adminDeleteProduct } from '@/services/products';
+import { useDeleteProductMutation } from '@/hooks/useProducts';
 import { ButtonSpinner } from '../../components/Spinner';
 
 interface DeleteProductModalProps {
@@ -19,9 +19,10 @@ export default function DeleteProductModal({
   productName,
   onSuccess
 }: DeleteProductModalProps) {
+  const deleteProductMutation = useDeleteProductMutation();
   const overlayRef = useRef<HTMLDivElement>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isLoading = deleteProductMutation.isPending;
 
   // Close on ESC
   useEffect(() => {
@@ -42,15 +43,14 @@ export default function DeleteProductModal({
   const handleDeleteConfirm = async () => {
     if (!productId) return;
     
-    setIsLoading(true);
     setError(null);
     
     try {
       console.log('Deleting product with ID:', productId);
-      await adminDeleteProduct(productId);
+      await deleteProductMutation.mutateAsync(productId);
       console.log('Product deleted successfully');
       
-      // Call success callback to refresh the list
+      // Call success callback (mutation handles cache update automatically)
       if (onSuccess) {
         onSuccess();
       }
@@ -61,8 +61,6 @@ export default function DeleteProductModal({
       console.error('Error deleting product:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete product. Please try again.';
       setError(errorMessage);
-    } finally {
-      setIsLoading(false);
     }
   };
 
