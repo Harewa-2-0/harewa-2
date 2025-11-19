@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/contexts/toast-context';
-import { adminAddProduct, type AdminProductInput } from '@/services/products';
+import { useCreateProductMutation } from '@/hooks/useProducts';
+import type { AdminProductInput } from '@/services/products';
 import ProductInformationStep from './ProductInformationStep';
 import ImageUploadStep from './ImageUploadStep';
 import { AddProductModalProps, FormDataPayload } from './types';
@@ -20,8 +21,8 @@ const fileToBase64 = (file: File): Promise<string> => {
 
 export default function AddProductModal({ isOpen, onClose, onSubmit, onSuccess }: AddProductModalProps) {
   const { addToast } = useToast();
+  const createProductMutation = useCreateProductMutation();
   const [currentStep, setCurrentStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<FormDataPayload>({
     name: '',
     description: '',
@@ -101,8 +102,6 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, onSuccess }
       return;
     }
 
-    setIsLoading(true);
-
     try {
       // Convert File objects to base64 URLs (temporary solution)
       const imageUrls = await Promise.all(
@@ -126,8 +125,8 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, onSuccess }
         // shop: 'default-shop-id', // Default value
       };
 
-      // Call the backend API
-      const result = await adminAddProduct(backendPayload);
+      // Use React Query mutation
+      const result = await createProductMutation.mutateAsync(backendPayload);
       
       console.log('Product created successfully:', result);
       addToast('Product added successfully!', 'success');
@@ -137,9 +136,9 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, onSuccess }
         onSubmit(formData);
       }
 
-      // Trigger table refresh
+      // Call onSuccess callback (mutation handles cache update automatically)
       if (onSuccess) {
-        onSuccess(result); // Pass the created product
+        onSuccess(result);
       }
 
       // Close modal
@@ -164,10 +163,10 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, onSuccess }
       }
       
       addToast(errorMessage, 'error');
-    } finally {
-      setIsLoading(false);
     }
   };
+
+  const isLoading = createProductMutation.isPending;
 
   // Click outside to close (overlay only)
   const onOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {

@@ -21,6 +21,7 @@ type CartState = {
   // UI state
   isLoading: boolean;
   error: string | null;
+  isMerging: boolean; // Track when cart merge is in progress
 
   // Guest cart localStorage key
   guestCartStorageKey: string;
@@ -35,6 +36,7 @@ type CartState = {
   setIsGuestCart: (isGuest: boolean) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setIsMerging: (merging: boolean) => void;
 
   // Guest cart helpers (localStorage-based, for non-authenticated users)
   getGuestCart: () => CartLine[];
@@ -102,6 +104,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   isGuestCart: true,
   isLoading: false,
   error: null,
+  isMerging: false,
   guestCartStorageKey: GUEST_CART_KEY,
 
   // Local state management (for optimistic updates and guest cart)
@@ -193,6 +196,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   setIsGuestCart: (isGuest) => set({ isGuestCart: isGuest }),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
+  setIsMerging: (merging) => set({ isMerging: merging }),
 
   // Guest cart helpers
   getGuestCart: () => {

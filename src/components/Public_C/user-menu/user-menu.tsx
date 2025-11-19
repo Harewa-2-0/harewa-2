@@ -3,8 +3,12 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useProfileQuery } from '@/hooks/useProfile';
+import { clearUserQueries } from '@/utils/clearUserQueries';
 
 type UserMenuProps = {
   desktop?: boolean; // true for desktop header, false for mobile
@@ -19,6 +23,9 @@ export default function UserMenu({
 }: UserMenuProps) {
   const { user, logout, isAuthenticated } = useAuthStore();
   const [open, setOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const router = useRouter();
+  const queryClient = useQueryClient();
   
   // Fetch profile data via React Query - same pattern as desktop-sidebar
   const { data: profile } = useProfileQuery(isAuthenticated);
@@ -41,7 +48,18 @@ export default function UserMenu({
 
   const handleLogout = async () => {
     setOpen(false);
-    await logout();
+    setIsLoggingOut(true);
+    try {
+      // Clear user-specific React Query caches before logout
+      clearUserQueries(queryClient);
+      await logout();
+      // Navigate to home page (preserves React Query cache for public data)
+      router.push('/home');
+      // Keep spinner until navigation completes (component will unmount anyway)
+    } catch (error) {
+      console.error('Logout error:', error);
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -59,7 +77,7 @@ export default function UserMenu({
         >
           {/* Just the bare circular initial OR avatar */}
           <span
-            className={`inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 transition-colors ${
+            className={`relative inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 transition-colors ${
               open ? 'border-transparent' : 'border-[#D4AF37]'
             }`}
             style={{ width: avatarPx, height: avatarPx }}
@@ -74,6 +92,12 @@ export default function UserMenu({
               <span className="font-semibold" style={{ fontSize: 13 }}>
                 {initial}
               </span>
+            )}
+            {/* Logout spinner overlay */}
+            {isLoggingOut && (
+              <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+              </div>
             )}
           </span>
         </button>
@@ -105,7 +129,7 @@ export default function UserMenu({
           <div className="relative flex items-center gap-2 z-10">
             {/* Circular initial OR avatar - completely separate, no background */}
             <span
-              className="inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 border-[#FDC713] group-hover:border-[#D4AF37] transition-colors"
+              className="relative inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 border-[#FDC713] group-hover:border-[#D4AF37] transition-colors"
               style={{ width: avatarPx, height: avatarPx }}
             >
               {(profile?.profilePicture || user?.avatar) ? (
@@ -118,6 +142,12 @@ export default function UserMenu({
                 <span className="font-semibold" style={{ fontSize: 14 }}>
                   {initial}
                 </span>
+              )}
+              {/* Logout spinner overlay */}
+              {isLoggingOut && (
+                <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                </div>
               )}
             </span>
 

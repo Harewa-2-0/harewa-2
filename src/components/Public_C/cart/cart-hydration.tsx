@@ -26,6 +26,8 @@ export function CartHydration() {
     setItems,
     setCartId,
     setIsGuestCart,
+    setIsMerging,
+    isMerging,
   } = useCartStore();
   const { isOpen: isCartDrawerOpen } = useCartDrawerStore();
   
@@ -46,14 +48,20 @@ export function CartHydration() {
   const replaceCartMutation = useReplaceCartMutation();
 
   // Sync server cart to local store for UI (including cartId!)
+  // Skip sync when merge is in progress to prevent overwriting merged cart
   useEffect(() => {
+    if (isMerging) {
+      // Don't sync during merge - merge effect handles the update
+      return;
+    }
+    
     if (isAuthenticated && rawCart) {
       const cartId = (rawCart as any)._id || (rawCart as any).id;
       setCartId(cartId);
       setItems(serverCartItems);
       setIsGuestCart(false);
     }
-  }, [rawCart, serverCartItems, isAuthenticated, setCartId, setItems, setIsGuestCart]);
+  }, [rawCart, serverCartItems, isAuthenticated, setCartId, setItems, setIsGuestCart, isMerging]);
 
   // Handle login: merge guest cart with server cart
   useEffect(() => {
@@ -69,8 +77,15 @@ export function CartHydration() {
       if (guestCart.length > 0) {
         console.log('[CartHydration] Merging guest cart with server cart...');
         
+        // Set merging flag to prevent sync effect from overwriting
+        setIsMerging(true);
+        
         // Merge guest items with server items
         const merged = deduplicateCartItems([...serverCartItems, ...guestCart]);
+        
+        // Optimistically update Zustand immediately with merged cart
+        setItems(merged);
+        setIsGuestCart(false);
         
         // If there's a difference, sync to server
         if (merged.length > serverCartItems.length || 
@@ -86,22 +101,31 @@ export function CartHydration() {
             // Clear guest cart after successful merge
             clearGuestCart();
             console.log('[CartHydration] Guest cart merged successfully');
+            
+            // Clear merging flag after a delay to allow React Query to refetch
+            setTimeout(() => {
+              setIsMerging(false);
+            }, 500);
           }).catch((error) => {
             console.error('[CartHydration] Failed to merge guest cart:', error);
+            // Clear merging flag on error so sync can resume
+            setIsMerging(false);
           });
         } else {
           // No merge needed, just clear guest cart
           clearGuestCart();
+          setIsMerging(false);
         }
+      } else {
+        // No guest cart, just update state
+        setIsGuestCart(false);
       }
-      
-      // Update local state
-      setIsGuestCart(false);
     }
 
     // Handle logout: switch to guest mode
     if (previousAuthStateRef.current && !isAuthenticated) {
       hasMergedRef.current = false;
+      setIsMerging(false);
       setIsGuestCart(true);
       setCartId(null);
       
@@ -122,6 +146,7 @@ export function CartHydration() {
     setIsGuestCart, 
     setCartId, 
     setItems,
+    setIsMerging,
     queryClient
   ]);
 

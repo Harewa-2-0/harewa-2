@@ -1,9 +1,12 @@
 'use client';
 
 import { User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { menuItems } from './profile-tabs';
 import { useProfileQuery } from '@/hooks/useProfile';
 import { useAuthStore } from '@/store/authStore';
+import { clearUserQueries } from '@/utils/clearUserQueries';
 
 interface Props {
   activeTab: string;
@@ -13,10 +16,16 @@ interface Props {
 export default function DesktopSidebar({ activeTab, onTabChange }: Props) {
   const { logout, isAuthenticated } = useAuthStore();
   const { data: profile } = useProfileQuery(isAuthenticated);
+  const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleItemClick = async (itemId: string) => {
     if (itemId === 'logout') {
+      // Clear user-specific React Query caches before logout
+      clearUserQueries(queryClient);
       await logout();
+      // Navigate to home page (preserves React Query cache for public data)
+      router.push('/home');
     } else {
       onTabChange(itemId);
     }

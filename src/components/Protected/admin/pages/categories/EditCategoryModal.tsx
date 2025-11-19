@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/contexts/toast-context';
 import { Category } from './CategoriesTable';
-import { updateCategory } from '@/services/product-category';
+import { useUpdateCategoryMutation } from '@/hooks/useCategories';
 import { generateSlug } from './utils';
 import { ButtonSpinner } from '../../components/Spinner';
 
@@ -16,13 +16,16 @@ interface EditCategoryModalProps {
 
 export default function EditCategoryModal({ isOpen, onClose, category, onSuccess }: EditCategoryModalProps) {
   const { addToast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
   });
 
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  
+  // Use React Query mutation
+  const updateMutation = useUpdateCategoryMutation();
+  const isLoading = updateMutation.isPending;
 
   // Close on ESC
   useEffect(() => {
@@ -69,8 +72,6 @@ export default function EditCategoryModal({ isOpen, onClose, category, onSuccess
       return;
     }
 
-    setIsLoading(true);
-
     try {
       // Backend requires body: { id: <slug>, name, description }
       // Prefer existing category.id (slug); if missing/empty, generate from (possibly edited) name.
@@ -86,8 +87,8 @@ export default function EditCategoryModal({ isOpen, onClose, category, onSuccess
         description,
       };
 
-      // URL must carry _id (ObjectId), NOT the slug
-      const result = await updateCategory(category._id, payload);
+      // Use React Query mutation
+      const result = await updateMutation.mutateAsync({ _id: category._id, payload });
       console.log('Category updated successfully:', result);
       addToast('Category updated successfully!', 'success');
 
@@ -120,8 +121,6 @@ export default function EditCategoryModal({ isOpen, onClose, category, onSuccess
       }
       
       addToast(errorMessage, 'error');
-    } finally {
-      setIsLoading(false);
     }
   };
 

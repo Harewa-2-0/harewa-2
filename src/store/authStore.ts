@@ -88,8 +88,8 @@ export const useAuthStore = create<AuthState>()(
             const { useCartStore } = await import('@/store/cartStore');
             useCartStore.getState().clearCart();
             
-            // React Query caches are automatically disabled when isAuthenticated = false
-            // No manual cache clearing needed
+            // Note: React Query cache clearing is handled by components
+            // using useQueryClient hook before calling logout()
           } catch (error) {
             console.warn('Failed to clear stores:', error);
           }
@@ -108,7 +108,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.removeItem("user");
           localStorage.removeItem("auth-snapshot");
           sessionStorage.removeItem("user");
-          window.location.href = "/";
+          // Removed window.location.href - components handle navigation
         }
       },
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/contexts/toast-context';
 import { type Fabric } from './FabricsTable';
-import { deleteFabric } from '@/services/fabric';
+import { useDeleteFabricMutation } from '@/hooks/useFabrics';
 import { ButtonSpinner } from '../../components/Spinner';
 
 interface DeleteFabricModalProps {
@@ -15,9 +15,12 @@ interface DeleteFabricModalProps {
 
 export default function DeleteFabricModal({ isOpen, onClose, fabric, onSuccess }: DeleteFabricModalProps) {
   const { addToast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  
+  // Use React Query mutation
+  const deleteMutation = useDeleteFabricMutation();
+  const isLoading = deleteMutation.isPending;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -29,11 +32,12 @@ export default function DeleteFabricModal({ isOpen, onClose, fabric, onSuccess }
   useEffect(() => { if (isOpen) setError(null); }, [isOpen]);
 
   const handleDelete = async () => {
-    setIsLoading(true);
     setError(null);
     try {
       if (!fabric?._id) throw new Error('Missing fabric identifier (_id).');
-      const result = await deleteFabric(fabric._id);
+      
+      // Use React Query mutation
+      const result = await deleteMutation.mutateAsync(fabric._id);
       addToast('Fabric deleted successfully!', 'success');
       onSuccess?.(fabric._id);
       onClose();
@@ -50,8 +54,6 @@ export default function DeleteFabricModal({ isOpen, onClose, fabric, onSuccess }
       }
       setError(errorMessage);
       addToast(errorMessage, 'error');
-    } finally {
-      setIsLoading(false);
     }
   };
 

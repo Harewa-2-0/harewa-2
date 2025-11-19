@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 interface FormData {
@@ -111,13 +111,17 @@ export default function AuthForm({
       <button
         type="submit"
         disabled={isDisabled}
-        className={`w-full bg-[#D4AF37] text-white py-3 px-4 rounded-full font-semibold transition-all ${
+        className={`w-full bg-[#D4AF37] text-white py-3 px-4 rounded-full font-semibold transition-all flex items-center justify-center ${
           isDisabled
             ? "opacity-70 cursor-not-allowed"
             : "hover:bg-yellow-500 hover:shadow-lg"
         }`}
       >
-        {isLoading ? "Signing in..." : "Sign In"}
+        {isLoading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          "Sign In"
+        )}
       </button>
     </form>
   );
