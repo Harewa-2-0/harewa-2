@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/contexts/toast-context';
 import { generateSlug } from './utils';
-import { createCategory } from '@/services/product-category';
+import { useCreateCategoryMutation } from '@/hooks/useCategories';
 import { ButtonSpinner } from '../../components/Spinner';
 
 export interface CategoryFormData {
@@ -19,13 +19,16 @@ interface AddCategoryModalProps {
 
 export default function AddCategoryModal({ isOpen, onClose, onSuccess }: AddCategoryModalProps) {
   const { addToast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<CategoryFormData>({
     name: '',
     description: '',
   });
 
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  
+  // Use React Query mutation
+  const createMutation = useCreateCategoryMutation();
+  const isLoading = createMutation.isPending;
 
   // Close on ESC
   useEffect(() => {
@@ -70,21 +73,22 @@ export default function AddCategoryModal({ isOpen, onClose, onSuccess }: AddCate
     let slug = generateSlug ? generateSlug(name) : name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     slug = slug || 'unnamed'; // ensure non-empty to avoid dup key on null
 
-    setIsLoading(true);
-    try {
-      const payload = {
-        id: slug,
-        name,
-        description,
-      };
+    const payload = {
+      id: slug,
+      name,
+      description,
+    };
 
-      const created = await createCategory(payload);
+    try {
+      const created = await createMutation.mutateAsync(payload);
       addToast('Category created successfully!', 'success');
 
       // Notify parent with the created category data
       onSuccess?.(created);
 
       onClose();
+      // Reset form
+      setFormData({ name: '', description: '' });
     } catch (err: any) {
       console.error('Error creating category:', err);
       
@@ -102,8 +106,6 @@ export default function AddCategoryModal({ isOpen, onClose, onSuccess }: AddCate
       }
       
       addToast(errorMessage, 'error');
-    } finally {
-      setIsLoading(false);
     }
   };
 

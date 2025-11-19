@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "upload-fabrics": "tsx scripts/upload-fabrics.ts"
   },
   "dependencies": {
     "@stripe/stripe-js": "^8.2.0",

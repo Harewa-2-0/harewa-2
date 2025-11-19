@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   getMyOrders, 
+  getOrders,
   createOrderFromCart, 
   deleteOrder, 
   type Order,
@@ -14,6 +15,7 @@ import { cartKeys } from './useCart';
 export const orderKeys = {
   all: ['orders'] as const,
   mine: () => [...orderKeys.all, 'mine'] as const,
+  admin: () => [...orderKeys.all, 'admin'] as const,
   byId: (id: string) => [...orderKeys.all, id] as const,
   pending: () => [...orderKeys.all, 'pending'] as const,
 };
@@ -157,6 +159,26 @@ export function useOrderByIdQuery(orderId: string | null, enabled: boolean = tru
     enabled: enabled && !!orderId,
     staleTime: 2 * 60 * 1000,
     initialData: cachedOrder ?? undefined,
+  });
+}
+
+/**
+ * Hook to fetch all orders (admin)
+ * Used for admin dashboard and orders management
+ */
+export function useAdminOrdersQuery(enabled: boolean = true) {
+  return useQuery<Order[], Error>({
+    queryKey: orderKeys.admin(),
+    queryFn: async () => {
+      const orders = await getOrders();
+      return orders ?? [];
+    },
+    enabled,
+    staleTime: 1 * 60 * 1000, // 1 minute (admin data changes frequently)
+    gcTime: 5 * 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 }
 

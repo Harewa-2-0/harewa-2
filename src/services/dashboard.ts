@@ -1,6 +1,7 @@
 // Dashboard service - transforms real data for dashboard components
 import { getOrders } from './order';
 import { adminGetProducts } from './products';
+import { formatPrice } from '@/utils/currency';
 import { MetricData, Product, Transaction, Order, ChartData } from '../components/Protected/admin/pages/types/dashboard';
 
 // Transform orders to recent orders format

@@ -82,6 +82,13 @@ export function useAddToCartMutation() {
 }
 
 /**
+ * Type for mutation context (used for optimistic updates rollback)
+ */
+type CartMutationContext = {
+  previousCart: CartLine[] | undefined;
+};
+
+/**
  * Mutation to update cart item quantity
  * Uses optimistic updates for instant UI
  */
@@ -91,7 +98,8 @@ export function useUpdateCartQuantityMutation() {
   return useMutation<
     Cart,
     Error,
-    { cartId: string; productId: string; quantity: number; currentItems: CartLine[] }
+    { cartId: string; productId: string; quantity: number; currentItems: CartLine[] },
+    CartMutationContext
   >({
     mutationFn: async ({ cartId, productId, quantity, currentItems }) => {
       return await updateProductQuantityOptimistic(cartId, productId, quantity, currentItems);
@@ -120,7 +128,7 @@ export function useUpdateCartQuantityMutation() {
       return { previousCart };
     },
     // On error, rollback
-    onError: (err, variables, context) => {
+    onError: (err, variables, context: CartMutationContext | undefined) => {
       if (context?.previousCart) {
         queryClient.setQueryData(cartKeys.mine(), context.previousCart);
       }
@@ -138,7 +146,12 @@ export function useUpdateCartQuantityMutation() {
 export function useRemoveFromCartMutation() {
   const queryClient = useQueryClient();
 
-  return useMutation<Cart, Error, { cartId: string; productId: string }>({
+  return useMutation<
+    Cart,
+    Error,
+    { cartId: string; productId: string },
+    CartMutationContext
+  >({
     mutationFn: async ({ cartId, productId }) => {
       return await removeProductFromCartById(cartId, productId);
     },
@@ -154,7 +167,7 @@ export function useRemoveFromCartMutation() {
 
       return { previousCart };
     },
-    onError: (err, variables, context) => {
+    onError: (err, variables, context: CartMutationContext | undefined) => {
       if (context?.previousCart) {
         queryClient.setQueryData(cartKeys.mine(), context.previousCart);
       }

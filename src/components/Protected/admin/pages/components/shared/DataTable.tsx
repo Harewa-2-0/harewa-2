@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { ReactNode } from 'react';
+import { PageSpinner } from '../../../components/Spinner';
 
 export interface TableColumn<T = any> {
   key: string;
@@ -59,9 +60,7 @@ export default function DataTable<T = any>({
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow">
-        <div className="p-8 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D4AF37] mx-auto"></div>
-        </div>
+        <PageSpinner className="h-64" />
       </div>
     );
   }

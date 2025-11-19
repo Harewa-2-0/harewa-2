@@ -1,91 +1,42 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { DataTable, TableColumn } from '../components/shared';
 import DeleteProductModal from './DeleteProductModal';
 import EditProductModal from './EditProductModal';
-import { adminGetProducts, adminUpdateProduct, type Product as ApiProduct } from '@/services/products';
+import { useUpdateProductMutation, useDeleteProductMutation } from '@/hooks/useProducts';
 import { formatPrice } from '@/utils/currency';
-import { TableSpinner } from '../../components/Spinner';
-
-// Use the API Product type with flexible id field
-type Product = ApiProduct & { id?: string };
+import { PageSpinner } from '../../components/Spinner';
+import type { Product } from '@/services/products';
 
 interface ProductsTableProps {
   genderFilter: string;
   onProductCountChange?: (count: number) => void;
-  refreshTrigger?: number; // Add this to trigger refresh from parent
-  products?: Product[]; // Products from parent
-  onProductsChange?: (products: Product[]) => void; // Update products in parent
-  onProductAdded?: (product: Product) => void; // For optimistic updates
-  onProductUpdated?: (product: Product) => void; // For optimistic updates
-  onProductDeleted?: (productId: string) => void; // For optimistic updates
+  products: Product[]; // Products from parent (required now)
   isLoading?: boolean; // Loading state from parent
+  error?: Error | null; // Error state from parent
 }
 
 export default function ProductsTable({ 
   genderFilter, 
   onProductCountChange, 
-  refreshTrigger,
-  products: parentProducts,
-  onProductsChange,
-  onProductAdded,
-  onProductUpdated,
-  onProductDeleted,
-  isLoading: parentIsLoading
+  products,
+  isLoading = false,
+  error: parentError
 }: ProductsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
-  const isFetchingRef = useRef(false);
 
-  // Use parent products if available, otherwise use local state
-  const currentProducts = parentProducts || products;
-  const setCurrentProducts = onProductsChange || setProducts;
-  const currentIsLoading = parentIsLoading !== undefined ? parentIsLoading : isLoading;
-
-  // Fetch products from API (only if not using parent products)
-  useEffect(() => {
-    // Skip fetching if we have parent products
-    if (parentProducts) {
-      setIsLoading(false);
-      return;
-    }
-
-    // Prevent duplicate calls (React Strict Mode protection)
-    if (isFetchingRef.current) return;
-    
-    const fetchProducts = async () => {
-      isFetchingRef.current = true;
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await adminGetProducts({ page: 1, limit: 100 });
-        
-        // Handle paginated response or legacy array
-        const data = 'items' in response ? response.items : response;
-        setProducts(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Error fetching products:', err);
-        setError('Failed to fetch products. Please check your connection and try again.');
-        // Don't clear products array on error - keep existing data if available
-      } finally {
-        setIsLoading(false);
-        isFetchingRef.current = false;
-      }
-    };
-
-    fetchProducts();
-  }, [refreshTrigger, parentProducts]); // Add parentProducts as dependency
+  // Use React Query mutations
+  const updateProductMutation = useUpdateProductMutation();
+  const deleteProductMutation = useDeleteProductMutation();
 
   // Filter products based on gender
-  const filteredProducts = currentProducts.filter(product => {
+  const filteredProducts = products.filter(product => {
     if (!genderFilter) return true;
     return product.gender === genderFilter || product.gender === 'unisex';
   });
@@ -96,81 +47,6 @@ export default function ProductsTable({
       onProductCountChange(filteredProducts.length);
     }
   }, [filteredProducts.length, onProductCountChange]);
-
-  // Handle optimistic product addition
-  useEffect(() => {
-    if (onProductAdded) {
-      // This will be called when a product is successfully created
-      // The actual optimistic update happens in the parent component
-    }
-  }, [onProductAdded]);
-
-  // Optimistic update functions
-  const handleOptimisticAdd = (newProduct: Product) => {
-    if (onProductsChange) {
-      onProductsChange([newProduct, ...currentProducts]);
-    } else {
-      setProducts((prev: Product[]) => [newProduct, ...prev]);
-    }
-  };
-
-  const handleOptimisticUpdate = (updatedProduct: Product) => {
-    console.log('ProductsTable: handleOptimisticUpdate called with:', updatedProduct);
-    console.log('ProductsTable: updatedProduct._id:', updatedProduct._id);
-    console.log('ProductsTable: updatedProduct.id:', updatedProduct.id);
-    console.log('ProductsTable: currentProducts before update:', currentProducts.map(p => ({ name: p.name, _id: p._id, id: p.id })));
-    
-    // Validate that we have an ID to match against
-    if (!updatedProduct._id && !updatedProduct.id) {
-      console.error('ProductsTable: Updated product has no ID field! Cannot update.');
-      return;
-    }
-    
-    let matchFound = false;
-    const updatedProducts = currentProducts.map((product: Product) => {
-      const isMatch = product._id === updatedProduct._id;
-      console.log(`ProductsTable: Comparing product "${product.name}" (${product._id}) with updated product (${updatedProduct._id}) - Match: ${isMatch}`);
-      
-      if (isMatch) {
-        matchFound = true;
-      }
-      return isMatch ? updatedProduct : product;
-    });
-    
-    if (!matchFound) {
-      console.error('ProductsTable: No matching product found! This could cause all products to be replaced.');
-      console.log('ProductsTable: Available product IDs:', currentProducts.map(p => ({ name: p.name, _id: p._id, id: p.id })));
-      console.log('ProductsTable: Looking for ID:', updatedProduct._id || updatedProduct.id);
-      return; // Don't update if no match found
-    }
-    
-    console.log('ProductsTable: updatedProducts after update:', updatedProducts.map(p => ({ name: p.name, _id: p._id, id: p.id })));
-    
-    if (onProductsChange) {
-      console.log('ProductsTable: Calling onProductsChange with updated products');
-      onProductsChange(updatedProducts);
-    } else {
-      console.log('ProductsTable: Setting local products state');
-      setProducts(updatedProducts);
-    }
-  };
-
-  const handleOptimisticDelete = (productId: string) => {
-    setDeletingProductId(productId);
-    // Add slide-out animation delay
-    setTimeout(() => {
-      const filteredProducts = currentProducts.filter((product: Product) => 
-        product._id !== productId && product.id !== productId
-      );
-      
-      if (onProductsChange) {
-        onProductsChange(filteredProducts);
-      } else {
-        setProducts(filteredProducts);
-      }
-      setDeletingProductId(null);
-    }, 300); // 300ms for slide-out animation
-  };
 
   // Calculate pagination
   const totalItems = filteredProducts.length;
@@ -320,24 +196,39 @@ export default function ProductsTable({
     setShowDeleteModal(true);
   };
 
-  const handleEditSuccess = (updatedProduct: Product) => {
-    console.log('ProductsTable: handleEditSuccess called with:', updatedProduct);
-    // Call the parent's onProductUpdated callback if available
-    if (onProductUpdated) {
-      console.log('ProductsTable: Calling parent onProductUpdated');
-      onProductUpdated(updatedProduct);
-    } else {
-      console.log('ProductsTable: No onProductUpdated callback available, using local update');
-      // Only update local state if no parent callback is available
-      handleOptimisticUpdate(updatedProduct);
+  const handleEditSuccess = async (updatedProduct: Product) => {
+    const productId = updatedProduct._id || updatedProduct.id;
+    if (!productId) {
+      console.error('Product ID not found');
+      return;
     }
-    setError(null); // Clear any previous errors
+
+    try {
+      await updateProductMutation.mutateAsync({
+        id: productId,
+        payload: updatedProduct as any,
+      });
+      setShowEditModal(false);
+      setSelectedProduct(null);
+    } catch (error) {
+      console.error('Error updating product:', error);
+    }
   };
 
-  const handleDeleteSuccess = (productId: string) => {
-    // Optimistically remove the product from the table with animation
-    handleOptimisticDelete(productId);
-    setError(null); // Clear any previous errors
+  const handleDeleteSuccess = async (productId: string) => {
+    setDeletingProductId(productId);
+    try {
+      await deleteProductMutation.mutateAsync(productId);
+      setShowDeleteModal(false);
+      setSelectedProduct(null);
+      // Animation delay
+      setTimeout(() => {
+        setDeletingProductId(null);
+      }, 300);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      setDeletingProductId(null);
+    }
   };
 
   // Get row classes with animation support
@@ -351,7 +242,7 @@ export default function ProductsTable({
 
 
   // Error state
-  if (error) {
+  if (parentError) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
         <div className="text-center">
@@ -361,12 +252,9 @@ export default function ProductsTable({
             </svg>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Products</h3>
-          <p className="text-gray-500 mb-4">{error}</p>
+          <p className="text-gray-500 mb-4">{parentError.message || 'Failed to fetch products'}</p>
           <button
-            onClick={() => {
-              setError(null);
-              window.location.reload();
-            }}
+            onClick={() => window.location.reload()}
             className="bg-[#D4AF37] text-white px-4 py-2 rounded-lg hover:bg-[#D4AF37]/90 transition-colors"
           >
             Try Again
@@ -378,9 +266,9 @@ export default function ProductsTable({
 
   return (
     <>
-      {currentIsLoading ? (
+      {isLoading ? (
         <div className="bg-white rounded-lg shadow">
-          <TableSpinner />
+          <PageSpinner className="h-64" />
         </div>
       ) : (
         <DataTable
