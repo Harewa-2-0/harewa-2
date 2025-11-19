@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useFabricsQuery } from '@/hooks/useFabrics';
+import { useUIStore } from '@/store/uiStore';
 import { type Fabric } from '@/services/fabric';
 
 interface FabricMenuProps {
@@ -16,6 +17,7 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
   const [selectedFabric, setSelectedFabric] = useState<Fabric | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { closeMobileNav } = useUIStore();
   
   // React Query: Fetch fabrics (cached 10min, shared across components)
   const { data: fabrics = [], isLoading } = useFabricsQuery();
@@ -129,11 +131,13 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
                         <button
                           onClick={() => {
                             setIsOpen(false);
+                            closeMobileNav(); // Close mobile nav menu
                             router.push('/fabrics');
                           }}
-                          className="w-full px-4 py-2.5 rounded-lg bg-[#D4AF37] text-black font-semibold hover:bg-[#B8941F] transition-colors cursor-pointer mt-3 text-center"
+                          className="w-full px-4 py-3 rounded-lg border-2 border-[#D4AF37] bg-transparent text-[#D4AF37] font-bold hover:bg-[#D4AF37] hover:text-black transition-all duration-200 cursor-pointer mt-3 text-center flex items-center justify-center gap-2 shadow-lg"
                         >
-                          View More →
+                          <span>View More Fabrics</span>
+                          <ChevronRight size={18} className="mt-0.5" />
                         </button>
                       )}
                     </>

@@ -13,14 +13,14 @@ import {
 } from '@/services/products';
 
 /**
- * Hook to fetch homepage products (30 products for trending + new arrivals)
+ * Hook to fetch homepage products (20 products for trending + new arrivals)
  * Cached for 5 minutes, shared across homepage components
  */
 export function useHomepageProducts() {
   return useQuery<Product[], Error>({
     queryKey: ['homepage-products'],
     queryFn: async () => {
-      const response = await getProducts({ page: 1, limit: 30 });
+      const response = await getProducts({ page: 1, limit: 20 });
       const data = 'items' in response ? response.items : response;
       return Array.isArray(data) ? data : [];
     },

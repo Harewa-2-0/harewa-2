@@ -68,7 +68,7 @@ const AboutMenu: React.FC<AboutMenuProps> = ({ isMobile = false }) => {
                     </div>
                     
                     {/* Content */}
-                    <div className="space-y-3 text-xs sm:text-sm">
+                    <div className="space-y-3 text-base sm:text-sm">
                       <p>
                         At HAREWA, we are redefining the future of fashion by blending Afrocentric heritage, 
                         contemporary style, and technology-driven innovation. We exist to celebrate Africa's 
