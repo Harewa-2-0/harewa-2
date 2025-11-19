@@ -47,3 +47,12 @@ export function ButtonSpinner() {
     </svg>
   );
 }
+
+// Page-level loading spinner (consistent with Dashboard)
+export function PageSpinner({ className = '' }: { className?: string }) {
+  return (
+    <div className={`flex items-center justify-center h-64 ${className}`}>
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D4AF37]"></div>
+    </div>
+  );
+}

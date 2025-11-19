@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/contexts/toast-context';
 import { colorHexToName } from './utils';
 import { type Fabric } from './FabricsTable';
-import { updateFabric, type UpdateFabricInput } from '@/services/fabric';
+import { useUpdateFabricMutation } from '@/hooks/useFabrics';
+import { type UpdateFabricInput } from '@/services/fabric';
 import { ButtonSpinner } from '../../components/Spinner';
 
 // Helper function to convert File to base64 URL (same as AddFabricModal)
@@ -26,8 +27,11 @@ interface EditFabricModalProps {
 
 export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: EditFabricModalProps) {
   const { addToast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   const [colorHex, setColorHex] = useState('#000080');
+  
+  // Use React Query mutation
+  const updateMutation = useUpdateFabricMutation();
+  const isLoading = updateMutation.isPending;
   const [formData, setFormData] = useState({
     name: '',
     image: '',
@@ -157,7 +161,7 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
       setStep(1);
       return;
     }
-    setIsLoading(true);
+    
     try {
       let imageUrl = formData.image;
 
@@ -168,7 +172,6 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
           console.log('File converted to base64 successfully');
         } catch (error: any) {
           addToast(`Failed to process image: ${error.message}`, 'error');
-          setIsLoading(false);
           return;
         }
       }
@@ -187,7 +190,8 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
         inStock: formData.inStock,
       };
 
-      const result = await updateFabric(fabric._id, payload);
+      // Use React Query mutation
+      const result = await updateMutation.mutateAsync({ _id: fabric._id, payload });
       addToast('Fabric updated successfully!', 'success');
 
       const updatedFabric: Fabric = {
@@ -220,8 +224,6 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
         errorMessage = error.message;
       }
       addToast(errorMessage, 'error');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -240,8 +242,8 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
       role="dialog"
       aria-labelledby="edit-fabric-modal-title"
     >
-      <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
-        <div className="border-b px-6 py-4">
+      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-xl bg-white shadow-xl overflow-hidden">
+        <div className="flex-shrink-0 border-b px-6 py-4">
           <div className="flex items-center justify-between">
             <h2 id="edit-fabric-modal-title" className="text-xl font-semibold text-gray-900">Edit Fabric</h2>
             <button onClick={onClose} disabled={isLoading} aria-label="Close" className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] disabled:opacity-50 disabled:cursor-not-allowed">
@@ -250,7 +252,7 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
           </div>
         </div>
 
-        <div className="px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           <div className="flex items-center justify-between mb-6">
             {['Basic', 'Specifications', 'Pricing & Stock', 'Review'].map((label, idx) => {
               const n = idx + 1;
@@ -427,7 +429,7 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-6 pt-4 border-t">
+          <div className="flex-shrink-0 flex items-center justify-between mt-6 pt-4 border-t">
             <div>
               {step > 1 && (
                 <button type="button" onClick={prevStep} disabled={isLoading} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Back</button>

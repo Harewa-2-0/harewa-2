@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/contexts/toast-context';
 import { Category } from './CategoriesTable';
-import { deleteCategory } from '@/services/product-category';
+import { useDeleteCategoryMutation } from '@/hooks/useCategories';
 import { ButtonSpinner } from '../../components/Spinner';
 
 interface DeleteCategoryModalProps {
@@ -15,10 +15,13 @@ interface DeleteCategoryModalProps {
 
 export default function DeleteCategoryModal({ isOpen, onClose, category, onSuccess }: DeleteCategoryModalProps) {
   const { addToast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  
+  // Use React Query mutation
+  const deleteMutation = useDeleteCategoryMutation();
+  const isLoading = deleteMutation.isPending;
 
   // Close on ESC
   useEffect(() => {
@@ -36,7 +39,6 @@ export default function DeleteCategoryModal({ isOpen, onClose, category, onSucce
   }, [isOpen]);
 
   const handleDelete = async () => {
-    setIsLoading(true);
     setError(null);
 
     try {
@@ -44,8 +46,8 @@ export default function DeleteCategoryModal({ isOpen, onClose, category, onSucce
         throw new Error('Missing category identifier (_id).');
       }
 
-      // IMPORTANT: use _id (ObjectId) in the URL
-      const result = await deleteCategory(category._id);
+      // Use React Query mutation
+      const result = await deleteMutation.mutateAsync(category._id);
       console.log('Category deleted successfully:', result);
       addToast('Category deleted successfully!', 'success');
 
@@ -71,8 +73,6 @@ export default function DeleteCategoryModal({ isOpen, onClose, category, onSucce
       
       setError(errorMessage);
       addToast(errorMessage, 'error');
-    } finally {
-      setIsLoading(false);
     }
   };
 

@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/contexts/toast-context';
+import { clearUserQueries } from '@/utils/clearUserQueries';
 
 interface AdminSidebarProps {
   isOpen?: boolean;
@@ -65,6 +67,7 @@ export default function AdminSidebar({ isOpen = true, onClose }: AdminSidebarPro
   const router = useRouter();
   const { logout } = useAuthStore();
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
 
   const handleLinkClick = () => {
     if (onClose) {
@@ -74,14 +77,16 @@ export default function AdminSidebar({ isOpen = true, onClose }: AdminSidebarPro
 
   const handleLogout = async () => {
     try {
+      // Clear user-specific React Query caches before logout
+      clearUserQueries(queryClient);
       await logout();
       addToast('Logout successful!', 'success');
-      router.push('/');
+      router.push('/home');
     } catch (error) {
       console.error('Logout error:', error);
       addToast('Logout failed, but redirecting...', 'error');
       // Still redirect even if logout fails
-      router.push('/');
+      router.push('/home');
     }
   };
 

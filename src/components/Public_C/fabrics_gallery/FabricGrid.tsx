@@ -3,18 +3,16 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { easeOut } from 'framer-motion';
-import ProductCard from './ProductCard';
-import { Product } from './types';
+import FabricCard from './FabricCard';
+import { type Fabric } from '@/services/fabric';
 
-interface ProductGridProps {
-  products: Product[];
-  activeCategory: string;
+interface FabricGridProps {
+  fabrics: Fabric[];
   loading?: boolean;
 }
 
-const ProductGrid: React.FC<ProductGridProps> = ({
-  products,
-  activeCategory,
+const FabricGrid: React.FC<FabricGridProps> = ({
+  fabrics,
   loading = false,
 }) => {
   const containerVariants = {
@@ -36,24 +34,15 @@ const ProductGrid: React.FC<ProductGridProps> = ({
 
   if (loading) {
     return (
-      <div className="lg:flex-1">
+      <div className="w-full">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-          {/* Show 9 skeleton cards to match the product limit */}
+          {/* Show 9 skeleton cards */}
           {Array.from({ length: 9 }).map((_, index) => (
             <div
               key={index}
               className="bg-white rounded-2xl shadow-lg overflow-hidden animate-pulse"
-              data-testid="skeleton-card"
             >
               <div className="h-64 bg-gray-200"></div>
-              <div className="p-4">
-                <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded mb-3 w-3/4"></div>
-                <div className="flex justify-between">
-                  <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-                </div>
-              </div>
             </div>
           ))}
         </div>
@@ -61,18 +50,17 @@ const ProductGrid: React.FC<ProductGridProps> = ({
     );
   }
 
-  if (products.length === 0) {
+  if (fabrics.length === 0) {
     return (
-      <div className="lg:flex-1">
+      <div className="w-full">
         <div className="flex flex-col items-center justify-center py-16 text-center">
           {/* Illustration */}
           <div className="mx-auto mb-6 flex h-32 w-32 items-center justify-center">
             <img
               src="/unauthorized.png"
-              alt="No Products"
+              alt="No Fabrics"
               width={128}
               height={128}
-              className=""
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
@@ -80,11 +68,11 @@ const ProductGrid: React.FC<ProductGridProps> = ({
           </div>
           
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No products in this category
+            No fabrics available
           </h3>
           <p className="text-gray-500 mb-6 max-w-md">
-            We couldn't find any products in the "{activeCategory}" category. 
-            Try selecting a different category or check back later.
+            We couldn't find any fabrics at the moment. 
+            Please check back later.
           </p>
         </div>
       </div>
@@ -92,20 +80,19 @@ const ProductGrid: React.FC<ProductGridProps> = ({
   }
 
   return (
-    <div className="lg:flex-1">
+    <div className="w-full">
       <AnimatePresence mode="wait">
         <motion.div
-          key={activeCategory}
           variants={containerVariants}
           initial="hidden"
           animate="visible"
           exit="hidden"
           className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
         >
-          {products.map((product) => (
-            <ProductCard
-              key={product._id}
-              product={product}
+          {fabrics.map((fabric) => (
+            <FabricCard
+              key={fabric._id}
+              fabric={fabric}
               variants={itemVariants}
             />
           ))}
@@ -115,4 +102,5 @@ const ProductGrid: React.FC<ProductGridProps> = ({
   );
 };
 
-export default ProductGrid;
+export default FabricGrid;
+

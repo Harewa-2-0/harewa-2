@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import CategorySidebar from './CategorySidebar';
 import ProductGrid from './ProductGrid';
 import { TrendingFashionGalleryProps } from './types';
@@ -22,7 +22,6 @@ const getProductCategoryName = (product: Product): string => {
 
 const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
   categories: propCategories,
-  onProductClick,
   onCategoryChange: propOnCategoryChange,
   initialCategory,
   products: propProducts,
@@ -62,9 +61,17 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
     return matched.slice(0, 9);
   }, [allProducts, activeCategory]);
 
+  // Track previous filtered products to prevent infinite loops
+  const prevFilteredRef = useRef<string>('');
+  
   // Update Zustand store with filtered products (for child components)
+  // Only update if the product IDs actually changed (prevents infinite loop)
   useEffect(() => {
-    setFilteredProducts(filtered);
+    const currentIds = filtered.map(p => p._id || p.id).join(',');
+    if (currentIds !== prevFilteredRef.current) {
+      prevFilteredRef.current = currentIds;
+      setFilteredProducts(filtered);
+    }
   }, [filtered, setFilteredProducts]);
 
   // Set initial category if provided
@@ -80,10 +87,7 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
     propOnCategoryChange?.(categoryName);
   };
 
-  // Handle product click
-  const handleProductClick = (product: any) => {
-    onProductClick?.(product);
-  };
+  // Products are not clickable - removed handleProductClick
 
   // Show error state if React Query failed (categories would be fallback)
   const hasError = categories.length === 0 && !isLoadingCategories;
@@ -143,11 +147,10 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
             isLoading={isLoadingCategories}
           />
 
-          {/* Right: Product Grid */}
+          {/* Right: Product Grid - Products are not clickable */}
           <ProductGrid
             products={filteredProducts}
             activeCategory={activeCategory}
-            onProductClick={handleProductClick}
             loading={isLoading}
           />
         </div>

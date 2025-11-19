@@ -1,11 +1,15 @@
 // Custom hooks for fetching products using React Query
-import { useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { 
   getProducts, 
   getProductById, 
-  adminGetProducts, 
+  adminGetProducts,
+  adminAddProduct,
+  adminUpdateProduct,
+  adminDeleteProduct,
   type Product, 
-  type PaginatedResponse 
+  type PaginatedResponse,
+  type AdminProductInput
 } from '@/services/products';
 
 /**
@@ -22,6 +26,8 @@ export function useHomepageProducts() {
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnMount: false, // Don't refetch on mount if cached data exists
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 }
 
@@ -47,8 +53,21 @@ export function useShopProducts(params?: {
     },
     staleTime: 3 * 60 * 1000, // 3 minutes (shop data can be slightly more dynamic)
     gcTime: 10 * 60 * 1000,
+    refetchOnMount: false, // Don't refetch on mount if cached data exists
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 }
+
+/**
+ * Query keys for admin products
+ */
+export const adminProductKeys = {
+  all: ['admin-products'] as const,
+  lists: () => [...adminProductKeys.all, 'list'] as const,
+  list: (params?: { page?: number; limit?: number }) => [...adminProductKeys.lists(), params] as const,
+  details: () => [...adminProductKeys.all, 'detail'] as const,
+  detail: (id: string) => [...adminProductKeys.details(), id] as const,
+};
 
 /**
  * Hook to fetch admin products with pagination
@@ -58,12 +77,143 @@ export function useAdminProducts(params?: {
   limit?: number;
 }) {
   return useQuery<Product[] | PaginatedResponse<Product>, Error>({
-    queryKey: ['admin-products', params],
+    queryKey: adminProductKeys.list(params),
     queryFn: async () => {
       return await adminGetProducts(params);
     },
     staleTime: 1 * 60 * 1000, // 1 minute (admin data changes more frequently)
     gcTime: 5 * 60 * 1000,
+    refetchOnMount: false, // Don't refetch on mount if cached data exists
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+  });
+}
+
+/**
+ * Hook to create a new product (admin)
+ */
+export function useCreateProductMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Product, Error, AdminProductInput>({
+    mutationFn: async (payload) => {
+      return await adminAddProduct(payload);
+    },
+    onSuccess: (newProduct) => {
+      // Invalidate and refetch admin products list
+      queryClient.invalidateQueries({ queryKey: adminProductKeys.lists() });
+      
+      // Optionally update the cache optimistically
+      queryClient.setQueryData(adminProductKeys.lists(), (old: any) => {
+        if (!old) return old;
+        
+        // Handle both array and paginated response
+        if (Array.isArray(old)) {
+          return [newProduct, ...old];
+        }
+        
+        if (old && typeof old === 'object' && 'items' in old) {
+          return {
+            ...old,
+            items: [newProduct, ...old.items],
+          };
+        }
+        
+        return old;
+      });
+    },
+    onError: (error) => {
+      console.error('Error creating product:', error);
+    },
+  });
+}
+
+/**
+ * Hook to update a product (admin)
+ */
+export function useUpdateProductMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Product, Error, { id: string; payload: Partial<AdminProductInput> }>({
+    mutationFn: async ({ id, payload }) => {
+      return await adminUpdateProduct(id, payload);
+    },
+    onSuccess: (updatedProduct, variables) => {
+      // Invalidate and refetch admin products list
+      queryClient.invalidateQueries({ queryKey: adminProductKeys.lists() });
+      
+      // Update the specific product in cache if it exists
+      queryClient.setQueryData(adminProductKeys.detail(variables.id), updatedProduct);
+      
+      // Optimistically update in list cache
+      queryClient.setQueryData(adminProductKeys.lists(), (old: any) => {
+        if (!old) return old;
+        
+        if (Array.isArray(old)) {
+          return old.map((product: Product) => 
+            (product._id === variables.id || product.id === variables.id) ? updatedProduct : product
+          );
+        }
+        
+        if (old && typeof old === 'object' && 'items' in old) {
+          return {
+            ...old,
+            items: old.items.map((product: Product) => 
+              (product._id === variables.id || product.id === variables.id) ? updatedProduct : product
+            ),
+          };
+        }
+        
+        return old;
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating product:', error);
+    },
+  });
+}
+
+/**
+ * Hook to delete a product (admin)
+ */
+export function useDeleteProductMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ deleted: boolean }, Error, string>({
+    mutationFn: async (id) => {
+      return await adminDeleteProduct(id);
+    },
+    onSuccess: (_, productId) => {
+      // Invalidate and refetch admin products list
+      queryClient.invalidateQueries({ queryKey: adminProductKeys.lists() });
+      
+      // Remove from cache
+      queryClient.removeQueries({ queryKey: adminProductKeys.detail(productId) });
+      
+      // Optimistically remove from list cache
+      queryClient.setQueryData(adminProductKeys.lists(), (old: any) => {
+        if (!old) return old;
+        
+        if (Array.isArray(old)) {
+          return old.filter((product: Product) => 
+            product._id !== productId && product.id !== productId
+          );
+        }
+        
+        if (old && typeof old === 'object' && 'items' in old) {
+          return {
+            ...old,
+            items: old.items.filter((product: Product) => 
+              product._id !== productId && product.id !== productId
+            ),
+          };
+        }
+        
+        return old;
+      });
+    },
+    onError: (error) => {
+      console.error('Error deleting product:', error);
+    },
   });
 }
 
@@ -88,6 +238,8 @@ export function useProductsQuery(
     enabled: options?.enabled ?? true,
     staleTime: options?.staleTime ?? 5 * 60 * 1000,
     gcTime: options?.gcTime ?? 10 * 60 * 1000,
+    refetchOnMount: false, // Don't refetch on mount if cached data exists
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 }
 
@@ -104,6 +256,7 @@ export function useProductByIdQuery(productId: string, enabled: boolean = true) 
     enabled: enabled && !!productId,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnMount: false, // Don't refetch on mount if cached data exists
     refetchOnWindowFocus: false,
     retry: 1,
   });
@@ -146,6 +299,7 @@ export function useRecommendedProductsQuery(
     enabled: enabled && !!productId,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000,
+    refetchOnMount: false, // Don't refetch on mount if cached data exists
     refetchOnWindowFocus: false,
   });
 }

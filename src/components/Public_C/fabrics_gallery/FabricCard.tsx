@@ -2,20 +2,17 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Product } from './types';
+import { type Fabric } from '@/services/fabric';
 
-interface ProductCardProps {
-  product: Product;
+interface FabricCardProps {
+  fabric: Fabric;
   variants?: any;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({
-  product,
+const FabricCard: React.FC<FabricCardProps> = ({
+  fabric,
   variants,
 }) => {
-  // Removed click handler - products are not clickable
-  // Removed cursor-pointer class - cards are display-only
-
   return (
     <motion.div
       variants={variants}
@@ -24,13 +21,20 @@ const ProductCard: React.FC<ProductCardProps> = ({
       {/* Image Only - Not Clickable */}
       <div className="relative h-64 overflow-hidden">
         <img
-          src={product.images[0] || '/placeholder-fashion.jpg'}
-          alt={product.name}
+          src={fabric.image || '/placeholder-fabric.jpg'}
+          alt={fabric.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            if (!target.src.includes('placeholder-fabric.jpg')) {
+              target.src = '/placeholder-fabric.jpg';
+            }
+          }}
         />
       </div>
     </motion.div>
   );
 };
 
-export default ProductCard;
+export default FabricCard;
+
