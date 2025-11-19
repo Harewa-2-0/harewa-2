@@ -150,7 +150,7 @@ export async function adminGetProducts(params?: Record<string, string | number |
   const url = `${ADMIN_PATHS.list}${toQS(params)}`;
   
   try {
-    const raw = await api<MaybeWrapped<Product[] | PaginatedResponse<Product>>>(
+    const raw = await api<MaybeWrapped<Product[] | PaginatedResponse<Product> | { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number }>>(
       url,
       { 
         method: 'GET',
@@ -161,9 +161,24 @@ export async function adminGetProducts(params?: Record<string, string | number |
       },
       { timeout: 30000 } // 30 second timeout for fetching products
     );
-    const data = unwrap<Product[] | PaginatedResponse<Product>>(raw);
+    const data = unwrap<Product[] | PaginatedResponse<Product> | { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number }>(raw);
     
-    // Check if it's a paginated response
+    // Check if it's the new backend format with 'data' key
+    if (data && typeof data === 'object' && 'data' in data && Array.isArray((data as any).data)) {
+      const response = data as { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number };
+      return {
+        items: response.data,
+        pagination: {
+          page: response.page,
+          limit: response.limit,
+          total: response.total,
+          totalPages: response.totalPages,
+          hasMore: response.page < response.totalPages,
+        }
+      } as PaginatedResponse<Product>;
+    }
+    
+    // Check if it's a paginated response with 'items' key (legacy format)
     if (data && typeof data === 'object' && 'items' in data && 'pagination' in data) {
       return data as PaginatedResponse<Product>;
     }
@@ -226,12 +241,27 @@ export async function deleteProduct(id: string) {
 
 // List (supports pagination/filters via params)
 export async function getProducts(params?: Record<string, string | number | boolean | undefined>): Promise<Product[] | PaginatedResponse<Product>> {
-  const raw = await api<MaybeWrapped<Product[] | PaginatedResponse<Product>>>(
+  const raw = await api<MaybeWrapped<Product[] | PaginatedResponse<Product> | { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number }>>(
     `${paths.list}${toQS(params)}`
   );
-  const data = unwrap<Product[] | PaginatedResponse<Product>>(raw);
+  const data = unwrap<Product[] | PaginatedResponse<Product> | { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number }>(raw);
   
-  // Check if it's a paginated response
+  // Check if it's the new backend format with 'data' key
+  if (data && typeof data === 'object' && 'data' in data && Array.isArray((data as any).data)) {
+    const response = data as { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number };
+    return {
+      items: response.data,
+      pagination: {
+        page: response.page,
+        limit: response.limit,
+        total: response.total,
+        totalPages: response.totalPages,
+        hasMore: response.page < response.totalPages,
+      }
+    } as PaginatedResponse<Product>;
+  }
+  
+  // Check if it's a paginated response with 'items' key (legacy format)
   if (data && typeof data === 'object' && 'items' in data && 'pagination' in data) {
     return data as PaginatedResponse<Product>;
   }
