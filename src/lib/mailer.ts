@@ -1,5 +1,6 @@
 // lib/mailer.ts
 import nodemailer from "nodemailer";
+import { ICustomization } from "./models/Customization";
 // import { Attachment } from "nodemailer/lib/mailer";
 
 const teamTransporter = nodemailer.createTransport({
@@ -181,4 +182,88 @@ export const sendFailureMail = async ({
     console.error("Error sending failure mail:", error);
     throw error;
   }
+};
+
+
+export const sendCustomRequestMail = async ({
+  to,
+  subject,
+  type, // "user" | "admin"
+  data,
+}: {
+  to: string;
+  subject: string;
+  type: "user" | "admin";
+  data: ICustomization;
+}) => {
+  const html = generateCustomRequestHtml(to, type, data as ICustomization);
+
+  const mailOptions = {
+    from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
+    to,
+    subject,
+    html,
+  };
+
+  await notificationTransporter.sendMail(mailOptions);
+};
+
+const generateCustomRequestHtml = (
+  to: string,
+  type: "user" | "admin",
+  data: ICustomization
+) => {
+  const {
+    outfit,
+    outfitOption,
+    fabricType,
+    preferredColor,
+    additionalNotes,
+  } = data;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Customization Request</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h2 { margin-bottom: 10px; }
+        img { margin-top: 10px; border-radius: 8px; }
+        ul li { margin: 5px 0; }
+      </style>
+    </head>
+    <body>
+      ${type === "user"
+      ? `
+        <h2>Hi ${to},</h2>
+        <p>Your customization request has been received!</p>
+        <p>We will get back to you shortly.</p>
+      `
+      : `
+        <h2>New Customization Request</h2>
+        <p>A new customization request has been submitted with the following details:</p>`
+    }
+
+      <h3>Request Details</h3>
+      <ul>
+       
+        <li><strong>Outfit</strong> ${outfit}</li>
+        <li><strong>Outfit Option:</strong> ${outfitOption}</li>
+        <li><strong>Fit Type:</strong> ${fabricType}</li>
+        <li><strong>Color:</strong> ${preferredColor}</li>
+        <li><strong>Description:</strong> ${additionalNotes}</li>
+        </ul>
+      ${type === "user"
+      ? '<p>Thank you for choosing Harewa for your customization needs!</p>'
+      :
+      ' <p>Please check the admin panel for more details and to process this request.</p> '
+    }
+
+
+<p style="margin-top: 30px;" >– Harewa Team </p>
+  </body>
+  </html>
+    `;
 };

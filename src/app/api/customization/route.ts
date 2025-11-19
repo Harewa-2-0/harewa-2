@@ -7,6 +7,7 @@ import { Customization } from "@/lib/models/Customization";
 import { badRequest, created, ok } from "@/lib/response";
 import { User } from "@/lib/models/User";
 import { requireAuth } from "@/lib/middleware/requireAuth";
+import { sendCustomRequestMail } from "@/lib/mailer";
 
 /**
  * POST — Create a customization request
@@ -18,7 +19,20 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
 
         const customization = await Customization.create({ user: users.sub, ...body });
-
+        console.log("Created customization:", customization);
+        // Send notification emails
+        await sendCustomRequestMail({
+            to: users.email,
+            subject: "Harewa - Customization Request",
+            type: "user",
+            data: customization,
+        });
+        await sendCustomRequestMail({
+            to: process.env.ADMIN_EMAIL || "",
+            subject: "Harewa - Customization Request",
+            type: "admin",
+            data: customization,
+        });
         return created(customization);
     } catch (error) {
 
