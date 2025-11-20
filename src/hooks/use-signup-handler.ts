@@ -2,18 +2,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
-import useToast from "./use-toast";
+import { useToast } from "@/contexts/toast-context";
 
 export default function useSignupHandlers() {
   const router = useRouter();
   const { setEmailForVerification } = useAuthStore();
-  const { toasts, setToasts, addToast } = useToast();
+  const { addToast } = useToast();
 
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     password: "",
     rememberMe: false,
+    role: "user", // Default to user, can be toggled to "admin"
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -24,6 +25,13 @@ export default function useSignupHandlers() {
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleRoleToggle = () => {
+    setFormData((prev) => ({
+      ...prev,
+      role: prev.role === "user" ? "admin" : "user",
     }));
   };
 
@@ -38,13 +46,22 @@ export default function useSignupHandlers() {
           email: formData.email,
           password: formData.password,
           fullName: formData.fullName,
+          role: formData.role,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Signup failed");
 
       setEmailForVerification(formData.email);
-      addToast("Signup Successful! Please check your email.", "success");
+      
+      // Store the role for verification page
+      localStorage.setItem('signupRole', formData.role);
+      
+      const successMessage = formData.role === "admin" 
+        ? "Admin account created! Verification code sent to admin email for approval."
+        : "Signup Successful! Please check your email.";
+      
+      addToast(successMessage, "success");
       router.push("/verify-email");
     } catch (err: any) {
       if (err.message?.toLowerCase().includes("exist")) {
@@ -60,10 +77,9 @@ export default function useSignupHandlers() {
   return {
     formData,
     handleInputChange,
+    handleRoleToggle,
     handleSubmit,
     isLoading,
-    toasts,
-    setToasts,
     addToast,
     showUserExistsModal,
     setShowUserExistsModal,

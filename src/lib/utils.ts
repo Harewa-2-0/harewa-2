@@ -5,6 +5,8 @@ import { User } from "./models/User";
 import crypto from "crypto";
 import PDFDocument from "pdfkit";
 import moment from "moment-timezone";
+import { NextRequest } from "next/server";
+
 
 export async function currentTime(date: number) {
   moment(date).tz("America/New_York").format();
@@ -51,6 +53,19 @@ export function generateTicketKey() {
   return crypto.randomBytes(20).toString("hex");
 }
 
+export async function getUserFromUuid(uuid: string) {
+  const user = await User.findOne({
+    uuid
+  });
+  return user;
+}
+
+export async function getUserFromUserid(userId: string) {
+  const user = await User.findOne({
+    _id: userId
+  });
+  return user;
+}
 export function generateKey(): string {
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -110,3 +125,22 @@ export function generateSlugSuggestions(baseSlug: string) {
     `${baseSlug}-${suffix()}`,
   ];
 }
+
+export function getClientIp(req: NextRequest) {
+  // 1. Check for proxy-provided header
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0].trim(); // client IP
+  }
+
+  // 2. Some proxies set this instead
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) {
+    return realIp;
+  }
+
+  // 3. Local dev fallback
+  // ::1 = IPv6 localhost, 127.0.0.1 = IPv4 localhost
+  return "127.0.0.1";
+}
+

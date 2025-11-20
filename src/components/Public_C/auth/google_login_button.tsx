@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Loader2 } from "lucide-react";
 
 interface GoogleLoginButtonProps {
   onClick: () => void;
@@ -25,10 +26,7 @@ export default function GoogleLoginButton({
       }`}
     >
       {isLoading ? (
-        <div className="flex items-center">
-          <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2"></div>
-          Signing in with Google...
-        </div>
+        <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
       ) : (
         <>
           <svg className="w-5 h-5" viewBox="0 0 24 24">

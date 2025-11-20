@@ -1,10 +1,29 @@
-import mongoose from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
-const reviewSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
-  rating: { type: Number, min: 1, max: 5, required: true },
-  comment: { type: String, required: true }
-}, { timestamps: true });
+export interface IReview extends Document {
+  user: mongoose.Types.ObjectId;
+  product: mongoose.Types.ObjectId;
+  order?: mongoose.Types.ObjectId;
+  rating: number;
+  comment?: string;
+  images?: string[];
+  likes?: mongoose.Types.ObjectId[];
+  createdAt: Date;
+  updatedAt: Date;
+}
 
-export const Review = mongoose.models.Review || mongoose.model("Review", reviewSchema);
+const ReviewSchema = new Schema<IReview>(
+  {
+    user: { type: Schema.Types.ObjectId, ref: "Users", required: true },
+    product: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+    order: { type: Schema.Types.ObjectId, ref: "Order" },
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    comment: { type: String, maxlength: 1000 },
+    images: [{ type: String }],
+    likes: [{ type: Schema.Types.ObjectId, ref: "Users" }],
+  },
+  { timestamps: true }
+);
+
+export const Review =
+  mongoose.models.Review || mongoose.model<IReview>("Review", ReviewSchema);

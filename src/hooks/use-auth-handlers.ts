@@ -3,6 +3,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { loginWithEmail, getMe, GOOGLE_OAUTH_URL } from "@/services/auth";
+import { useToast } from "@/contexts/toast-context";
 
 interface FormData {
   email: string;
@@ -14,6 +16,7 @@ interface FormData {
 export default function useAuthHandlers() {
   const router = useRouter();
   const { setEmailForVerification, setUser } = useAuthStore();
+  const { addToast } = useToast();
 
   const [formData, setFormData] = useState<FormData>({
     email: "",
@@ -25,9 +28,7 @@ export default function useAuthHandlers() {
   const [authState, setAuthState] = useState({
     isLoading: false,
     isGoogleLoading: false,
-    showSuccess: false,
     isRedirecting: false,
-    loginError: null as string | null,
   });
 
   /** ✅ Input Change Handler */
@@ -38,16 +39,13 @@ export default function useAuthHandlers() {
         ...prev,
         [name]: type === "checkbox" ? checked : value,
       }));
-      if (authState.loginError) {
-        setAuthState((prev) => ({ ...prev, loginError: null }));
-      }
     },
-    [authState.loginError]
+    []
   );
 
   /** ✅ Common Success Handler */
   const handleAuthSuccess = useCallback(
-    (userData: any, remember: boolean) => {
+    async (userData: any, remember: boolean) => {
       const user = {
         id: userData?.id || "local",
         email: userData?.email || formData.email,
@@ -66,22 +64,51 @@ export default function useAuthHandlers() {
       };
 
       setUser(user, remember ? "localStorage" : "sessionStorage");
+      
+      // ✅ Save snapshot for instant hydration on next visit
+      localStorage.setItem('auth-snapshot', JSON.stringify({ user, isAuthenticated: true }));
 
-      setAuthState({
-        isLoading: false,
-        isGoogleLoading: false,
-        showSuccess: true,
-        isRedirecting: false,
-        loginError: null,
-      });
+      // Prefetch profile data in background to get avatar
+      try {
+        const { api } = await import('@/utils/api');
+        const response = await api<any>('/api/auth/me');
+        if (response?.profile?.profilePicture) {
+          console.log('[Login] Syncing profile picture from server:', response.profile.profilePicture);
+          // Update user with profile picture
+          const updatedUser = { ...user, avatar: response.profile.profilePicture };
+          setUser(updatedUser, remember ? "localStorage" : "sessionStorage");
+          localStorage.setItem('auth-snapshot', JSON.stringify({ user: updatedUser, isAuthenticated: true }));
+        }
+      } catch (error) {
+        console.warn('[Login] Failed to fetch profile picture:', error);
+        // Continue with login even if profile fetch fails
+      }
 
-      // Redirect after short delay
+      // Show success toast
+      addToast("Login successful! Redirecting...", "success");
+
+      // Keep loading state true until redirect happens
+      // Redirect after short delay based on user role
       setTimeout(() => {
         setAuthState((prev) => ({ ...prev, isRedirecting: true }));
-        router.push("/home");
-      }, 800); // faster redirect
+        // Route based on user role - complete app separation
+        if (user.role === "admin") {
+          router.push("/admin");
+        } else {
+          router.push("/home");
+        }
+        // Clear loading state after navigation starts (component will unmount anyway)
+        // Small delay ensures navigation has initiated
+        setTimeout(() => {
+          setAuthState({
+            isLoading: false,
+            isGoogleLoading: false,
+            isRedirecting: false,
+          });
+        }, 50);
+      }, 800);
     },
-    [formData, router, setUser]
+    [formData, router, setUser, addToast]
   );
 
   /** ✅ Common Error Handler */
@@ -92,7 +119,7 @@ export default function useAuthHandlers() {
 
       if (isGoogle) {
         msg = "Google authentication failed. Please try again.";
-      } else if (msg.toLowerCase().includes("not verified")) {
+      } else if (typeof msg === "string" && msg.toLowerCase().includes("not verified")) {
         setEmailForVerification(formData.email);
         router.push("/verify-email");
         return;
@@ -101,48 +128,37 @@ export default function useAuthHandlers() {
       setAuthState({
         isLoading: false,
         isGoogleLoading: false,
-        showSuccess: false,
         isRedirecting: false,
-        loginError: msg,
       });
+
+      // Show error toast
+      addToast(msg, "error");
     },
-    [formData.email, router, setEmailForVerification]
+    [formData.email, router, setEmailForVerification, addToast]
   );
 
-  /** ✅ Email Login */
+  /** ✅ Email Login (via service) */
   const handleEmailLogin = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!formData.email || !formData.password) {
-        setAuthState((prev) => ({
-          ...prev,
-          loginError: "Please fill in all required fields.",
-        }));
+        addToast("Please fill in all required fields.", "error");
         return;
       }
 
-      setAuthState((prev) => ({ ...prev, isLoading: true, loginError: null }));
+      setAuthState((prev) => ({ ...prev, isLoading: true }));
 
       try {
-        const res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-          }),
+        const { user } = await loginWithEmail({
+          email: formData.email,
+          password: formData.password,
         });
-
-        const data = await res.json();
-        if (!res.ok) return handleAuthError(data);
-
-        handleAuthSuccess(data.user, formData.rememberMe);
-      } catch {
-        handleAuthError({ message: "Network error. Please try again." });
+        handleAuthSuccess(user, formData.rememberMe);
+      } catch (err: any) {
+        handleAuthError(err);
       }
     },
-    [formData, handleAuthError, handleAuthSuccess]
+    [formData, handleAuthError, handleAuthSuccess, addToast]
   );
 
   /** ➊ Listen for postMessage from the Google popup */
@@ -152,17 +168,8 @@ export default function useAuthHandlers() {
       const { type, status } = event.data || {};
       if (type === "oauth" && status === "success") {
         // Popup has closed itself after setting cookies → fetch the user
-        fetch("/api/auth/me", {
-          credentials: "include",
-          cache: "no-store",
-        })
-          .then((res) => {
-            if (!res.ok) throw new Error("Not authenticated");
-            return res.json();
-          })
-          .then((data) => {
-            handleAuthSuccess(data.user, true);
-          })
+        getMe()
+          .then(({ user }) => handleAuthSuccess(user, true))
           .catch(() =>
             handleAuthError({ message: "Google login failed or was cancelled." }, true)
           );
@@ -178,11 +185,10 @@ export default function useAuthHandlers() {
     setAuthState((prev) => ({
       ...prev,
       isGoogleLoading: true,
-      loginError: null,
     }));
 
     const popup = window.open(
-      "/api/auth/google",
+      GOOGLE_OAUTH_URL,
       "google-oauth",
       "width=500,height=600,scrollbars=yes,resizable=yes"
     );

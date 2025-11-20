@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Toast from "@/components/Public_C/common/toast";
+// Toast notifications are now handled globally by ToastContainer
 import useSignupHandlers from "@/hooks/use-signup-handler";
 import usePasswordStrength from "@/hooks/use-password-strength";
 import { useRouter } from "next/navigation";
@@ -10,10 +10,9 @@ export default function SignupScreen() {
   const {
     formData,
     handleInputChange,
+    handleRoleToggle,
     handleSubmit,
     isLoading,
-    toasts,
-    setToasts,
     showUserExistsModal,
     setShowUserExistsModal,
   } = useSignupHandlers();
@@ -25,14 +24,7 @@ export default function SignupScreen() {
 
   return (
     <div className="flex min-h-screen overflow-hidden">
-      {/* Toasts */}
-      {toasts.map((toast) => (
-        <Toast
-          key={toast.id}
-          toast={toast}
-          onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-        />
-      ))}
+      {/* Toast notifications are now handled globally by ToastContainer */}
 
       {/* Left Image */}
       <div className="hidden lg:flex lg:flex-1 relative">
@@ -156,6 +148,53 @@ export default function SignupScreen() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+
+            {/* Role Toggle */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-gray-700">Account Type</label>
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-900">
+                    {formData.role === "user" ? "User Account" : "Admin Account"}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {formData.role === "user" 
+                      ? "Access to shopping and user features" 
+                      : "Access to admin dashboard and management"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRoleToggle}
+                  disabled={isLoading}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    formData.role === "admin" ? "bg-[#D4AF37]" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      formData.role === "admin" ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+              {formData.role === "admin" && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-yellow-800">
+                        <strong>Admin Account:</strong> Verification code will be sent to the admin email for approval.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

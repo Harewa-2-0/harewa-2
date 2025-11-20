@@ -64,8 +64,6 @@ export default function SigninScreen() {
             onSubmit={handleEmailLogin}
             isDisabled={isFormDisabled}
             isLoading={authState.isLoading}
-            loginError={authState.loginError}
-            showSuccess={false} // always false so no green popup
           />
 
           {/* Divider */}
