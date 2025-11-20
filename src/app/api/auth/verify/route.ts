@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextResponse } from "next/server";
 import { serialize } from "cookie";
 import { verifyOtpAndGenerateToken } from "@/lib/otp";
@@ -5,13 +8,14 @@ import type { VerifiedAdmin } from "@/lib/types/auth";
 import { sendWelcomeEmail } from "@/lib/mailer";
 import connectDB from "@/lib/db";
 import { Profile } from "@/lib/models/Profile";
+import { Wallet } from "@/lib/models/Wallet";
 
 export async function POST(req: Request) {
-  const { otp } = await req.json();
+  const { otp, email } = await req.json();
 
   try {
     const { accessToken, refreshToken, user }: VerifiedAdmin =
-      await verifyOtpAndGenerateToken(otp);
+      await verifyOtpAndGenerateToken(otp, email);
 
     await connectDB();
 
@@ -24,6 +28,22 @@ export async function POST(req: Request) {
     });
 
     await newProfile.save();
+
+    const newWallet = new Wallet({
+      user: user.id,
+      transactions: [
+        {
+          reference: `init-${Date.now()}`,
+          amount: 0,
+          type: "credit",
+          status: "success",
+          gateway: "system",
+          narration: "Initial wallet setup",
+        },
+      ],
+    });
+    await newWallet.save();
+    console.log("✅ New wallet created for user:", newWallet.u);
 
     const accessCookie = serialize("access-token", accessToken, {
       httpOnly: true,

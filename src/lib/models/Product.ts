@@ -6,6 +6,7 @@ const productSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   quantity: { type: Number, required: true },
   remainingInStock: { type: Number, default: 0 },
+  discount: { type: Number, default: 0 },
   location: { type: String, required: true },
   images: { type: [String], validate: [arrayLimit, '{PATH} exceeds the limit of 3'] },
   sizes: {
@@ -20,8 +21,9 @@ const productSchema = new mongoose.Schema({
   },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductCategory', required: true },
   fabricType: { type: mongoose.Schema.Types.ObjectId, ref: 'Fabric', required: true },
+  // Remove seller and shop from being required because the admin is the only seller now.
   seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  shop: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true }
+  shop: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop' }
 
 }, { timestamps: true });
 
