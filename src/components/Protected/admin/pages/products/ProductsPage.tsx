@@ -14,18 +14,25 @@ export default function ProductsPage() {
   const [productCount, setProductCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Use React Query hook for data fetching
-  const { data: productsResponse, isLoading, error } = useAdminProducts({ page: 1, limit: 100 });
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Extract products array from response (handle both array and paginated response)
-  const products: Product[] = (() => {
-    if (!productsResponse) return [];
-    if (Array.isArray(productsResponse)) return productsResponse;
-    if (typeof productsResponse === 'object' && 'items' in productsResponse) {
-      return (productsResponse as PaginatedResponse<Product>).items;
-    }
-    return [];
-  })();
+  // Use React Query hook for data fetching with server-side pagination
+  const { data: productsResponse, isLoading, error } = useAdminProducts({ 
+    page: currentPage, 
+    limit: itemsPerPage 
+  });
+
+  // Extract products and pagination data from response
+  const products: Product[] = productsResponse?.items || [];
+  const paginationData = productsResponse?.pagination || {
+    page: 1,
+    limit: itemsPerPage,
+    total: 0,
+    totalPages: 1,
+    hasMore: false
+  };
 
   const genderOptions = [
     { value: '', label: 'All' },
