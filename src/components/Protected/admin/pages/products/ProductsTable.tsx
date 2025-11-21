@@ -15,6 +15,15 @@ interface ProductsTableProps {
   products: Product[]; // Products from parent (required now)
   isLoading?: boolean; // Loading state from parent
   error?: Error | null; // Error state from parent
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+  onPageChange?: (page: number) => void;
+  onItemsPerPageChange?: (itemsPerPage: number) => void;
 }
 
 export default function ProductsTable({ 
@@ -22,7 +31,10 @@ export default function ProductsTable({
   onProductCountChange, 
   products,
   isLoading = false,
-  error: parentError
+  error: parentError,
+  pagination,
+  onPageChange,
+  onItemsPerPageChange
 }: ProductsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -178,12 +190,20 @@ export default function ProductsTable({
 
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    if (onPageChange) {
+      onPageChange(page);
+    } else {
+      setCurrentPage(page);
+    }
   };
 
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
-    setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1); // Reset to first page when changing items per page
+    if (onItemsPerPageChange) {
+      onItemsPerPageChange(newItemsPerPage);
+    } else {
+      setItemsPerPage(newItemsPerPage);
+      setCurrentPage(1);
+    }
   };
 
   const handleEditClick = (product: Product) => {
@@ -272,11 +292,20 @@ export default function ProductsTable({
         </div>
       ) : (
         <DataTable
-          data={paginatedProducts}
+          data={pagination ? products : paginatedProducts}
           columns={columns}
           emptyMessage="No products found"
           rowClassName={getRowClasses}
-          pagination={{
+          pagination={pagination ? {
+            currentPage: pagination.page,
+            totalPages: pagination.totalPages,
+            totalItems: pagination.total,
+            itemsPerPage: pagination.limit,
+            onPageChange: handlePageChange,
+            onItemsPerPageChange: handleItemsPerPageChange,
+            showItemsPerPage: true,
+            itemsPerPageOptions: [10, 20, 50, 100]
+          } : {
             currentPage,
             totalPages,
             totalItems,

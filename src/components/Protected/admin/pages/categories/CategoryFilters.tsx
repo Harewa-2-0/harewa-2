@@ -130,7 +130,7 @@ export default function CategoryFilters({ onFiltersChange, initialFilters = defa
               value={filters.searchQuery}
               onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
               placeholder="Search by name or description..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-sm text-gray-900 placeholder-gray-500"
             />
           </div>
 
@@ -171,7 +171,7 @@ export default function CategoryFilters({ onFiltersChange, initialFilters = defa
                 id="startDate"
                 value={filters.dateRange.start}
                 onChange={(e) => handleDateRangeChange('start', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-sm text-gray-900"
               />
             </div>
             <div>
@@ -183,7 +183,7 @@ export default function CategoryFilters({ onFiltersChange, initialFilters = defa
                 id="endDate"
                 value={filters.dateRange.end}
                 onChange={(e) => handleDateRangeChange('end', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] text-sm text-gray-900"
               />
             </div>
           </div>
