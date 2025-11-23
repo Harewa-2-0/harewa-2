@@ -34,6 +34,17 @@ export default function ProductsPage() {
     hasMore: false
   };
 
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  // Handle items per page change
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
   const genderOptions = [
     { value: '', label: 'All' },
     { value: 'male', label: 'Male' },
@@ -115,7 +126,7 @@ export default function ProductsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Products <span className="text-lg font-normal text-gray-500">({productCount})</span>
+            Products <span className="text-lg font-normal text-gray-500">({paginationData.total || productCount})</span>
           </h1>
           <p className="text-gray-600">Manage your product inventory</p>
         </div>
@@ -191,6 +202,9 @@ export default function ProductsPage() {
         products={products}
         isLoading={isLoading}
         error={error}
+        pagination={paginationData}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
       />
 
       {/* Add Product Modal */}

@@ -4,35 +4,18 @@ import { useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import MobileNavigation from './mobile-navigation';
 import DesktopSidebar from './desktop-sidebar';
-import OrdersSection from './orders/order-section';
-import WishlistSection from './wishlist/wishlist-section';
-import MyInfoSection from './info/my-info-section';
-import DeleteAccountSection from './delete-account-section';
-import CustomizationsSection from './customizations/CustomizationsSection';
+import CustomizationDetailPage from './customizations/CustomizationDetailPage';
 
-export default function ProfileLayout() {
+interface ProfileLayoutWithDetailProps {
+  customizationId: string;
+}
+
+export default function ProfileLayoutWithDetail({ customizationId }: ProfileLayoutWithDetailProps) {
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('info');
+  const [activeTab, setActiveTab] = useState('customizations');
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
-  };
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'orders': 
-      return <OrdersSection />;
-      case 'customizations':
-        return <CustomizationsSection />;
-      case 'wishlist':
-        return <WishlistSection />;
-      case 'info':
-        return <MyInfoSection />;
-      case 'delete-account':
-        return <DeleteAccountSection />;
-      default:
-        return <MyInfoSection />;
-    }
   };
 
   return (
@@ -63,7 +46,7 @@ export default function ProfileLayout() {
 
         {/* Page Content */}
         <div className="flex-1 md:ml-64 pt-32 md:pt-16">
-          {renderContent()}
+          <CustomizationDetailPage customizationId={customizationId} />
         </div>
       </div>
     </div>

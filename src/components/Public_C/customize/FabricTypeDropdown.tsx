@@ -64,6 +64,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
       
       <div className="relative">
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
           disabled={isLoading}
           className={`w-full px-4 py-3 text-left bg-white border-2 rounded-lg transition-colors flex items-center justify-between ${
@@ -123,6 +124,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
                   return (
                     <button
                       key={fabric._id}
+                      type="button"
                       onClick={() => handleFabricSelect(fabric._id)}
                       className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
                         selectedFabric === fabric._id ? 'bg-[#D4AF37]/10 text-[#D4AF37]' : 'text-gray-900'

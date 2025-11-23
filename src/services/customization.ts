@@ -1,5 +1,5 @@
 // src/services/customization.ts
-import { api, unwrap, type MaybeWrapped } from "@/utils/api";
+import { api, unwrap, type MaybeWrapped, ApiError } from "@/utils/api";
 
 /** ---------- Types ---------- */
 export type CustomizationInput = {
@@ -86,6 +86,11 @@ export async function getCurrentUserCustomizations(): Promise<CustomizationRespo
     
     return Array.isArray(data) ? data : [];
   } catch (error) {
+    // Handle 404 as empty result (no customizations found)
+    if (error instanceof ApiError && error.status === 404) {
+      return [];
+    }
+    
     console.error("Failed to get user customizations:", error);
     throw error;
   }
@@ -119,6 +124,31 @@ export async function getUserCustomizationsById(userId: string): Promise<Customi
     return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Failed to get user customizations by ID:", error);
+    throw error;
+  }
+}
+
+/**
+ * Update an existing customization request
+ * Updates a customization with new data via PUT request
+ */
+export async function updateCustomization(id: string, input: Partial<CustomizationInput>): Promise<CustomizationResponse> {
+  try {
+    const response = await api<MaybeWrapped<CustomizationResponse>>(`/api/customization/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+
+    // Handle both wrapped and unwrapped responses
+    const data = unwrap(response);
+    
+    if (!data) {
+      throw new Error("Invalid response format");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Failed to update customization:", error);
     throw error;
   }
 }
