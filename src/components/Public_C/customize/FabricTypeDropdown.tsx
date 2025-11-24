@@ -58,6 +58,11 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
     return parts.length > 0 ? parts.join(' • ') : undefined;
   };
 
+  // Calculate price for 6 yards: simply multiply 6 by the unit price
+  const calculatePriceFor6Yards = (pricePerMeter: number): number => {
+    return pricePerMeter * 6;
+  };
+
   return (
     <div className="mb-4" ref={dropdownRef}>
       <h3 className="text-sm font-medium text-gray-900 mb-3">Choose Fabric Type</h3>
@@ -150,11 +155,16 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
                           {description && (
                             <span className="text-xs text-gray-500 mt-1 truncate">{description}</span>
                           )}
-                          {/* Show price if available */}
-                          {fabric.pricePerMeter && (
-                            <span className="text-xs text-[#D4AF37] font-medium mt-1">
-                              {formatPrice(fabric.pricePerMeter * 5.486)}/6 yards
-                            </span>
+                          {/* Show price if available - using live data from API */}
+                          {fabric.pricePerMeter !== undefined && fabric.pricePerMeter !== null && (
+                            <div className="mt-1 space-y-0.5">
+                              <span className="text-xs text-[#D4AF37] font-medium">
+                                {formatPrice(calculatePriceFor6Yards(fabric.pricePerMeter))} per 6 yards
+                              </span>
+                              <span className="text-[11px] text-gray-600 block">
+                                Unit price: {formatPrice(fabric.pricePerMeter)}
+                              </span>
+                            </div>
                           )}
                           {/* Show stock status */}
                           {fabric.inStock === false && (
@@ -203,10 +213,15 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
                   {getFabricDescription(selectedFabricOption)}
                 </p>
               )}
-              {selectedFabricOption.pricePerMeter && (
-                <p className="text-xs text-[#D4AF37] font-medium mt-1">
-                  {formatPrice(selectedFabricOption.pricePerMeter * 5.486)} per 6 yards
-                </p>
+              {selectedFabricOption.pricePerMeter !== undefined && selectedFabricOption.pricePerMeter !== null && (
+                <div className="mt-1 space-y-0.5">
+                  <p className="text-xs text-[#D4AF37] font-medium">
+                    {formatPrice(calculatePriceFor6Yards(selectedFabricOption.pricePerMeter))} per 6 yards
+                  </p>
+                  <p className="text-[11px] text-gray-600">
+                    Unit price: {formatPrice(selectedFabricOption.pricePerMeter)}
+                  </p>
+                </div>
               )}
             </div>
           </div>
