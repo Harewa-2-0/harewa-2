@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,6 +17,16 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 }) => {
   const [pulsingIndex, setPulsingIndex] = useState<number | null>(null);
 
+  // Preload all images for instant switching
+  useEffect(() => {
+    if (images && images.length > 0) {
+      images.forEach((imageUrl) => {
+        const img = new window.Image();
+        img.src = imageUrl;
+      });
+    }
+  }, [images]);
+
   const handleImageClick = (index: number) => {
     setPulsingIndex(index);
     onImageSelect(index);
@@ -24,7 +34,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
     // Remove pulse effect after animation completes
     setTimeout(() => {
       setPulsingIndex(null);
-    }, 600);
+    }, 300);
   };
 
   return (
@@ -94,14 +104,14 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
           
           {/* Center: Main Image with Animation */}
           <div className="flex-1 flex items-center justify-center">
-            <div className="relative overflow-hidden rounded-lg w-full max-w-lg h-[400px]">
-              <AnimatePresence mode="wait">
+            <div className="relative overflow-hidden rounded-lg w-full max-w-lg h-[400px] bg-gray-100">
+              <AnimatePresence initial={false}>
                 <motion.div
                   key={selectedImageIndex}
-                  initial={{ opacity: 0, scale: 0.95, x: 20 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, x: -20 }}
-                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
                   className="absolute inset-0"
                 >
                   <Image
@@ -126,14 +136,14 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
       <div className="lg:hidden pt-24">
         {/* Main Image First with Animation */}
         <div className="mb-6 relative w-full" style={{ height: '320px' }}>
-          <div className="relative w-full h-full overflow-hidden rounded-lg">
-            <AnimatePresence mode="wait">
+          <div className="relative w-full h-full overflow-hidden rounded-lg bg-gray-100">
+            <AnimatePresence initial={false}>
               <motion.div
                 key={selectedImageIndex}
-                initial={{ opacity: 0, scale: 0.95, x: 20 }}
-                animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95, x: -20 }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
                 className="absolute inset-0"
               >
                 <Image

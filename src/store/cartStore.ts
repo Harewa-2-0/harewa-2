@@ -124,6 +124,7 @@ export const useCartStore = create<CartState>((set, get) => ({
           price: item.price ?? updatedItems[idx].price,
           name: (item.name as string) ?? updatedItems[idx].name,
           image: (item.image as string) ?? updatedItems[idx].image,
+          size: (item.size as string) ?? updatedItems[idx].size,
         };
       } else {
         // Add new item
@@ -133,6 +134,7 @@ export const useCartStore = create<CartState>((set, get) => ({
           price: item.price,
           name: item.name as string,
           image: item.image as string,
+          size: item.size as string,
         };
         updatedItems = [...state.items, newItem];
       }
