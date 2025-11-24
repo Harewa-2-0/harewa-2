@@ -30,7 +30,7 @@ export default function DeliveryFilters({ filters, onFiltersChange }: DeliveryFi
             placeholder="Search deliveries..."
             value={filters.search}
             onChange={(e) => handleFilterChange('search', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent text-gray-900 placeholder-gray-500"
           />
         </div>
 
@@ -42,7 +42,7 @@ export default function DeliveryFilters({ filters, onFiltersChange }: DeliveryFi
           <select
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent text-gray-900"
           >
             <option value="">All Status</option>
             <option value="pending">Pending</option>
@@ -60,7 +60,7 @@ export default function DeliveryFilters({ filters, onFiltersChange }: DeliveryFi
           <select
             value={filters.dateRange}
             onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent text-gray-900"
           >
             <option value="">All Time</option>
             <option value="today">Today</option>

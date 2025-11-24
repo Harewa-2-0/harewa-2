@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { Star } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/contexts/toast-context';
 import { useAuthStore } from '@/store/authStore';
 import { createCustomization, type CustomizationInput } from '@/services/customization';
+import { customizationKeys } from '@/hooks/useCustomizations';
 import { ApiError } from '@/utils/api';
 import { formatPrice } from '@/utils/currency';
 import OutfitSelector from './OutfitSelector';
@@ -40,6 +42,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
   const { addToast } = useToast();
   const { isAuthenticated } = useAuthStore();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const renderStars = (rating: number = 4) => (
     <div className="flex items-center space-x-1">
@@ -97,6 +100,9 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
       };
 
       await createCustomization(customizationData);
+
+      // Invalidate customizations cache so it refreshes when user visits profile
+      queryClient.invalidateQueries({ queryKey: customizationKeys.currentUser() });
 
       addToast('Customization request submitted successfully! We\'ll contact you soon.', 'success');
       

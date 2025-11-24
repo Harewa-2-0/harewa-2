@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import { DataTable, TableColumn } from '../components/shared';
 import DeleteProductModal from './DeleteProductModal';
 import EditProductModal from './EditProductModal';
@@ -15,6 +17,15 @@ interface ProductsTableProps {
   products: Product[]; // Products from parent (required now)
   isLoading?: boolean; // Loading state from parent
   error?: Error | null; // Error state from parent
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+  onPageChange?: (page: number) => void;
+  onItemsPerPageChange?: (itemsPerPage: number) => void;
 }
 
 export default function ProductsTable({ 
@@ -22,7 +33,10 @@ export default function ProductsTable({
   onProductCountChange, 
   products,
   isLoading = false,
-  error: parentError
+  error: parentError,
+  pagination,
+  onPageChange,
+  onItemsPerPageChange
 }: ProductsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -35,7 +49,7 @@ export default function ProductsTable({
   const updateProductMutation = useUpdateProductMutation();
   const deleteProductMutation = useDeleteProductMutation();
 
-  // Filter products based on gender
+  // Filter products based on gender (client-side filter)
   const filteredProducts = products.filter(product => {
     if (!genderFilter) return true;
     return product.gender === genderFilter || product.gender === 'unisex';
@@ -44,13 +58,18 @@ export default function ProductsTable({
   // Notify parent component of product count changes
   useEffect(() => {
     if (onProductCountChange) {
-      onProductCountChange(filteredProducts.length);
+      // When using server-side pagination, use the total from pagination
+      // Otherwise, use filtered products count
+      const count = pagination ? pagination.total : filteredProducts.length;
+      onProductCountChange(count);
     }
-  }, [filteredProducts.length, onProductCountChange]);
+  }, [filteredProducts.length, onProductCountChange, pagination]);
 
   // Calculate pagination
-  const totalItems = filteredProducts.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  // When pagination prop is provided, use server-side pagination totals
+  // Otherwise, use client-side pagination
+  const totalItems = pagination ? pagination.total : filteredProducts.length;
+  const totalPages = pagination ? pagination.totalPages : Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
@@ -78,52 +97,59 @@ export default function ProductsTable({
     );
   };
 
-  const columns: TableColumn<Product>[] = [
+  // Define handlers before columns so they can be used in useMemo dependencies
+  const handleEditClick = useCallback((product: Product) => {
+    setSelectedProduct(product);
+    setShowEditModal(true);
+  }, []);
+
+  const handleDeleteClick = useCallback((product: Product) => {
+    setSelectedProduct(product);
+    setShowDeleteModal(true);
+  }, []);
+
+  // Memoize columns to prevent unnecessary re-renders
+  const columns: TableColumn<Product>[] = useMemo(() => [
     {
       key: 'name',
       label: 'Product',
       render: (product) => {
-  return (
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 h-10 w-10">
-                      <img
-                        className="h-10 w-10 rounded-lg object-cover"
+        const productName = product.name || 'Unknown Product';
+        const truncatedName = productName.length > 10 
+          ? `${productName.substring(0, 10)}...` 
+          : productName;
+        const productId = product.id || product._id || 'N/A';
+        const shortId = productId.length > 8 ? `${productId.substring(0, 8)}...` : productId;
+        
+        return (
+          <Link 
+            href={`/admin/products/${productId}`}
+            className="flex items-center hover:opacity-80 transition-opacity"
+          >
+            <div className="flex-shrink-0 h-10 w-10 relative">
+              <Image
+                className="rounded-lg object-cover"
                 src={product.images?.[0] || '/placeholder-product.jpg'}
-                alt={product.name || 'Product'}
+                alt={productName}
+                fill
+                sizes="40px"
+                loading="lazy"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = '/placeholder-product.jpg';
                 }}
-                      />
-                    </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">
-                {product.name || 'Unknown Product'}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                ID: {product.id || product._id || 'N/A'}
-                      </div>
-                    </div>
-                  </div>
+              />
+            </div>
+            <div className="ml-4">
+              <div className="text-sm font-medium text-gray-900" title={productName}>
+                {truncatedName}
+              </div>
+              <div className="text-sm text-gray-500" title={productId}>
+                ID: {shortId}
+              </div>
+            </div>
+          </Link>
         );
       }
-    },
-    {
-      key: 'category',
-      label: 'Category',
-      render: (product) => {
-        if (typeof product.category === 'object' && product.category?.name) {
-          return <span className="text-gray-900">{product.category.name}</span>;
-        }
-        // If category is a string (ID), show a truncated version
-        const categoryStr = String(product.category || 'N/A');
-        const displayText = categoryStr.length > 12 ? `${categoryStr.substring(0, 12)}...` : categoryStr;
-        return (
-          <span className="text-gray-900" title={categoryStr}>
-            {displayText}
-          </span>
-        );
-      },
-      sortable: true
     },
     {
       key: 'price',
@@ -174,26 +200,25 @@ export default function ProductsTable({
                   </div>
       )
     }
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
 
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    if (onPageChange) {
+      onPageChange(page);
+    } else {
+      setCurrentPage(page);
+    }
   };
 
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
-    setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1); // Reset to first page when changing items per page
-  };
-
-  const handleEditClick = (product: Product) => {
-    setSelectedProduct(product);
-    setShowEditModal(true);
-  };
-
-  const handleDeleteClick = (product: Product) => {
-    setSelectedProduct(product);
-    setShowDeleteModal(true);
+    if (onItemsPerPageChange) {
+      onItemsPerPageChange(newItemsPerPage);
+    } else {
+      setItemsPerPage(newItemsPerPage);
+      setCurrentPage(1);
+    }
   };
 
   const handleEditSuccess = async (updatedProduct: Product) => {
@@ -272,11 +297,20 @@ export default function ProductsTable({
         </div>
       ) : (
         <DataTable
-          data={paginatedProducts}
+          data={pagination ? filteredProducts : paginatedProducts}
           columns={columns}
           emptyMessage="No products found"
           rowClassName={getRowClasses}
-          pagination={{
+          pagination={pagination ? {
+            currentPage: pagination.page,
+            totalPages: pagination.totalPages,
+            totalItems: pagination.total, // Server-side total (all products, not filtered)
+            itemsPerPage: pagination.limit,
+            onPageChange: handlePageChange,
+            onItemsPerPageChange: handleItemsPerPageChange,
+            showItemsPerPage: true,
+            itemsPerPageOptions: [10, 20, 50, 100]
+          } : {
             currentPage,
             totalPages,
             totalItems,

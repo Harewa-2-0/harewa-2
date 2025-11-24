@@ -44,12 +44,28 @@ export function useShopProducts(params?: {
 }) {
   const queryKey = ['shop-products', params];
   
-  return useQuery<Product[], Error>({
+  return useQuery<PaginatedResponse<Product>, Error>({
     queryKey,
     queryFn: async () => {
       const response = await getProducts(params);
-      const data = 'items' in response ? response.items : response;
-      return Array.isArray(data) ? data : [];
+      
+      // Ensure we always return a PaginatedResponse format
+      if (Array.isArray(response)) {
+        // Legacy format - convert to paginated response
+        return {
+          items: response,
+          pagination: {
+            page: params?.page || 1,
+            limit: params?.limit || 20,
+            total: response.length,
+            totalPages: 1,
+            hasMore: false,
+          }
+        } as PaginatedResponse<Product>;
+      }
+      
+      // Already in PaginatedResponse format
+      return response as PaginatedResponse<Product>;
     },
     staleTime: 3 * 60 * 1000, // 3 minutes (shop data can be slightly more dynamic)
     gcTime: 10 * 60 * 1000,
@@ -70,16 +86,34 @@ export const adminProductKeys = {
 };
 
 /**
- * Hook to fetch admin products with pagination
+ * Hook to fetch admin products with server-side pagination
  */
 export function useAdminProducts(params?: {
   page?: number;
   limit?: number;
 }) {
-  return useQuery<Product[] | PaginatedResponse<Product>, Error>({
+  return useQuery<PaginatedResponse<Product>, Error>({
     queryKey: adminProductKeys.list(params),
     queryFn: async () => {
-      return await adminGetProducts(params);
+      const response = await adminGetProducts(params);
+      
+      // Ensure we always return a PaginatedResponse format
+      if (Array.isArray(response)) {
+        // Legacy format - convert to paginated response
+        return {
+          items: response,
+          pagination: {
+            page: params?.page || 1,
+            limit: params?.limit || 20,
+            total: response.length,
+            totalPages: 1,
+            hasMore: false,
+          }
+        } as PaginatedResponse<Product>;
+      }
+      
+      // Already in PaginatedResponse format
+      return response as PaginatedResponse<Product>;
     },
     staleTime: 1 * 60 * 1000, // 1 minute (admin data changes more frequently)
     gcTime: 5 * 60 * 1000,

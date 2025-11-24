@@ -212,7 +212,7 @@ export async function getDashboardData() {
         console.error('Error fetching orders:', err);
         return []; // Return empty array on error
       }),
-      adminGetProducts({ page: 1, limit: 100 }).catch(err => {
+      adminGetProducts({ page: 1, limit: 6 }).catch(err => {
         console.error('Error fetching products:', err);
         return []; // Return empty array on error
       })

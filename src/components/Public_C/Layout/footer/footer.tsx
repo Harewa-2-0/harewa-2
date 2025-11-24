@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { Facebook, Instagram, Phone, Mail, MapPin, MessageSquare } from 'lucide-react';
 
 export default function Footer() {
@@ -30,18 +31,18 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Company</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="hover:text-[#FFE181] transition">About Us</a></li>
-              <li><a href="#" className="hover:text-[#FFE181] transition">Help Centre</a></li>
-              <li><a href="#" className="hover:text-[#FFE181] transition">Pricing</a></li>
+              <li><Link href="/home" className="hover:text-[#FFE181] transition">About Us</Link></li>
+              <li><Link href="/home" className="hover:text-[#FFE181] transition">Help Centre</Link></li>
+              <li><Link href="/home" className="hover:text-[#FFE181] transition">Pricing</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-semibold mb-4">Services</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="hover:text-[#FFE181] transition">Ready to Wear</a></li>
-              <li><a href="#" className="hover:text-[#FFE181] transition">Trending Fashion</a></li>
-              <li><a href="#" className="hover:text-[#FFE181] transition">Designers</a></li>
+              <li><Link href="/shop" className="hover:text-[#FFE181] transition">Ready to Wear</Link></li>
+              <li><Link href="/trending-fashion" className="hover:text-[#FFE181] transition">Trending Fashion</Link></li>
+              <li><Link href="/home" className="hover:text-[#FFE181] transition">Designers</Link></li>
             </ul>
           </div>
 
@@ -49,13 +50,23 @@ export default function Footer() {
             <h4 className="font-semibold mb-4">Contact Us</h4>
             <ul className="space-y-2">
               <li className="flex items-center gap-2">
-                <Mail size={16} /> support@harewa.com
+                <Mail size={16} />
+                <a href="mailto:admin@harewa.com" className="hover:text-[#FFE181] transition">
+                  admin@harewa.com
+                </a>
               </li>
               <li className="flex items-center gap-2">
-                <Phone size={16} /> +234 800 000 0000
+                <Phone size={16} />
+                <a href="tel:+16789076332" className="hover:text-[#FFE181] transition">
+                  +1.678.907.6332
+                </a>
               </li>
-              <li className="flex items-center gap-2">
-                <MapPin size={16} /> Lagos, Nigeria
+              <li className="flex items-start gap-2">
+                <MapPin size={16} className="mt-0.5 flex-shrink-0" />
+                <span className="text-sm">
+                  3099 Loring Rd NW<br />
+                  Kennesaw, GA 30152, USA
+                </span>
               </li>
             </ul>
           </div>

@@ -64,6 +64,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
       
       <div className="relative">
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
           disabled={isLoading}
           className={`w-full px-4 py-3 text-left bg-white border-2 rounded-lg transition-colors flex items-center justify-between ${
@@ -109,7 +110,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
             <div className="max-h-48 overflow-y-auto">
               {error ? (
                 <div className="px-4 py-3 text-red-500 text-sm">
-                  Error loading fabrics: {error}
+                  Error loading fabrics: {error instanceof Error ? error.message : String(error)}
                 </div>
               ) : isLoading ? (
                 <div className="px-4 py-3 flex items-center justify-center">
@@ -123,6 +124,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
                   return (
                     <button
                       key={fabric._id}
+                      type="button"
                       onClick={() => handleFabricSelect(fabric._id)}
                       className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
                         selectedFabric === fabric._id ? 'bg-[#D4AF37]/10 text-[#D4AF37]' : 'text-gray-900'
@@ -151,7 +153,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
                           {/* Show price if available */}
                           {fabric.pricePerMeter && (
                             <span className="text-xs text-[#D4AF37] font-medium mt-1">
-                              {formatPrice(fabric.pricePerMeter)}/meter
+                              {formatPrice(fabric.pricePerMeter * 5.486)}/6 yards
                             </span>
                           )}
                           {/* Show stock status */}
@@ -203,7 +205,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
               )}
               {selectedFabricOption.pricePerMeter && (
                 <p className="text-xs text-[#D4AF37] font-medium mt-1">
-                  {formatPrice(selectedFabricOption.pricePerMeter)} per meter
+                  {formatPrice(selectedFabricOption.pricePerMeter * 5.486)} per 6 yards
                 </p>
               )}
             </div>

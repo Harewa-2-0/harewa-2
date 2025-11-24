@@ -1,108 +1,250 @@
-# Fabric Bulk Upload Scripts
+# Image Upload Scripts Reference
 
-This directory contains scripts to bulk upload fabrics from the `public/Fabrics/` folder to the database.
+This directory is for scripts that handle image uploads to Cloudinary. All scripts should follow the standard workflow: **compress with Sharp first, then upload to Cloudinary**.
 
-## Quick Start (Recommended - Browser Script)
+## Standard Upload Workflow
 
-The easiest way to upload all fabrics is using the browser script:
+### 1. Image Compression with Sharp
+Before uploading any image to Cloudinary, always compress it using Sharp:
 
-1. **Log in to your admin dashboard**
-   - Navigate to `http://localhost:3000/admin/fabrics` (or your admin URL)
-   - Make sure you're logged in as an admin
+```typescript
+import sharp from 'sharp';
 
-2. **Open browser console**
-   - Press `F12` or right-click → Inspect → Console tab
-
-3. **Run the script**
-   - Open `scripts/upload-fabrics-browser.js`
-   - Copy the entire file content
-   - Paste into browser console and press Enter
-
-4. **Wait for completion**
-   - The script will upload all 24 fabrics automatically
-   - You'll see progress and a summary at the end
-
-## Node.js Script (Alternative)
-
-If you prefer using Node.js:
-
-```bash
-# Install tsx if not already installed
-npm install -g tsx
-
-# Run the script (requires cookies for authentication)
-npm run upload-fabrics
+// Compress image before upload
+const compressedBuffer = await sharp(imageBuffer)
+  .resize(1920, null, { 
+    withoutEnlargement: true,
+    fit: 'inside'
+  })
+  .jpeg({ 
+    quality: 85,
+    progressive: true,
+    mozjpeg: true
+  })
+  .toBuffer();
 ```
 
-**Note**: The Node.js script requires authentication cookies. You'll need to extract cookies from your browser session and pass them as environment variables or modify the script.
+**Compression Settings:**
+- **Max width**: 1920px (maintains aspect ratio)
+- **Quality**: 85% (good balance between size and quality)
+- **Format**: Progressive JPEG
+- **Optimization**: MozJPEG enabled
 
-## What the Script Does
+### 2. Upload to Cloudinary
+After compression, upload the compressed buffer to Cloudinary:
 
-1. **Parses filenames** from `public/Fabrics/` folder
-   - Extracts fabric name (preserves "(unique)" and numbers)
-   - Extracts price from `$XX` format
-   - Example: `"Afrik - $40 (unique).jpg"` → name: `"Afrik (unique)"`, price: `40`
+```typescript
+import { v2 as cloudinary } from 'cloudinary';
 
-2. **Extracts color** from fabric name
-   - Tries to find color words (green, blue, red, etc.)
-   - Falls back to "Mixed" if no color found
-   - Example: `"Green Perfection"` → color: `"Green"`
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-3. **Uploads each fabric** with:
-   - `name`: Parsed from filename
-   - `image`: `/Fabrics/{filename}` (URL path)
-   - `type`: `"Mixed"` (hardcoded)
-   - `color`: Extracted or "Mixed"
-   - `pricePerMeter`: Extracted from filename
-   - `inStock`: `true` (default)
+// Upload compressed image
+const uploadResult = await new Promise((resolve, reject) => {
+  const uploadStream = cloudinary.uploader.upload_stream(
+    {
+      folder: 'products', // or 'fabrics'
+      resource_type: 'image',
+    },
+    (error, result) => {
+      if (error) reject(error);
+      else resolve(result);
+    }
+  );
+  
+  // Pipe compressed buffer to upload stream
+  Readable.from(compressedBuffer).pipe(uploadStream);
+});
 
-4. **Rate limiting**: 500ms delay between requests to avoid overwhelming the server
+const cloudinaryUrl = uploadResult.secure_url;
+```
 
-5. **Error handling**: Continues even if some uploads fail, reports summary at end
+## Image Folder Structure
 
-## Expected Files
+### Products
+```
+public/Products/
+├── $20/
+│   ├── Product Name 1/
+│   │   ├── image1.jpg
+│   │   ├── image2.jpg
+│   │   ├── image3.jpg
+│   │   └── Product Description.txt
+│   └── Product Name 2/
+│       └── ...
+├── $25/
+│   └── ...
+└── ...
+```
 
-The script expects 24 JPG files in `public/Fabrics/`:
-- Afrik - $40 (unique).jpg
-- Afrik - $40.jpg
-- Bassam - $40.jpg
-- Batik - $45.jpg
-- Batik - $50.jpg
-- Bogolan - $45 (unique) 1.jpg
-- Bogolan - $45 (unique) 2.jpg
-- Bogolan - $45 (unique) 3.jpg
-- Bogolan - $45 (unique) 4.jpg
-- Bogolan - $45 (unique).jpg
-- Bogolan - $45.jpg
-- Cool - $40.jpg
-- Emotion - $45.jpg
-- Emotion - $50 (unique).jpg
-- Emotion - $50.jpg
-- Graffiti - $45 (unique) 1.jpg
-- Graffiti - $45 (unique).jpg
-- Graffiti - $45.jpg
-- Green Perfection - $50.jpg
-- Jeans - $40.jpg
-- Kitor - $45.jpg
-- Perles - $40 (unique).jpg
-- Perles - $40.jpg
-- Perles - $50.jpg
+### Fabrics
+```
+public/Fabrics/
+├── Fabric Name - $40.jpg
+├── Fabric Name - $45 (unique).jpg
+└── ...
+```
+
+## Creating New Upload Scripts
+
+When creating a new upload script, follow this template:
+
+```typescript
+import { readFile } from 'fs/promises';
+import { join } from 'path';
+import { existsSync } from 'fs';
+import { Readable } from 'stream';
+import { v2 as cloudinary } from 'cloudinary';
+import sharp from 'sharp';
+
+// 1. Load environment variables
+async function loadEnvFile() {
+  const envPath = join(process.cwd(), '.env.local');
+  if (existsSync(envPath)) {
+    // Load .env.local file
+    // ... (implementation)
+  }
+}
+
+// 2. Configure Cloudinary
+function configureCloudinary() {
+  cloudinary.config({
+    cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
+
+// 3. Compress image with Sharp
+async function compressImage(imagePath: string): Promise<Buffer> {
+  const imageBuffer = await readFile(imagePath);
+  
+  return await sharp(imageBuffer)
+    .resize(1920, null, { 
+      withoutEnlargement: true,
+      fit: 'inside'
+    })
+    .jpeg({ 
+      quality: 85,
+      progressive: true,
+      mozjpeg: true
+    })
+    .toBuffer();
+}
+
+// 4. Upload compressed image to Cloudinary
+async function uploadToCloudinary(
+  compressedBuffer: Buffer,
+  folder: string = 'products'
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: 'image',
+      },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result.secure_url);
+      }
+    );
+    
+    Readable.from(compressedBuffer).pipe(uploadStream);
+  });
+}
+
+// 5. Main upload function
+async function uploadImages() {
+  await loadEnvFile();
+  configureCloudinary();
+  
+  // Your upload logic here
+  // For each image:
+  //   1. Compress with Sharp
+  //   2. Upload to Cloudinary
+  //   3. Update database with Cloudinary URL
+}
+```
+
+## Required Environment Variables
+
+Make sure these are set in `.env.local`:
+
+```env
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+## Best Practices
+
+1. **Always compress before upload** - Reduces file size and upload time
+2. **Use Sharp for compression** - Consistent, high-quality compression
+3. **Handle errors gracefully** - Continue processing other images if one fails
+4. **Log progress** - Show which images are being processed
+5. **Save results** - Keep track of successful and failed uploads
+6. **Rate limiting** - Add delays between uploads to avoid overwhelming Cloudinary
+
+## Example: Upload Product Images
+
+```typescript
+// For each product image:
+const imagePath = join(process.cwd(), 'public', 'Products', productFolder, imageFile);
+
+// 1. Compress
+const compressedBuffer = await compressImage(imagePath);
+
+// 2. Upload
+const cloudinaryUrl = await uploadToCloudinary(compressedBuffer, 'products');
+
+// 3. Update product
+await updateProduct(productId, { images: [...existingImages, cloudinaryUrl] });
+```
+
+## Example: Upload Fabric Images
+
+```typescript
+// For each fabric image:
+const imagePath = join(process.cwd(), 'public', 'Fabrics', fabricFile);
+
+// 1. Compress
+const compressedBuffer = await compressImage(imagePath);
+
+// 2. Upload
+const cloudinaryUrl = await uploadToCloudinary(compressedBuffer, 'fabrics');
+
+// 3. Update fabric
+await updateFabric(fabricId, { image: cloudinaryUrl });
+```
 
 ## Troubleshooting
 
-**Authentication errors:**
-- Make sure you're logged in as admin before running the browser script
-- For Node.js script, you need to provide cookies manually
+**Sharp not found:**
+```bash
+npm install sharp
+```
 
-**File not found errors:**
-- Verify images are in `public/Fabrics/` folder
-- Check that filenames match expected format: `Name - $Price.jpg`
+**Cloudinary configuration errors:**
+- Verify environment variables are loaded correctly
+- Check that `.env.local` exists and has correct values
 
-**Duplicate errors:**
-- If a fabric already exists, the upload will fail (this is expected)
-- You can edit existing fabrics from the admin dashboard instead
+**Upload failures:**
+- Check Cloudinary API limits
+- Verify image files exist and are readable
+- Ensure compressed buffer is valid
 
-**Network errors:**
-- Check that your dev server is running (`npm run dev`)
-- Verify the API endpoint is accessible
+**Memory issues with large images:**
+- Sharp handles large images efficiently
+- If issues persist, process images in smaller batches
+
+## Notes
+
+- All local image references should be in `public/Products/` or `public/Fabrics/`
+- After successful upload to Cloudinary, local images can be deleted
+- Always test scripts on a small subset before running on all images
+- Keep backups of original images until upload is confirmed successful
 

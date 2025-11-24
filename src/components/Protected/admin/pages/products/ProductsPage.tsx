@@ -14,18 +14,36 @@ export default function ProductsPage() {
   const [productCount, setProductCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Use React Query hook for data fetching
-  const { data: productsResponse, isLoading, error } = useAdminProducts({ page: 1, limit: 100 });
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Extract products array from response (handle both array and paginated response)
-  const products: Product[] = (() => {
-    if (!productsResponse) return [];
-    if (Array.isArray(productsResponse)) return productsResponse;
-    if (typeof productsResponse === 'object' && 'items' in productsResponse) {
-      return (productsResponse as PaginatedResponse<Product>).items;
-    }
-    return [];
-  })();
+  // Use React Query hook for data fetching with server-side pagination
+  const { data: productsResponse, isLoading, error } = useAdminProducts({ 
+    page: currentPage, 
+    limit: itemsPerPage 
+  });
+
+  // Extract products and pagination data from response
+  const products: Product[] = productsResponse?.items || [];
+  const paginationData = productsResponse?.pagination || {
+    page: 1,
+    limit: itemsPerPage,
+    total: 0,
+    totalPages: 1,
+    hasMore: false
+  };
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  // Handle items per page change
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
 
   const genderOptions = [
     { value: '', label: 'All' },
@@ -108,7 +126,7 @@ export default function ProductsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Products <span className="text-lg font-normal text-gray-500">({productCount})</span>
+            Products <span className="text-lg font-normal text-gray-500">({paginationData.total || productCount})</span>
           </h1>
           <p className="text-gray-600">Manage your product inventory</p>
         </div>
@@ -184,6 +202,9 @@ export default function ProductsPage() {
         products={products}
         isLoading={isLoading}
         error={error}
+        pagination={paginationData}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
       />
 
       {/* Add Product Modal */}
