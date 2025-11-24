@@ -53,6 +53,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@tanstack/react-query-devtools": "^5.91.0",
     "@types/bcrypt": "^5.0.2",
     "@types/busboy": "^1.5.4",
     "@types/html-pdf": "^3.0.3",

@@ -7,7 +7,6 @@ import HeaderSection from "./HeaderSection";
 import FilterControls from "./FilterControls";
 import ProductGrid from "./ProductGrid";
 import MobileFilterOverlay from "./MobileFilterOverlay";
-import { useResponsivePagination } from "../../../hooks/useResponsivePagination";
 import { useShopProducts } from "@/hooks/useProducts";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/contexts/toast-context";
@@ -38,14 +37,25 @@ const ReadyToWearPage: React.FC = () => {
   });
   const [sortBy, setSortBy] = useState<"feature" | "price-low" | "price-high" | "newest">("feature");
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
 
-  // Fetch products using React Query - automatic caching and deduplication
-  const { data: fetchedProducts = [], isLoading: loading, error: queryError } = useShopProducts({ 
-    page: 1, 
-    limit: 10 
+  // Fetch products using React Query with server-side pagination
+  const { data: productsResponse, isLoading: loading, error: queryError } = useShopProducts({ 
+    page: currentPage, 
+    limit: 20 
   });
+
+  // Extract products and pagination data from response
+  const fetchedProducts = productsResponse?.items || [];
+  const paginationData = productsResponse?.pagination || {
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+    hasMore: false
+  };
 
   // Normalize product images
   const products = useMemo(() => {
@@ -157,8 +167,17 @@ const ReadyToWearPage: React.FC = () => {
     return arr; // "feature" (default)
   }, [filteredProducts, sortBy]);
 
-  const { currentPage, setCurrentPage, totalPages, paginatedItems } =
-    useResponsivePagination(sortedProducts);
+  // Handle page change - reset to page 1 when filters change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Reset to page 1 when filters or sort changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, sortBy]);
 
   return (
     <div className="min-h-screen bg-white pt-20 md:pt-24">
@@ -211,15 +230,15 @@ const ReadyToWearPage: React.FC = () => {
           {/* Product Grid */}
           <div className="flex-1">
             <ProductGrid
-              products={paginatedItems}
+              products={sortedProducts}
               loading={loading}
               error={error}
               currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
+              totalPages={paginationData.totalPages}
+              onPageChange={handlePageChange}
               onToggleLike={toggleLike}
-                      isLoggedIn={isAuthenticated}
-                    />
+              isLoggedIn={isAuthenticated}
+            />
           </div>
         </div>
       </div>

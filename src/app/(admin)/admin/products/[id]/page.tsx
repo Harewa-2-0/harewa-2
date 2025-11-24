@@ -3,12 +3,14 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useProductByIdQuery } from '@/hooks/useProducts';
 import { useDeleteProductMutation } from '@/hooks/useProducts';
 import { formatPrice } from '@/utils/currency';
 import { PageSpinner } from '@/components/Protected/admin/components/Spinner';
 import EditProductModal from '@/components/Protected/admin/pages/products/EditProductModal';
 import DeleteProductModal from '@/components/Protected/admin/pages/products/DeleteProductModal';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Product } from '@/services/products';
 
 export default function AdminProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -111,15 +113,29 @@ export default function AdminProductDetailPage({ params }: { params: Promise<{ i
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
             {/* Image Gallery */}
             <div>
-              <div className="mb-4">
-                <img
-                  src={product.images?.[selectedImageIndex] || '/placeholder-product.jpg'}
-                  alt={product.name}
-                  className="w-full h-96 object-cover rounded-lg"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/placeholder-product.jpg';
-                  }}
-                />
+              <div className="mb-4 relative overflow-hidden rounded-lg h-96">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={selectedImageIndex}
+                    initial={{ opacity: 0, scale: 0.95, x: 20 }}
+                    animate={{ opacity: 1, scale: 1, x: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, x: -20 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="absolute inset-0"
+                  >
+                    <Image
+                      src={product.images?.[selectedImageIndex] || '/placeholder-product.jpg'}
+                      alt={product.name}
+                      fill
+                      className="object-cover rounded-lg"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      priority={selectedImageIndex === 0}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/placeholder-product.jpg';
+                      }}
+                    />
+                  </motion.div>
+                </AnimatePresence>
               </div>
               {product.images && product.images.length > 1 && (
                 <div className="grid grid-cols-3 gap-2">
@@ -133,10 +149,13 @@ export default function AdminProductDetailPage({ params }: { params: Promise<{ i
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <img
+                      <Image
                         src={image || '/placeholder-product.jpg'}
                         alt={`${product.name} - Image ${index + 1}`}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 33vw, 15vw"
+                        loading="lazy"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = '/placeholder-product.jpg';
                         }}

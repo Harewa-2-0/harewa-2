@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { DataTable, TableColumn } from '../components/shared';
 import DeleteProductModal from './DeleteProductModal';
 import EditProductModal from './EditProductModal';
@@ -125,13 +126,14 @@ export default function ProductsTable({
             href={`/admin/products/${productId}`}
             className="flex items-center hover:opacity-80 transition-opacity"
           >
-            <div className="flex-shrink-0 h-10 w-10">
-              <img
-                className="h-10 w-10 rounded-lg object-cover"
+            <div className="flex-shrink-0 h-10 w-10 relative">
+              <Image
+                className="rounded-lg object-cover"
                 src={product.images?.[0] || '/placeholder-product.jpg'}
                 alt={productName}
+                fill
+                sizes="40px"
                 loading="lazy"
-                decoding="async"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = '/placeholder-product.jpg';
                 }}

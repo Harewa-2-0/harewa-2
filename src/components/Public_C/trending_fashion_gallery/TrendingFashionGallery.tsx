@@ -42,9 +42,44 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
   const { data: queryProducts = [], isLoading: isLoadingProducts } = useHomepageProducts();
 
   // Use provided categories/products or fetched ones
-  const categories = propCategories || queryCategories;
+  const rawCategories = propCategories || queryCategories;
   const allProducts = propProducts || queryProducts;
   const isLoading = propProducts ? propIsLoading : isLoadingProducts;
+
+  // Sort categories by product count (descending) - category with most products first
+  const categories = useMemo(() => {
+    if (!Array.isArray(rawCategories) || rawCategories.length === 0) {
+      return [];
+    }
+
+    if (!Array.isArray(allProducts) || allProducts.length === 0) {
+      // If no products, return categories as-is
+      return rawCategories;
+    }
+
+    // Count products per category
+    const categoryCounts = new Map<string, number>();
+    
+    allProducts.forEach(product => {
+      const categoryName = getProductCategoryName(product);
+      if (categoryName) {
+        categoryCounts.set(categoryName, (categoryCounts.get(categoryName) || 0) + 1);
+      }
+    });
+
+    // Sort categories by product count (descending), then by name for ties
+    return [...rawCategories].sort((a, b) => {
+      const countA = categoryCounts.get(a.name) || a.productCount || 0;
+      const countB = categoryCounts.get(b.name) || b.productCount || 0;
+      
+      if (countB !== countA) {
+        return countB - countA; // Descending order
+      }
+      
+      // If counts are equal, sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+  }, [rawCategories, allProducts]);
 
   // Filter products by active category (client-side filtering)
   const filtered = useMemo(() => {
@@ -74,12 +109,15 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
     }
   }, [filtered, setFilteredProducts]);
 
-  // Set initial category if provided
+  // Set initial category if provided, or use first category (most products) if none provided
   useEffect(() => {
     if (initialCategory && initialCategory !== activeCategory) {
       setActiveCategory(initialCategory);
+    } else if (!initialCategory && categories.length > 0 && !activeCategory) {
+      // Set to first category (most products) if no initial category is provided
+      setActiveCategory(categories[0].name);
     }
-  }, [initialCategory, activeCategory, setActiveCategory]);
+  }, [initialCategory, activeCategory, setActiveCategory, categories]);
 
   // Handle category change
   const handleCategoryChange = (categoryName: string) => {

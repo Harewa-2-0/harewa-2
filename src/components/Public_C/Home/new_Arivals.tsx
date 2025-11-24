@@ -11,11 +11,13 @@ import { NewArrivalsSkeleton } from '@/components/common/skeletons';
 interface ProductCardProps {
   product: Product;
   className?: string;
+  imagePosition?: 'top' | 'center';
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
-  className = ""
+  className = "",
+  imagePosition = 'top'
 }) => {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const { addToCart: addToCartAction } = useAuthAwareCartActions();
@@ -60,30 +62,31 @@ const ProductCard: React.FC<ProductCardProps> = ({
         <img
           src={imageUrl}
           alt={displayName}
-          className="w-full h-full object-cover object-top"
+          className={`w-full h-full object-cover ${
+            imagePosition === 'center' 
+              ? 'object-[center_25%]' 
+              : 'object-top'
+          }`}
         />
 
         {/* Glassmorphic overlay for bottom content */}
-        <div className="absolute bottom-0 left-0 right-0 backdrop-blur-lg bg-black/20 border-t border-white/20 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-white font-semibold text-base line-clamp-2">
+        <div className="absolute bottom-0 left-0 right-0 backdrop-blur-lg bg-black/20 border-t border-white/20 p-2">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <h3 className="text-white font-semibold text-sm line-clamp-1 flex-1 min-w-0">
               {displayName}
             </h3>
+            <span className="text-white font-bold text-sm whitespace-nowrap">
+              {formatPrice(displayPrice)}
+            </span>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-white font-bold text-base">
-                {formatPrice(displayPrice)}
-              </span>
-            </div>
-
+          <div className="flex items-center justify-end">
             <motion.button
               onClick={handleAddToCart}
               disabled={isAddingToCart}
               className={`${
                 !isAddingToCart ? 'group hover:bg-white/20 cursor-pointer' : 'pointer-events-none opacity-60'
-              } flex items-center gap-1 rounded-full px-3 py-1.5 backdrop-blur-sm border border-white/30 text-xs font-medium transition-all duration-300`}
+              } flex items-center gap-1 rounded-full px-2.5 py-1 backdrop-blur-sm border border-white/30 text-xs font-medium transition-all duration-300`}
               style={{ color: '#FFFFFFB2' }}
               whileHover={!isAddingToCart ? { scale: 1.05 } : {}}
               whileTap={!isAddingToCart ? { scale: 0.95 } : {}}
@@ -255,7 +258,7 @@ const ProductCardsGrid: React.FC<ProductCardsGridProps> = ({
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              <ProductCard product={products[1]} className="h-full" />
+              <ProductCard product={products[1]} className="h-full" imagePosition="center" />
             </motion.div>
           )}
 
@@ -267,31 +270,31 @@ const ProductCardsGrid: React.FC<ProductCardsGridProps> = ({
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.3 }}
             >
-              <ProductCard product={products[2]} className="h-full" />
+              <ProductCard product={products[2]} className="h-full" imagePosition="center" />
             </motion.div>
           )}
 
-          {/* Product 4 - row 3, col 2–3 */}
+          {/* Product 4 - row 3, col 2 */}
           {products[3] && (
             <motion.div
-              className="row-span-1 col-span-2"
+              className="row-span-1 col-span-1"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              <ProductCard product={products[3]} className="h-full" />
+              <ProductCard product={products[3]} className="h-full" imagePosition="center" />
             </motion.div>
           )}
 
-          {/* Product 5 - if we have 5 products, we can add it in a different layout */}
+          {/* Product 5 - row 3, col 3 */}
           {products[4] && (
             <motion.div
-              className="row-span-1 col-span-3"
+              className="row-span-1 col-span-1"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.5 }}
             >
-              <ProductCard product={products[4]} className="h-full" />
+              <ProductCard product={products[4]} className="h-full" imagePosition="center" />
             </motion.div>
           )}
         </div>

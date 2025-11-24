@@ -44,12 +44,28 @@ export function useShopProducts(params?: {
 }) {
   const queryKey = ['shop-products', params];
   
-  return useQuery<Product[], Error>({
+  return useQuery<PaginatedResponse<Product>, Error>({
     queryKey,
     queryFn: async () => {
       const response = await getProducts(params);
-      const data = 'items' in response ? response.items : response;
-      return Array.isArray(data) ? data : [];
+      
+      // Ensure we always return a PaginatedResponse format
+      if (Array.isArray(response)) {
+        // Legacy format - convert to paginated response
+        return {
+          items: response,
+          pagination: {
+            page: params?.page || 1,
+            limit: params?.limit || 20,
+            total: response.length,
+            totalPages: 1,
+            hasMore: false,
+          }
+        } as PaginatedResponse<Product>;
+      }
+      
+      // Already in PaginatedResponse format
+      return response as PaginatedResponse<Product>;
     },
     staleTime: 3 * 60 * 1000, // 3 minutes (shop data can be slightly more dynamic)
     gcTime: 10 * 60 * 1000,
