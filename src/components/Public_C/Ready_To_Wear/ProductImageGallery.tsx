@@ -125,29 +125,31 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
       {/* Mobile Layout */}
       <div className="lg:hidden pt-24">
         {/* Main Image First with Animation */}
-        <div className="mb-6 relative overflow-hidden rounded-lg w-full h-80">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={selectedImageIndex}
-              initial={{ opacity: 0, scale: 0.95, x: 20 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.95, x: -20 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="absolute inset-0"
-            >
-              <Image
-                src={images?.[selectedImageIndex] || '/placeholder.png'}
-                alt={productName}
-                fill
-                className="object-cover rounded-lg"
-                sizes="100vw"
-                priority={selectedImageIndex === 0}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/placeholder.png';
-                }}
-              />
-            </motion.div>
-          </AnimatePresence>
+        <div className="mb-6 relative w-full" style={{ height: '320px' }}>
+          <div className="relative w-full h-full overflow-hidden rounded-lg">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={selectedImageIndex}
+                initial={{ opacity: 0, scale: 0.95, x: 20 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.95, x: -20 }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="absolute inset-0"
+              >
+                <Image
+                  src={images?.[selectedImageIndex] || '/placeholder.png'}
+                  alt={productName}
+                  fill
+                  className="object-cover rounded-lg"
+                  sizes="100vw"
+                  priority={selectedImageIndex === 0}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/placeholder.png';
+                  }}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
         
         {/* Three Images Full Width */}
@@ -156,7 +158,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
             <button
               key={index}
               onClick={() => handleImageClick(index)}
-              className={`flex-1 aspect-square border-2 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer ${
+              className={`flex-1 aspect-square border-2 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer relative ${
                 selectedImageIndex === index 
                   ? 'border-[#D4AF37] shadow-md' 
                   : 'border-gray-200 hover:border-[#D4AF37]/50'
