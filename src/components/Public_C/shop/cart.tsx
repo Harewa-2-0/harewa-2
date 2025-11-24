@@ -402,7 +402,20 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                             </div>
 
                             <div className="mb-3">
-                              <span className="text-xs text-gray-600">Size: M</span>
+                              <span className="text-xs text-gray-600">
+                                Size: {(() => {
+                                  if (!item.size) return 'N/A';
+                                  const sizeStr = String(item.size);
+                                  const sizeMap: Record<string, string> = {
+                                    'small': 'S',
+                                    'medium': 'M',
+                                    'large': 'L',
+                                    'extra-large': 'XL',
+                                    'extra small': 'XS',
+                                  };
+                                  return sizeMap[sizeStr.toLowerCase()] || sizeStr.toUpperCase();
+                                })()}
+                              </span>
                             </div>
 
                             <div className="flex items-center justify-between">

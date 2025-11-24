@@ -41,7 +41,7 @@ export const useAuthAwareCartActions = () => {
    * - Logged-in: Updates local state + syncs to server via React Query
    */
   const addToCart = async (
-    item: { id: string; quantity?: number; price?: number; name?: string; image?: string }
+    item: { id: string; quantity?: number; price?: number; name?: string; image?: string; size?: string }
   ) => {
     // Always update local state immediately (optimistic update)
     addItemLocal(item);

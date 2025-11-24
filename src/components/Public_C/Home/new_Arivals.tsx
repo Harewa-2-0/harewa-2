@@ -1,5 +1,5 @@
 "use client"
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ShoppingCart, Loader2 } from 'lucide-react';
 import { type Product } from '@/services/products';
@@ -20,6 +20,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   imagePosition = 'top'
 }) => {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [selectedSize, setSelectedSize] = useState<string>('');
   const { addToCart: addToCartAction } = useAuthAwareCartActions();
   const { addToast } = useToast();
 
@@ -27,11 +28,37 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const displayName = product.name;
   const displayPrice = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
   const productId = product._id || product.id || '';
+  const sizes = product.sizes || [];
+
+  // Map size names to single letters
+  const getSizeLetter = (size: string): string => {
+    const sizeMap: Record<string, string> = {
+      'small': 'S',
+      'medium': 'M',
+      'large': 'L',
+      'extra-large': 'XL',
+      'extra small': 'XS',
+      'xxl': 'XXL',
+    };
+    return sizeMap[size.toLowerCase()] || size.charAt(0).toUpperCase();
+  };
+
+  // Auto-select first size if available and none selected
+  useEffect(() => {
+    if (!selectedSize && sizes.length > 0) {
+      setSelectedSize(sizes[0]);
+    }
+  }, [sizes, selectedSize]);
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (isAddingToCart) return;
+
+    if (!selectedSize && sizes.length > 0) {
+      addToast('Please select a size', 'error');
+      return;
+    }
 
     setIsAddingToCart(true);
     try {
@@ -41,6 +68,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         price: displayPrice,
         name: displayName,
         image: imageUrl,
+        size: selectedSize, // Include selected size
       });
       addToast('Item added to cart successfully', 'success');
     } catch (error) {
@@ -80,7 +108,36 @@ const ProductCard: React.FC<ProductCardProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between">
+            {/* Size buttons on the left */}
+            {sizes.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                {sizes.map((size) => {
+                  const sizeLetter = getSizeLetter(size);
+                  const isSelected = selectedSize === size;
+                  return (
+                    <button
+                      key={size}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedSize(size);
+                      }}
+                      className={`w-6 h-6 rounded border-2 flex items-center justify-center text-xs font-semibold transition-all duration-200 backdrop-blur-sm ${
+                        isSelected
+                          ? 'bg-[#D4AF37] border-[#D4AF37] text-white'
+                          : 'bg-white/20 border-white/30 text-white/90 hover:bg-white/30'
+                      }`}
+                      aria-label={`Select size ${size}`}
+                    >
+                      {sizeLetter}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Cart button on the right */}
             <motion.button
               onClick={handleAddToCart}
               disabled={isAddingToCart}
