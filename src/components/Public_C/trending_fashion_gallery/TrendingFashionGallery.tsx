@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import CategorySidebar from './CategorySidebar';
 import ProductGrid from './ProductGrid';
 import { TrendingFashionGalleryProps } from './types';
@@ -45,6 +45,19 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
   const rawCategories = propCategories || queryCategories;
   const allProducts = propProducts || queryProducts;
   const isLoading = propProducts ? propIsLoading : isLoadingProducts;
+
+  // Detect mobile viewport
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    
+    checkMobile(); // Check on mount
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Sort categories by product count (descending) - category with most products first
   const categories = useMemo(() => {
@@ -92,9 +105,10 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
       return productCategoryName === activeCategory;
     });
 
-    // Limit to 9 products for performance
-    return matched.slice(0, 9);
-  }, [allProducts, activeCategory]);
+    // Limit products: 5 on mobile, 9 on desktop
+    const limit = isMobile ? 5 : 9;
+    return matched.slice(0, limit);
+  }, [allProducts, activeCategory, isMobile]);
 
   // Track previous filtered products to prevent infinite loops
   const prevFilteredRef = useRef<string>('');
@@ -111,11 +125,19 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
 
   // Set initial category if provided, or use first category (most products) if none provided
   useEffect(() => {
+    if (categories.length === 0) return; // Wait for categories to load
+    
     if (initialCategory && initialCategory !== activeCategory) {
       setActiveCategory(initialCategory);
-    } else if (!initialCategory && categories.length > 0 && !activeCategory) {
-      // Set to first category (most products) if no initial category is provided
-      setActiveCategory(categories[0].name);
+    } else if (!initialCategory) {
+      // Check if current activeCategory exists in sorted categories
+      const categoryExists = categories.some(cat => cat.name === activeCategory);
+      
+      // If activeCategory doesn't exist in categories, or if it's the default 'Iro and Buba',
+      // set it to the first category (most products)
+      if (!categoryExists || activeCategory === 'Iro and Buba') {
+        setActiveCategory(categories[0].name);
+      }
     }
   }, [initialCategory, activeCategory, setActiveCategory, categories]);
 
