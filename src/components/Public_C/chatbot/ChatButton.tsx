@@ -34,7 +34,7 @@ const ChatButton: React.FC<ChatButtonProps> = ({ isOpen, onClick, unreadCount = 
       )}
 
       {/* Tooltip */}
-      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+      <div className="absolute bottom-full mb-2 left-[150px] -translate-x-1/2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none ">
         {isOpen ? 'Close chat' : 'Get fashion advice'}
         <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900" />
       </div>
