@@ -14,15 +14,7 @@ import FabricTypeDropdown from './FabricTypeDropdown';
 import ColorPalette from './ColorPalette';
 import SizeGuide from '@/components/Public_C/Ready_To_Wear/SizeGuide';
 
-interface Product {
-  _id: string;
-  name: string;
-  price: number;
-  images: string[];
-  rating?: number;
-  reviews?: number;
-  description?: string;
-}
+import { Product } from '@/services/products';
 
 interface CustomizationPanelProps {
   product: Product;
@@ -90,13 +82,13 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
 
     try {
       const customizationData: CustomizationInput = {
-        outfit: selectedOutfit,
+        outfit: selectedOutfit as "gown" | "skirt" | "blouse" | "pants" | "sleeve",
         outfitOption: selectedOutfitOption,
         fabricType: selectedFabric,
         size: selectedSize,
         preferredColor: selectedColors.join(' and '),
         additionalNotes: additionalNotes.trim(),
-        productId: product._id,
+        productId: product._id || '',
       };
 
       await createCustomization(customizationData);
@@ -105,7 +97,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
       queryClient.invalidateQueries({ queryKey: customizationKeys.currentUser() });
 
       addToast('Customization request submitted successfully! We\'ll contact you soon.', 'success');
-      
+
       // Reset form
       setSelectedOutfit('');
       setSelectedOutfitOption('');
@@ -116,7 +108,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
 
     } catch (error) {
       console.error('Failed to submit customization:', error);
-      
+
       // Handle specific error cases
       if (error instanceof ApiError) {
         if (error.status === 403) {
@@ -124,7 +116,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
           return;
         }
       }
-      
+
       // Generic error message
       addToast('Failed to submit customization request. Please try again.', 'error');
     } finally {
@@ -144,8 +136,8 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-base font-medium text-gray-700 truncate">{product.name}</h2>
               <div className="flex items-center gap-2 flex-shrink-0">
-                {renderStars(product.rating)}
-                <span className="text-sm text-gray-500">({product.reviews || 0})</span>
+                {renderStars(typeof product.rating === 'number' ? product.rating : undefined)}
+                <span className="text-sm text-gray-500">({typeof product.reviews === 'number' ? product.reviews : 0})</span>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -158,6 +150,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
             selectedOutfit={selectedOutfit}
             selectedOutfitOption={selectedOutfitOption}
             onOutfitSelect={handleOutfitSelect}
+            gender={product.gender}
           />
 
           {/* Fabric Type Dropdown */}
@@ -168,14 +161,14 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
 
           {/* Size Guide */}
           <div className="mb-4">
-            <div 
+            <div
               className="flex items-center gap-2 cursor-pointer text-blue-600 hover:underline"
               onClick={() => setIsSizeGuideOpen(true)}
             >
-              <Image 
-                src="/style_guide.png" 
-                alt="Size guide" 
-                width={24} 
+              <Image
+                src="/style_guide.png"
+                alt="Size guide"
+                width={24}
                 height={24}
                 className="w-6 h-6"
               />
@@ -191,11 +184,10 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
                 <button
                   key={size}
                   onClick={() => handleSizeSelect(size)}
-                  className={`px-4 py-2 border-2 rounded-lg text-sm font-medium transition-colors ${
-                    selectedSize === size
-                      ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                  }`}
+                  className={`px-4 py-2 border-2 rounded-lg text-sm font-medium transition-colors ${selectedSize === size
+                    ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    }`}
                 >
                   {size}
                 </button>
@@ -225,11 +217,10 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
           <button
             onClick={handleSubmit}
             disabled={!isFormValid || isSubmitting}
-            className={`w-full py-3 rounded-lg font-medium transition-colors text-sm ${
-              !isFormValid || isSubmitting
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-black text-white hover:bg-gray-800'
-            }`}
+            className={`w-full py-3 rounded-lg font-medium transition-colors text-sm ${!isFormValid || isSubmitting
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-black text-white hover:bg-gray-800'
+              }`}
           >
             {isSubmitting ? (
               <div className="flex justify-center items-center">
@@ -237,7 +228,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                </div>
+              </div>
             ) : (
               'CUSTOMIZE'
             )}
@@ -253,9 +244,9 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
       </div>
 
       {/* Size Guide Modal */}
-      <SizeGuide 
-        isOpen={isSizeGuideOpen} 
-        onClose={() => setIsSizeGuideOpen(false)} 
+      <SizeGuide
+        isOpen={isSizeGuideOpen}
+        onClose={() => setIsSizeGuideOpen(false)}
       />
     </>
   );

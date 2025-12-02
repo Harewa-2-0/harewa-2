@@ -66,12 +66,13 @@ const HeroSection = () => {
             </motion.h1>
 
             <motion.p
-              className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto"
+              className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed"
               variants={textVariants}
               style={{ color: "#5D5D5D" }}
             >
-              Your premier destination where cutting-edge technology meets the
-              vibrant world of fashion.
+              Your premier destination where cutting-edge
+              <br />
+              technology meets the vibrant world of fashion.
             </motion.p>
 
             {/* ✅ Updated CTA Button */}
@@ -148,12 +149,13 @@ const HeroSection = () => {
             </motion.h1>
 
             <motion.p
-              className="text-base sm:text-lg text-gray-600 mb-8 px-4"
+              className="text-base sm:text-lg text-gray-600 mb-8 px-4 leading-relaxed"
               variants={textVariants}
               style={{ color: "#5D5D5D" }}
             >
-              Your premier destination where cutting-edge technology meets the
-              vibrant world of fashion.
+              Your premier destination where cutting-edge
+              <br />
+              technology meets the vibrant world of fashion.
             </motion.p>
 
             {/* ✅ Updated CTA Button (Mobile) */}

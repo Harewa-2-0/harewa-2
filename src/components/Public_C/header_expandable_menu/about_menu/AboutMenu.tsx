@@ -48,10 +48,10 @@ const AboutMenu: React.FC<AboutMenuProps> = ({ isMobile = false }) => {
               className="overflow-hidden"
             >
               <div className="pt-4">
-                <div className="bg-white rounded-lg p-4 text-gray-800">
+                <div className="bg-white rounded-lg p-4 text-gray-800 max-h-[70vh] overflow-y-auto">
                   <h3 className="text-lg font-semibold mb-2">About HAREWA</h3>
                   <div className="h-px bg-gray-200/80 mb-4" />
-                  
+
                   {/* Mobile layout: stacked */}
                   <div className="space-y-4">
                     {/* Image */}
@@ -66,28 +66,28 @@ const AboutMenu: React.FC<AboutMenuProps> = ({ isMobile = false }) => {
                         />
                       </div>
                     </div>
-                    
+
                     {/* Content */}
                     <div className="space-y-3 text-base sm:text-sm">
                       <p>
-                        At HAREWA, we are redefining the future of fashion by blending Afrocentric heritage, 
-                        contemporary style, and technology-driven innovation. We exist to celebrate Africa's 
+                        At HAREWA, we are redefining the future of fashion by blending Afrocentric heritage,
+                        contemporary style, and technology-driven innovation. We exist to celebrate Africa's
                         vibrant culture while creating modern, globally relevant fashion experiences.
                       </p>
                       <p>
-                        HAREWA is more than just a fashion website, we're a movement. Our platform showcases 
-                        timeless African-inspired designs alongside modern trends, giving our audience access 
-                        to authentic styles that tell a story. By integrating technology, we make discovering, 
+                        HAREWA is more than just a fashion website, we're a movement. Our platform showcases
+                        timeless African-inspired designs alongside modern trends, giving our audience access
+                        to authentic styles that tell a story. By integrating technology, we make discovering,
                         styling, and shopping fashion seamless, interactive, and inspiring.
                       </p>
                       <p>
-                        <span className="font-semibold text-[#D4AF37]">Our mission</span> is to become the go-to 
-                        platform for Afrocentric and contemporary fashion, merging creativity and technology to 
+                        <span className="font-semibold text-[#D4AF37]">Our mission</span> is to become the go-to
+                        platform for Afrocentric and contemporary fashion, merging creativity and technology to
                         connect people with styles that inspire confidence and celebrate diversity.
                       </p>
                       <p>
-                        <span className="font-semibold text-[#D4AF37]">Our Vision</span> is a world where 
-                        African-inspired fashion holds its place on the global stage, powered by innovation, 
+                        <span className="font-semibold text-[#D4AF37]">Our Vision</span> is a world where
+                        African-inspired fashion holds its place on the global stage, powered by innovation,
                         accessibility, and cultural pride.
                       </p>
                     </div>
@@ -125,9 +125,9 @@ const AboutMenu: React.FC<AboutMenuProps> = ({ isMobile = false }) => {
             className="absolute top-full -left-50 mt-2 w-[960px] max-w-[95vw] bg-white rounded-lg shadow-xl border border-gray-200 z-50"
           >
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">About HAREWA</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">HAREWA: Where Culture Meets Style and Innovation</h3>
               <div className="h-px bg-gray-200/80 mb-6" />
-              
+
               <div className="flex flex-col lg:flex-row gap-6">
                 {/* Left: Image */}
                 <div className="w-full lg:w-2/5">
@@ -146,27 +146,22 @@ const AboutMenu: React.FC<AboutMenuProps> = ({ isMobile = false }) => {
                 <div className="hidden lg:block w-px bg-gray-200/80 mx-2" />
 
                 {/* Right: Content */}
-                <div className="w-full lg:w-3/5 space-y-4 text-sm text-gray-700 leading-relaxed">
+                <div className="w-full lg:w-3/5 space-y-4 text-sm text-gray-700 leading-relaxed max-h-[400px] overflow-y-auto pr-2">
                   <p>
-                    At HAREWA, we are redefining the future of fashion by blending Afrocentric heritage, 
-                    contemporary style, and technology-driven innovation. We exist to celebrate Africa's 
-                    vibrant culture while creating modern, globally relevant fashion experiences.
+                    At HAREWA, everything we create starts with you — the trendsetters, the culture lovers, and the modern explorers of style. We’re redefining the future of fashion by blending Afrocentric heritage, contemporary design, and AI-powered innovation to bring you fashion that feels personal, empowering, and globally relevant.
                   </p>
                   <p>
-                    HAREWA is more than just a fashion website, we're a movement. Our platform showcases 
-                    timeless African-inspired designs alongside modern trends, giving our audience access 
-                    to authentic styles that tell a story. By integrating technology, we make discovering, 
-                    styling, and shopping fashion seamless, interactive, and inspiring.
+                    We believe fashion should be more than what you wear — it should tell your story. That’s why our collections celebrate Africa’s rich, vibrant culture while keeping pace with the world’s latest trends. Each piece connects tradition with modern creativity, helping you express confidence, pride, and individuality.
                   </p>
                   <p>
-                    <span className="font-semibold text-[#D4AF37]">Our mission</span> is to become the go-to 
-                    platform for Afrocentric and contemporary fashion, merging creativity and technology to 
-                    connect people with styles that inspire confidence and celebrate diversity.
+                    With our smart, seamless platform, discovering your next look is effortless. From tailored recommendations to transparent, fast delivery, every step of your journey is designed to inspire joy and make fashion feel easier, smarter, and more authentic.
                   </p>
                   <p>
-                    <span className="font-semibold text-[#D4AF37]">Our Vision</span> is a world where 
-                    African-inspired fashion holds its place on the global stage, powered by innovation, 
-                    accessibility, and cultural pride.
+                    <span className="font-semibold text-[#D4AF37]">Our mission</span> To empower individuals everywhere with Afrocentric and contemporary fashion — merging creativity and technology to inspire confidence, celebrate diversity, and make culture wearable every day.
+                  </p>
+
+                  <p>
+                    <span className="font-semibold text-[#D4AF37]">Our Vision</span> A world where African-inspired fashion shines on the global stage — accessible to all, powered by innovation, and rooted in pride.
                   </p>
                 </div>
               </div>

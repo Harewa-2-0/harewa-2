@@ -46,8 +46,8 @@ export default function AdminProductDetailPage({ params }: { params: Promise<{ i
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error?.message || 'Product not found'}</p>
-          <Link 
-            href="/admin/products" 
+          <Link
+            href="/admin/products"
             className="text-[#D4AF37] hover:text-[#D4AF37]/80 transition-colors"
           >
             ← Back to Products
@@ -65,10 +65,10 @@ export default function AdminProductDetailPage({ params }: { params: Promise<{ i
     ? product.fabricType.name
     : 'N/A';
 
-  const stock = typeof product.remainingInStock === 'number' 
-    ? product.remainingInStock 
-    : typeof product.quantity === 'number' 
-      ? product.quantity 
+  const stock = typeof product.remainingInStock === 'number'
+    ? product.remainingInStock
+    : typeof product.quantity === 'number'
+      ? product.quantity
       : parseInt(String(product.remainingInStock || product.quantity || '0')) || 0;
 
   const price = typeof product.price === 'number'
@@ -81,7 +81,7 @@ export default function AdminProductDetailPage({ params }: { params: Promise<{ i
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <Link 
+            <Link
               href="/admin/products"
               className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
             >
@@ -143,11 +143,10 @@ export default function AdminProductDetailPage({ params }: { params: Promise<{ i
                     <button
                       key={index}
                       onClick={() => setSelectedImageIndex(index)}
-                      className={`relative h-24 rounded-lg overflow-hidden border-2 transition-all ${
-                        selectedImageIndex === index
+                      className={`relative h-24 rounded-lg overflow-hidden border-2 transition-all ${selectedImageIndex === index
                           ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/20'
                           : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                        }`}
                     >
                       <Image
                         src={image || '/placeholder-product.jpg'}
@@ -169,7 +168,7 @@ export default function AdminProductDetailPage({ params }: { params: Promise<{ i
             {/* Product Details */}
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.name}</h1>
-              
+
               <div className="space-y-4 mb-6">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-1">Description</h3>
@@ -251,24 +250,29 @@ export default function AdminProductDetailPage({ params }: { params: Promise<{ i
       </div>
 
       {/* Edit Modal */}
-      <EditProductModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        product={product as any}
-        onSuccess={() => {
-          setShowEditModal(false);
-          // Refetch will happen automatically via React Query
-        }}
-      />
+      {/* Edit Modal */}
+      {showEditModal && (
+        <EditProductModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          product={product as any}
+          onSuccess={() => {
+            setShowEditModal(false);
+            // Refetch will happen automatically via React Query
+          }}
+        />
+      )}
 
       {/* Delete Modal */}
-      <DeleteProductModal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        productId={product.id || product._id || ''}
-        productName={product.name}
-        onSuccess={() => handleDeleteSuccess(product.id || product._id || '')}
-      />
+      {showDeleteModal && (
+        <DeleteProductModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          productId={product.id || product._id || ''}
+          productName={product.name}
+          onSuccess={() => handleDeleteSuccess(product.id || product._id || '')}
+        />
+      )}
     </div>
   );
 }

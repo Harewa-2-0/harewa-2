@@ -112,23 +112,23 @@ export default function EditProductModal({
   useEffect(() => {
     if (product) {
       console.log('Initializing form with product:', product);
-      
+
       // Extract ObjectIds from nested objects
-      const categoryId = typeof product.category === 'object' && product.category?._id 
-        ? product.category._id 
+      const categoryId = typeof product.category === 'object' && product.category?._id
+        ? product.category._id
         : (typeof product.category === 'string' ? product.category : '');
-        
-      const fabricTypeId = typeof product.fabricType === 'object' && (product.fabricType as any)?._id 
-        ? (product.fabricType as any)._id 
+
+      const fabricTypeId = typeof product.fabricType === 'object' && (product.fabricType as any)?._id
+        ? (product.fabricType as any)._id
         : (typeof product.fabricType === 'string' ? product.fabricType : '');
-      
+
       // Ensure we always have 3 image slots
       const images = product.images || [];
       const paddedImages = [...images];
       while (paddedImages.length < 3) {
         paddedImages.push('');
       }
-      
+
       const initialFormData = {
         id: product.id || product._id || '',
         _id: product._id || product.id || '',
@@ -146,7 +146,7 @@ export default function EditProductModal({
         seller: product.seller || '',
         shop: product.shop || ''
       };
-      
+
       console.log('Category ObjectId extracted:', categoryId);
       console.log('FabricType ObjectId extracted:', fabricTypeId);
       console.log('Setting form data:', initialFormData);
@@ -222,21 +222,22 @@ export default function EditProductModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const productId = product?.id || product?._id;
     if (!productId) {
       setError('Product ID not found');
       return;
     }
-    
-    setIsLoading(true);
+
+    // Loading state is handled by mutation.isPending
+
     setError(null);
-    
+
     try {
       console.log('Updating product with ID:', productId);
       console.log('Original product data:', product);
       console.log('Form data:', formData);
-      
+
       // Prepare the update payload - handle empty strings and ObjectId fields properly
       const updatePayload: any = {
         name: formData.name,
@@ -267,7 +268,7 @@ export default function EditProductModal({
         setError('Category is required');
         return;
       }
-      
+
       const fabricTypeValue = typeof formData.fabricType === 'string' ? formData.fabricType : '';
       if (fabricTypeValue && fabricTypeValue.trim() !== '') {
         // Check if it looks like an ObjectId (24 hex characters)
@@ -284,37 +285,37 @@ export default function EditProductModal({
         setError('Fabric Type is required');
         return;
       }
-      
+
       // if (formData.seller && formData.seller.trim() !== '') {
       //   updatePayload.seller = formData.seller;
       // }
-      
+
       // if (formData.shop && formData.shop.trim() !== '') {
       //   updatePayload.shop = formData.shop;
       // }
-      
+
       console.log('Sending update payload:', updatePayload);
       const updatedProduct = await updateProductMutation.mutateAsync({
         id: productId,
         payload: updatePayload,
       });
       console.log('Product updated successfully:', updatedProduct);
-      
+
       // Show success toast
       addToast('Product updated successfully!', 'success');
-      
+
       // Call success callback (mutation handles cache update automatically)
       if (onSuccess) {
         onSuccess(updatedProduct);
       }
-      
+
       // Close modal
       onClose();
     } catch (error) {
       console.error('Error updating product:', error);
-      
+
       let errorMessage = 'Failed to update product. Please try again.';
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError' || error.message.includes('aborted')) {
           errorMessage = 'Request was cancelled. Please try again.';
@@ -326,7 +327,7 @@ export default function EditProductModal({
           errorMessage = error.message;
         }
       }
-      
+
       setError(errorMessage);
       addToast(errorMessage, 'error');
     }
@@ -396,9 +397,9 @@ export default function EditProductModal({
           {!isLoadingCategories && !isLoadingFabrics && (categories.length === 0 || fabrics.length === 0) && (
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
-                {categories.length === 0 && fabrics.length === 0 
+                {categories.length === 0 && fabrics.length === 0
                   ? "No categories or fabrics available. Please create categories and fabrics first."
-                  : categories.length === 0 
+                  : categories.length === 0
                     ? "No categories available. Please create categories first."
                     : "No fabrics available. Please create fabrics first."
                 }
@@ -605,11 +606,10 @@ export default function EditProductModal({
                   key={size}
                   type="button"
                   onClick={() => handleSizeChange(size)}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                    (formData.sizes || []).includes(size)
+                  className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${(formData.sizes || []).includes(size)
                       ? 'bg-[#D4AF37] text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   {size.toUpperCase()}
                 </button>
@@ -642,7 +642,7 @@ export default function EditProductModal({
                         </svg>
                       </div>
                     )}
-                    
+
                     {/* Update Overlay - Always visible for better UX */}
                     <div className="absolute inset-0 bg-black/30 h-[90%] flex items-center justify-center rounded-lg">
                       <button
@@ -673,7 +673,7 @@ export default function EditProductModal({
                       </button>
                     </div>
                   </div>
-                  
+
                   {/* Image Index Label */}
                   <div className="mt-2 text-center">
                     <span className="text-xs text-gray-500 font-medium">Image {index + 1}</span>
@@ -681,7 +681,7 @@ export default function EditProductModal({
                 </div>
               ))}
             </div>
-            
+
             {/* Image URL Input for Manual Entry */}
             <div className="mt-4">
               <details className="group">
