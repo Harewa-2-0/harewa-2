@@ -13,10 +13,10 @@ export async function POST(req: NextRequest) {
         const decoded = requireAuth(req);
         await dbConnect();
 
-        const { gender, eventType, style, size, fitType, color, budget, description, image } = await req.json();
+        const { gender, eventType, style, size, fitType, color, budget, description, image, referenceImage, fabricImage } = await req.json();
 
         if (!gender || !eventType || !size || !style || !fitType || !color || !budget || !description || !image) {
-            return badRequest("All fields are required");
+            return badRequest("All required fields must be provided");
         }
 
         const customRequest = new CustomRequest({
@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
             budget,
             description,
             image,
+            referenceImage,
+            fabricImage,
             history: [{ status: "pending", note: "Request created" }]
         });
 
