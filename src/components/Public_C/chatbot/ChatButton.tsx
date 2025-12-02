@@ -11,7 +11,7 @@ const ChatButton: React.FC<ChatButtonProps> = ({ isOpen, onClick, unreadCount = 
   return (
     <button
       onClick={onClick}
-      className="group relative w-16 h-16 bg-gradient-to-br from-[#D4AF37] to-[#B8941F] rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-110 flex items-center justify-center z-50"
+      className="group relative w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-[#D4AF37] to-[#B8941F] rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-110 flex items-center justify-center z-50 cursor-pointer"
       aria-label={isOpen ? 'Close chat' : 'Open chat'}
     >
       {/* Animated background pulse */}
@@ -20,15 +20,15 @@ const ChatButton: React.FC<ChatButtonProps> = ({ isOpen, onClick, unreadCount = 
       {/* Icon */}
       <div className="relative z-10 transition-transform duration-300">
         {isOpen ? (
-          <X className="w-7 h-7 text-white" />
+          <X className="w-5 h-5 md:w-6 md:h-6 text-white" />
         ) : (
-          <MessageCircle className="w-7 h-7 text-white" />
+          <MessageCircle className="w-5 h-5 md:w-6 md:h-6 text-white" />
         )}
       </div>
 
       {/* Unread badge */}
       {!isOpen && unreadCount > 0 && (
-        <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
+        <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-md">
           {unreadCount > 9 ? '9+' : unreadCount}
         </div>
       )}

@@ -47,7 +47,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onClose }) => {
     };
 
     return (
-        <div className="flex flex-col h-[500px] w-[380px] bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex flex-col h-[500px] w-[300px] md:h-[450px] md:w-[340px] bg-white rounded-2xl shadow-2xl overflow-hidden ">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-[#D4AF37] to-[#B8941F] text-white">
                 <div className="flex items-center gap-2.5">
@@ -61,10 +61,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onClose }) => {
                 </div>
                 <button
                     onClick={onClose}
-                    className="w-7 h-7 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
+                    className="w-8 h-8 bg-[#D4AF37] hover:bg-[#B8941F] rounded-full flex items-center justify-center transition-colors shadow-lg cursor-pointer"
                     aria-label="Close chat"
                 >
-                    <X className="w-4 h-4" />
+                    <X className="w-4 h-4 text-white" />
                 </button>
             </div>
 
