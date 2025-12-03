@@ -1,43 +1,24 @@
 import mongoose from "mongoose";
-import { currentTime } from "../utils";
 
-const notificationSchema = new mongoose.Schema(
+const NotificationSchema = new mongoose.Schema(
   {
-    content: {
-      type: String,
-      default: "",
-    },
-    creator_id: {
-      type: String,
-      default: "",
-    },
-    creator_photo_url: {
-      type: String,
-      default: "",
-    },
-    creator: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Users",
+      required: true,
     },
-    createdAt: {
-      type: Date,
-      default: currentTime(Date.now()),
+    title: { type: String, required: true },
+    message: { type: String, required: true },
+    type: {
+      type: String,
+      enum: ["order", "system", "promo", "alert"],
+      default: "system",
     },
+    read: { type: Boolean, default: false },
+    metadata: { type: Object }, // optional additional info
   },
-  {
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// notificationSchema.pre(/^find/, function (next) {
-//   this.populate({
-//     path: "creator",
-//     select:
-//       "-__v -password -email -phoneNumber -createdAt -updatedAt -isReported -accountDeleted -isBlocked -isVerified -role -category -dial_code -country -otp -otpExpires -emailVerify",
-//   });
-//   next();
-// });
-
-export const Notification = mongoose.models.Notification || mongoose.model("Notification", notificationSchema);
+export const Notification =
+  mongoose.models.Notification || mongoose.model("Notification", NotificationSchema);

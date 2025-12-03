@@ -64,6 +64,12 @@ const customRequestSchema = new mongoose.Schema(
             type: String,
             required: true
         },
+        referenceImage: [{
+            type: String
+        }],
+        fabricImage: {
+            type: String
+        },
         status: {
             type: String,
             enum: ["pending", "in-progress", "completed", "cancelled"],
