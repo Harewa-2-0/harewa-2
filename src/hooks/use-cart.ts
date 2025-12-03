@@ -41,7 +41,7 @@ export const useAuthAwareCartActions = () => {
    * - Logged-in: Updates local state + syncs to server via React Query
    */
   const addToCart = async (
-    item: { id: string; quantity?: number; price?: number; name?: string; image?: string; size?: string }
+    item: { id: string; quantity?: number; price?: number; name?: string; image?: string; size?: string; availableSizes?: string[] }
   ) => {
     // Always update local state immediately (optimistic update)
     addItemLocal(item);
@@ -60,7 +60,7 @@ export const useAuthAwareCartActions = () => {
           const serverItems = mapServerCartToStoreItems(updatedCart);
           const currentItems = useCartStore.getState().items;
           
-          // Merge to preserve local data (name, image)
+          // Merge to preserve local data (name, image, sizeBreakdown, availableSizes)
           const mergedItems = serverItems.map(serverItem => {
             const localItem = currentItems.find(local => local.id === serverItem.id);
             return {
@@ -68,6 +68,9 @@ export const useAuthAwareCartActions = () => {
               name: serverItem.name || localItem?.name || item.name,
               image: serverItem.image || localItem?.image || item.image,
               price: serverItem.price || localItem?.price,
+              sizeBreakdown: localItem?.sizeBreakdown || serverItem.sizeBreakdown,
+              productNote: localItem?.productNote || serverItem.productNote,
+              availableSizes: localItem?.availableSizes || item.availableSizes || [],
             };
           });
           

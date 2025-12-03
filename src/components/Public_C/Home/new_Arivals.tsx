@@ -7,6 +7,7 @@ import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
 import { formatPrice } from '@/utils/currency';
 import { NewArrivalsSkeleton } from '@/components/common/skeletons';
+import { getSizeInitial } from '@/store/cartStore';
 
 interface ProductCardProps {
   product: Product;
@@ -29,19 +30,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const displayPrice = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
   const productId = product._id || product.id || '';
   const sizes = product.sizes || [];
-
-  // Map size names to single letters
-  const getSizeLetter = (size: string): string => {
-    const sizeMap: Record<string, string> = {
-      'small': 'S',
-      'medium': 'M',
-      'large': 'L',
-      'extra-large': 'XL',
-      'extra small': 'XS',
-      'xxl': 'XXL',
-    };
-    return sizeMap[size.toLowerCase()] || size.charAt(0).toUpperCase();
-  };
 
   // Auto-select first size if available and none selected
   useEffect(() => {
@@ -69,6 +57,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         name: displayName,
         image: imageUrl,
         size: selectedSize, // Include selected size
+        availableSizes: sizes, // Include all available sizes from product
       });
       addToast('Item added to cart successfully', 'success');
     } catch (error) {
@@ -113,7 +102,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {sizes.length > 0 && (
               <div className="flex items-center gap-1.5">
                 {sizes.map((size) => {
-                  const sizeLetter = getSizeLetter(size);
                   const isSelected = selectedSize === size;
                   return (
                     <button
@@ -130,7 +118,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                       }`}
                       aria-label={`Select size ${size}`}
                     >
-                      {sizeLetter}
+                      {getSizeInitial(size)}
                     </button>
                   );
                 })}

@@ -1,19 +1,179 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { X, Minus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCartStore, useCartTotalItems, useCartTotalItemsOptimistic } from "@/store/cartStore";
+import { useCartStore, useCartTotalItems, useCartTotalItemsOptimistic, getSizeInitial, type SizeBreakdown } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/contexts/toast-context";
 import { useUpdateCartQuantityMutation, useRemoveFromCartMutation, useCartRawQuery } from "@/hooks/useCart";
 import { usePendingOrderQuery } from "@/hooks/useOrders";
 import { formatPrice } from "@/utils/currency";
 import { AlertCircle } from "lucide-react";
+
+// Size Selector Popover Component - Rendered via Portal to escape overflow clipping
+interface SizeSelectorPopoverProps {
+  isOpen: boolean;
+  onClose: () => void;
+  sizeBreakdown: SizeBreakdown;
+  availableSizes: string[];
+  onSizeQuantityChange: (size: string, qty: number) => void;
+  anchorRef: React.RefObject<HTMLDivElement | null>;
+  mode: 'increase' | 'decrease';
+}
+
+const SizeSelectorPopover: React.FC<SizeSelectorPopoverProps> = ({
+  isOpen,
+  onClose,
+  sizeBreakdown,
+  availableSizes,
+  onSizeQuantityChange,
+  anchorRef,
+  mode,
+}) => {
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  // Calculate position based on anchor element
+  useEffect(() => {
+    if (!isOpen || !anchorRef.current) return;
+    
+    const updatePosition = () => {
+      const anchorRect = anchorRef.current?.getBoundingClientRect();
+      const popoverHeight = popoverRef.current?.offsetHeight || 200; // Estimate if not yet rendered
+      
+      if (anchorRect) {
+        setPosition({
+          top: anchorRect.top - popoverHeight - 12, // Position above with gap
+          left: anchorRect.left,
+        });
+      }
+    };
+    
+    // Initial position with slight delay to allow popover to render
+    updatePosition();
+    const timer = setTimeout(updatePosition, 10);
+    
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [isOpen, anchorRef]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        popoverRef.current && 
+        !popoverRef.current.contains(e.target as Node) &&
+        anchorRef.current &&
+        !anchorRef.current.contains(e.target as Node)
+      ) {
+        onClose();
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, onClose, anchorRef]);
+
+  if (!isOpen) return null;
+
+  // For increase mode: show ALL available sizes (including ones not in cart yet)
+  // For decrease mode: show only sizes that are in cart (qty > 0)
+  const sizesToShow = mode === 'increase'
+    ? availableSizes.length > 0 
+      ? availableSizes 
+      : Object.keys(sizeBreakdown).filter(s => sizeBreakdown[s] > 0)
+    : Object.keys(sizeBreakdown).filter(s => sizeBreakdown[s] > 0);
+
+  const popoverContent = (
+    <motion.div
+      ref={popoverRef}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.15 }}
+      className="fixed bg-white rounded-xl shadow-2xl border border-gray-200 p-4 min-w-[220px]"
+      style={{ 
+        zIndex: 999999,
+        top: position.top,
+        left: position.left,
+      }}
+    >
+      <div className="text-xs font-medium text-gray-500 mb-3">
+        {mode === 'increase' ? 'Add to which size?' : 'Remove from which size?'}
+      </div>
+      <div className="space-y-3">
+        {sizesToShow.map((size) => {
+          const currentQty = sizeBreakdown[size] || 0;
+          const isNewSize = currentQty === 0;
+          
+          return (
+            <div key={size} className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-[80px]">
+                <span className={`text-sm font-semibold ${isNewSize ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {getSizeInitial(size)}
+                </span>
+                {currentQty > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-[#D4AF37] text-white text-xs font-bold shadow-sm">
+                    {currentQty}
+                  </span>
+                )}
+                {isNewSize && mode === 'increase' && (
+                  <span className="text-[10px] text-[#B8941F] font-semibold uppercase tracking-wide">NEW</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {mode === 'decrease' && currentQty > 0 && (
+                  <button
+                    onClick={() => {
+                      onSizeQuantityChange(size, currentQty - 1);
+                      onClose();
+                    }}
+                    className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+                    aria-label={`Decrease ${size}`}
+                  >
+                    <Minus size={14} className="text-gray-600" />
+                  </button>
+                )}
+                {mode === 'increase' && (
+                  <button
+                    onClick={() => {
+                      onSizeQuantityChange(size, currentQty + 1);
+                      onClose();
+                    }}
+                    className="w-8 h-8 bg-[#D4AF37] hover:bg-[#B8941F] rounded-full flex items-center justify-center transition-colors shadow-sm"
+                    aria-label={`Add ${size}`}
+                  >
+                    <Plus size={14} className="text-white" />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Arrow pointer */}
+      <div className="absolute -bottom-2 left-6 w-4 h-4 bg-white border-r border-b border-gray-200 transform rotate-45" />
+    </motion.div>
+  );
+
+  // Render via portal to escape overflow clipping
+  return typeof window !== 'undefined' 
+    ? createPortal(popoverContent, document.body)
+    : null;
+};
 
 interface CartUIProps {
   isOpen?: boolean;
@@ -40,6 +200,13 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   // Track pending operations per product to prevent double-submit
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
   
+  // Size selector popover state
+  const [sizePopover, setSizePopover] = useState<{
+    itemId: string;
+    mode: 'increase' | 'decrease';
+  } | null>(null);
+  const quantityButtonRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  
   // React Query hook for pending order warning
   const { hasPendingOrder } = usePendingOrderQuery();
   
@@ -49,6 +216,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const isLoading = useCartStore((s) => s.isLoading);
   const error = useCartStore((s) => s.error);
   const updateQuantityLocal = useCartStore((s) => s.updateQuantity);
+  const updateSizeQuantityLocal = useCartStore((s) => s.updateSizeQuantity);
   const removeItemLocal = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
   const setCartId = useCartStore((s) => s.setCartId);
@@ -183,6 +351,62 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
       if (isOpen) unlock();
     };
   }, [isOpen, setIsOpen]);
+
+  // Handle quantity change - shows popover if multiple sizes exist or multiple available sizes
+  const handleQuantityChange = (id: string, mode: 'increase' | 'decrease', showPopover: boolean = false) => {
+    if (pendingOperations.has(id)) return;
+    
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    
+    // If should show popover, show it to let user choose size
+    if (showPopover) {
+      setSizePopover({ itemId: id, mode });
+      return;
+    }
+    
+    // Single size or no breakdown - update directly
+    const newQty = mode === 'increase' ? item.quantity + 1 : Math.max(0, item.quantity - 1);
+    onChangeQty(id, newQty);
+  };
+
+  // Handle size-specific quantity change (from popover)
+  const onChangeSizeQty = async (id: string, size: string, qty: number) => {
+    if (pendingOperations.has(id)) return;
+    
+    try {
+      setPendingOperations(prev => new Set(prev).add(id));
+      
+      // Update local state immediately (optimistic)
+      updateSizeQuantityLocal(id, size, qty);
+      
+      // Sync to server if authenticated
+      if (isAuthenticated && cartId) {
+        try {
+          // Get updated item after local change
+          const updatedItem = items.find(i => i.id === id);
+          await updateCartMutation.mutateAsync({
+            cartId,
+            productId: id,
+            quantity: updatedItem?.quantity || qty,
+            currentItems: items,
+          });
+        } catch (serverError) {
+          console.error('Failed to update quantity on server:', serverError);
+          addToast("Failed to update quantity on server. Changes may not be saved.", "error");
+        }
+      }
+    } catch (error) {
+      addToast("Failed to update quantity. Please try again.", "error");
+      console.error("Failed to update quantity:", error);
+    } finally {
+      setPendingOperations(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+    }
+  };
 
   const onChangeQty = async (id: string, qty: number) => {
     if (pendingOperations.has(id)) return;
@@ -365,9 +589,13 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                     const image = item.image || '/placeholder.png';
                     const itemPrice = typeof item.price === 'number' ? item.price : 0;
                     const itemTotal = itemPrice * item.quantity;
-                    // const originalPrice = itemPrice * 1.75; // Fake discount - commented out
-                    // const savings = originalPrice - itemTotal; // Fake savings - commented out
                     const isPending = pendingOperations.has(item.id);
+                    const sizeBreakdown = item.sizeBreakdown || {};
+                    const availableSizes = (item.availableSizes as string[]) || [];
+                    const activeSizes = Object.entries(sizeBreakdown).filter(([, qty]) => qty > 0);
+                    const hasMultiSizes = activeSizes.length > 1;
+                    // Show popover on + if there are multiple available sizes OR multiple sizes in cart
+                    const showPopoverOnIncrease = availableSizes.length > 1 || hasMultiSizes;
 
                     return (
                       <motion.div
@@ -393,38 +621,51 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                                 <span className="text-sm font-bold text-gray-900">
                                   {formatPrice(itemPrice)}
                                 </span>
-                                {/* Fake original price - commented out
-                                <span className="text-sm text-gray-500 line-through">
-                                  {formatPrice(originalPrice)}
-                                </span>
-                                */}
                               </div>
                             </div>
 
+                            {/* Size Breakdown Display - Toggle Style */}
                             <div className="mb-3">
-                              <span className="text-xs text-gray-600">
-                                Size: {(() => {
-                                  if (!item.size) return 'N/A';
-                                  const sizeStr = String(item.size);
-                                  const sizeMap: Record<string, string> = {
-                                    'small': 'S',
-                                    'medium': 'M',
-                                    'large': 'L',
-                                    'extra-large': 'XL',
-                                    'extra small': 'XS',
-                                  };
-                                  return sizeMap[sizeStr.toLowerCase()] || sizeStr.toUpperCase();
-                                })()}
-                              </span>
+                              {activeSizes.length > 0 ? (
+                                <div className="flex flex-wrap gap-3">
+                                  {activeSizes.map(([size, qty]) => (
+                                    <div 
+                                      key={size}
+                                      className="inline-flex items-center h-7 rounded-full bg-gray-100 pl-2.5 pr-1 gap-1.5"
+                                    >
+                                      <span className="text-xs font-semibold text-gray-500">
+                                        {getSizeInitial(size)}
+                                      </span>
+                                      <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-[#D4AF37] text-white text-xs font-bold shadow-sm">
+                                        {qty}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-500">
+                                  Size: {(() => {
+                                    if (!item.size) return 'N/A';
+                                    const sizeStr = String(item.size);
+                                    return getSizeInitial(sizeStr);
+                                  })()}
+                                </span>
+                              )}
                             </div>
 
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
+                              <div 
+                                className="relative flex items-center gap-2"
+                                ref={(el) => { quantityButtonRefs.current.set(item.id, el); }}
+                              >
                                 <button
-                                  onClick={() => onChangeQty(item.id, Math.max(0, item.quantity - 1))}
+                                  onClick={() => handleQuantityChange(item.id, 'decrease', hasMultiSizes)}
                                   disabled={isPending}
-                                  className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  className={`w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                                    hasMultiSizes ? 'border-[#D4AF37] border-dashed' : ''
+                                  }`}
                                   aria-label="Decrease quantity"
+                                  title={hasMultiSizes ? 'Select size to decrease' : 'Decrease quantity'}
                                 >
                                   <Minus size={14} className="text-gray-600" />
                                 </button>
@@ -432,13 +673,31 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                                   {item.quantity}
                                 </span>
                                 <button
-                                  onClick={() => onChangeQty(item.id, item.quantity + 1)}
+                                  onClick={() => handleQuantityChange(item.id, 'increase', showPopoverOnIncrease)}
                                   disabled={isPending}
-                                  className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  className={`w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                                    showPopoverOnIncrease ? 'border-[#D4AF37] border-dashed' : ''
+                                  }`}
                                   aria-label="Increase quantity"
+                                  title={showPopoverOnIncrease ? 'Select size to add' : 'Increase quantity'}
                                 >
                                   <Plus size={14} className="text-gray-600" />
                                 </button>
+                                
+                                {/* Size Selector Popover */}
+                                <AnimatePresence>
+                                  {sizePopover?.itemId === item.id && (
+                                    <SizeSelectorPopover
+                                      isOpen={true}
+                                      onClose={() => setSizePopover(null)}
+                                      sizeBreakdown={sizeBreakdown}
+                                      availableSizes={availableSizes}
+                                      onSizeQuantityChange={(size, qty) => onChangeSizeQty(item.id, size, qty)}
+                                      anchorRef={{ current: quantityButtonRefs.current.get(item.id) || null }}
+                                      mode={sizePopover.mode}
+                                    />
+                                  )}
+                                </AnimatePresence>
                               </div>
 
                               <button
