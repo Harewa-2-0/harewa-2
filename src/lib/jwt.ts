@@ -2,7 +2,6 @@
 
 import jwt from "jsonwebtoken";
 import { JwtAccessTokenPayload, JwtRefreshTokenPayload, JwtValidatorTokenPayload } from "./types/auth";
-import { randomUUID } from "crypto";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -18,7 +17,7 @@ export function signAccessToken(user: { id: string; email: string; role?: string
 }
 
 export function signRefreshToken(userId: string) {
-  const jti = randomUUID();
+  const jti = crypto.randomUUID();
   const payload: JwtRefreshTokenPayload = {
     sub: userId,
     jti,
