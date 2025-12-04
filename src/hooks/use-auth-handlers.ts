@@ -45,7 +45,7 @@ export default function useAuthHandlers() {
 
   /** ✅ Common Success Handler */
   const handleAuthSuccess = useCallback(
-    (userData: any, remember: boolean) => {
+    async (userData: any, remember: boolean) => {
       const user = {
         id: userData?.id || "local",
         email: userData?.email || formData.email,
@@ -68,15 +68,26 @@ export default function useAuthHandlers() {
       // ✅ Save snapshot for instant hydration on next visit
       localStorage.setItem('auth-snapshot', JSON.stringify({ user, isAuthenticated: true }));
 
-      setAuthState({
-        isLoading: false,
-        isGoogleLoading: false,
-        isRedirecting: false,
-      });
+      // Prefetch profile data in background to get avatar
+      try {
+        const { api } = await import('@/utils/api');
+        const response = await api<any>('/api/auth/me');
+        if (response?.profile?.profilePicture) {
+          console.log('[Login] Syncing profile picture from server:', response.profile.profilePicture);
+          // Update user with profile picture
+          const updatedUser = { ...user, avatar: response.profile.profilePicture };
+          setUser(updatedUser, remember ? "localStorage" : "sessionStorage");
+          localStorage.setItem('auth-snapshot', JSON.stringify({ user: updatedUser, isAuthenticated: true }));
+        }
+      } catch (error) {
+        console.warn('[Login] Failed to fetch profile picture:', error);
+        // Continue with login even if profile fetch fails
+      }
 
       // Show success toast
       addToast("Login successful! Redirecting...", "success");
 
+      // Keep loading state true until redirect happens
       // Redirect after short delay based on user role
       setTimeout(() => {
         setAuthState((prev) => ({ ...prev, isRedirecting: true }));
@@ -86,6 +97,15 @@ export default function useAuthHandlers() {
         } else {
           router.push("/home");
         }
+        // Clear loading state after navigation starts (component will unmount anyway)
+        // Small delay ensures navigation has initiated
+        setTimeout(() => {
+          setAuthState({
+            isLoading: false,
+            isGoogleLoading: false,
+            isRedirecting: false,
+          });
+        }, 50);
       }, 800);
     },
     [formData, router, setUser, addToast]

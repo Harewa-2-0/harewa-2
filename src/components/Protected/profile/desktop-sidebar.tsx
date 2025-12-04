@@ -1,9 +1,12 @@
 'use client';
 
 import { User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { menuItems } from './profile-tabs';
-import { useProfileStore } from '@/store/profile-store';
+import { useProfileQuery } from '@/hooks/useProfile';
 import { useAuthStore } from '@/store/authStore';
+import { clearUserQueries } from '@/utils/clearUserQueries';
 
 interface Props {
   activeTab: string;
@@ -11,12 +14,18 @@ interface Props {
 }
 
 export default function DesktopSidebar({ activeTab, onTabChange }: Props) {
-  const { profileData } = useProfileStore();
-  const { logout } = useAuthStore();
+  const { logout, isAuthenticated } = useAuthStore();
+  const { data: profile } = useProfileQuery(isAuthenticated);
+  const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleItemClick = async (itemId: string) => {
     if (itemId === 'logout') {
+      // Clear user-specific React Query caches before logout
+      clearUserQueries(queryClient);
       await logout();
+      // Navigate to home page (preserves React Query cache for public data)
+      router.push('/home');
     } else {
       onTabChange(itemId);
     }
@@ -27,24 +36,24 @@ export default function DesktopSidebar({ activeTab, onTabChange }: Props) {
       {/* User Profile Section */}
       <div className="p-6 border-b">
         <div className="flex items-center gap-3">
-          {profileData?.profilePicture ? (
+          {profile?.profilePicture ? (
             <img 
-              src={profileData.profilePicture} 
+              src={profile.profilePicture} 
               alt="Profile" 
               className="w-12 h-12 rounded-full object-cover"
             />
           ) : (
             <div className="w-12 h-12 rounded-full bg-yellow-400 flex items-center justify-center text-white font-bold text-lg">
-              {profileData?.firstName?.[0]?.toUpperCase() || profileData?.user.username?.[0]?.toUpperCase() || 'U'}
+              {profile?.firstName?.[0]?.toUpperCase() || profile?.user?.username?.[0]?.toUpperCase() || 'U'}
             </div>
           )}
           <div>
             <h2 className="font-semibold text-gray-900 text-lg">
-              {profileData?.firstName || profileData?.user.username || 'HAREWA'}
+              {profile?.firstName || profile?.user?.username || 'HAREWA'}
             </h2>
             {/* 
             <p className="text-sm text-gray-500">
-              {profileData?.user.email}
+              {profile?.user?.email}
             </p>
             */}
           </div>

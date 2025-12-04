@@ -4,7 +4,10 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { DataTable, TableColumn } from '../components/shared';
 import DeleteCategoryModal from './DeleteCategoryModal';
 import EditCategoryModal from './EditCategoryModal';
-import { getCategories, createCategory, updateCategory, deleteCategory, type ProductCategory } from '@/services/product-category';
+import { useCategoriesQuery } from '@/hooks/useCategories';
+import { useQueryClient } from '@tanstack/react-query';
+import { categoryKeys } from '@/hooks/useCategories';
+import { type ProductCategory } from '@/services/product-category';
 
 // Use the ProductCategory type from the service
 export type Category = ProductCategory;
@@ -24,34 +27,24 @@ const CategoriesTable = forwardRef<CategoriesTableRef, CategoriesTableProps>(({ 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Fetch categories from API
-  const fetchCategories = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await getCategories();
-      setCategories(data);
-    } catch (err) {
-      console.error('Error fetching categories:', err);
-      setError('Failed to fetch categories');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  
+  const queryClient = useQueryClient();
+  
+  // Fetch categories using React Query
+  const { data: categories = [], isLoading, error: queryError } = useCategoriesQuery();
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
-    refresh: fetchCategories,
+    refresh: () => {
+      queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
+    },
     addCategory: (newCategory: Category) => {
-      setCategories(prev => [newCategory, ...prev]);
+      // Optimistically add to cache (mutation hook already handles this, but this allows manual adds)
+      queryClient.setQueryData<Category[]>(categoryKeys.lists(), (old = []) => {
+        const exists = old.some(cat => cat._id === newCategory._id);
+        if (exists) return old;
+        return [newCategory, ...old];
+      });
     }
   }));
 
@@ -61,6 +54,8 @@ const CategoriesTable = forwardRef<CategoriesTableRef, CategoriesTableProps>(({ 
       onCategoryCountChange(categories.length);
     }
   }, [categories.length, onCategoryCountChange]);
+
+  const error = queryError ? 'Failed to fetch categories' : null;
 
   // Pagination
   const totalPages = Math.ceil(categories.length / itemsPerPage);
@@ -78,15 +73,13 @@ const CategoriesTable = forwardRef<CategoriesTableRef, CategoriesTableProps>(({ 
   };
 
   const handleEditSuccess = (updatedCategory: Category) => {
-    setCategories(prev => 
-      prev.map(cat => cat._id === updatedCategory._id ? updatedCategory : cat)
-    );
+    // React Query mutation handles cache update, just close modal
     setShowEditModal(false);
     setSelectedCategory(null);
   };
 
   const handleDeleteSuccess = (categoryId: string) => {
-    setCategories(prev => prev.filter(cat => cat._id !== categoryId));
+    // React Query mutation handles cache update, just close modal
     setShowDeleteModal(false);
     setSelectedCategory(null);
   };

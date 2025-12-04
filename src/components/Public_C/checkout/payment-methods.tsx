@@ -1,3 +1,13 @@
+/*
+ * MANUAL CARD PAYMENT COMPONENT - COMMENTED OUT
+ * 
+ * This component is not currently in use as we're using 
+ * gateway redirects (Stripe/Paystack) instead of manual card input.
+ * 
+ * To re-enable: uncomment this entire file
+ */
+
+/*
 'use client';
 
 import { useState } from 'react';
@@ -134,4 +144,10 @@ export default function PaymentMethods({ isEnabled }: PaymentMethodsProps) {
       </form>
     </div>
   );
+}
+*/
+
+// Stub export to prevent import errors
+export default function PaymentMethods() {
+  return null;
 }

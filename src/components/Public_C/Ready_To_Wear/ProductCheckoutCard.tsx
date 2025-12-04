@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -7,13 +7,15 @@ import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/contexts/toast-context';
 import { api } from '@/utils/api';
+import { formatPrice } from '@/utils/currency';
 import SizeGuide from './SizeGuide';
+import { useToggleWishlistMutation, useIsInWishlist } from '@/hooks/useWishlist';
 
 interface ProductCheckoutCardProps {
   product: {
-    _id: string;
+    _id?: string;
     name: string;
-    price: number;
+    price: number | string;
     images: string[];
     description?: string;
     rating?: number;
@@ -45,8 +47,28 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
   const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
   const router = useRouter();
+  const toggleWishlistMutation = useToggleWishlistMutation();
+  const isInWishlist = useIsInWishlist(product._id);
 
-  const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
+  // Map size names to single letters (same as new arrivals)
+  const getSizeLetter = (size: string): string => {
+    const sizeMap: Record<string, string> = {
+      'small': 'S',
+      'medium': 'M',
+      'large': 'L',
+      'extra-large': 'XL',
+      'extra small': 'XS',
+      'xxl': 'XXL',
+    };
+    return sizeMap[size.toLowerCase()] || size.charAt(0).toUpperCase();
+  };
+
+  // Auto-select first size if available and none selected
+  useEffect(() => {
+    if (!selectedSize && product.sizes && product.sizes.length > 0) {
+      onSizeSelect(product.sizes[0]);
+    }
+  }, [product.sizes, selectedSize, onSizeSelect]);
 
   const renderStars = (rating: number = 4) => (
     <div className="flex items-center space-x-1">
@@ -62,17 +84,32 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
   const handleAddToCart = async () => {
     if (isAddingToCartLocal) return;
 
+    // Validate size selection
+    if (!selectedSize && product.sizes && product.sizes.length > 0) {
+      addToast('Please select a size', 'error');
+      return;
+    }
+
     setIsAddingToCartLocal(true);
 
     const imageUrl = product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png';
+    const productId = product._id || '';
+    const productPrice = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
+
+    if (!productId) {
+      addToast("Product ID is missing", "error");
+      setIsAddingToCartLocal(false);
+      return;
+    }
 
     try {
       addItem({
-        id: product._id,
+        id: productId,
         quantity: 1,
-        price: product.price,
+        price: productPrice,
         name: product.name,
         image: imageUrl,
+        size: selectedSize, // Include selected size
       });
 
       addToast("Item added to cart successfully", "success");
@@ -81,9 +118,9 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
         try {
           const { addToMyCart } = await import('@/services/cart');
           await addToMyCart({
-            productId: product._id,
+            productId: productId,
             quantity: 1,
-            price: product.price,
+            price: productPrice,
           });
         } catch (serverError) {
           console.error('Failed to add item to server:', serverError);
@@ -97,6 +134,29 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
       console.error('Failed to add item to cart:', error);
     } finally {
       setIsAddingToCartLocal(false);
+    }
+  };
+
+  const handleToggleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!product._id) {
+      console.error('Product ID is missing');
+      return;
+    }
+    
+    if (!isAuthenticated) {
+      addToast('Please login to add to wishlist', 'error');
+      return;
+    }
+    
+    try {
+      const result = await toggleWishlistMutation.mutateAsync({ productId: product._id });
+      addToast(result.message, result.added ? 'success' : 'info');
+    } catch (error) {
+      addToast('Failed to update wishlist', 'error');
+      console.error('Failed to toggle wishlist:', error);
     }
   };
 
@@ -173,23 +233,29 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
           </div>
 
           {/* Size Selection */}
-          <div className="mb-4">
-            <div className="flex gap-2">
-              {['S', 'M', 'L', '1X', '2X'].map((size) => (
-                <button
-                  key={size}
-                  onClick={() => onSizeSelect(size)}
-                  className={`px-4 py-2 border-2 rounded-lg text-sm font-medium transition-colors ${
-                    selectedSize === size
-                      ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                  }`}
-                >
-                  {size}
-                </button>
-              ))}
+          {product.sizes && product.sizes.length > 0 && (
+            <div className="mb-4">
+              <div className="flex gap-2 flex-wrap">
+                {product.sizes.map((size) => {
+                  const sizeLetter = getSizeLetter(size);
+                  const isSelected = selectedSize === size;
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => onSizeSelect(size)}
+                      className={`px-4 py-2 border-2 rounded-lg text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]'
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      {sizeLetter}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex items-center gap-3 mb-4">
@@ -232,10 +298,10 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
               ) : 'ADD TO CART'}
             </button>
             <button
-              onClick={onToggleLike}
-              className={`w-10 h-10 flex items-center justify-center rounded-full border-2 ${isLiked ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'} transition-colors`}
+              onClick={handleToggleWishlist}
+              className={`w-10 h-10 flex items-center justify-center rounded-full border-2 ${isInWishlist ? 'border-[#D4AF37] bg-[#FFF9E5]' : 'border-gray-300 bg-white'} transition-colors`}
             >
-              <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+              <Heart className={`w-5 h-5 ${isInWishlist ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-gray-400'}`} />
             </button>
           </div>
 

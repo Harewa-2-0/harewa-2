@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import Header from '../header/header';
 import Footer from '../footer/footer';
+import ChatBot from '@/components/Public_C/chatbot/ChatBot';
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
       <Header />
       <main className="min-h-screen">{children}</main>
       <Footer />
+      <ChatBot />
     </>
   );
 }

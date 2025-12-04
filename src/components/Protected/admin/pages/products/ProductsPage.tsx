@@ -3,17 +3,47 @@
 import { useState, useRef, useEffect } from 'react';
 import ProductsTable from './ProductsTable';
 import AddProductModal from './AddProductModal';
-import { adminGetProducts } from '@/services/products';
+import { useAdminProducts } from '@/hooks/useProducts';
+import { PageSpinner } from '../../components/Spinner';
+import type { Product, PaginatedResponse } from '@/services/products';
 
 export default function ProductsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [genderFilter, setGenderFilter] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [productCount, setProductCount] = useState(0);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [products, setProducts] = useState<any[]>([]); // Manage products state here
-  const [isLoading, setIsLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Use React Query hook for data fetching with server-side pagination
+  const { data: productsResponse, isLoading, error } = useAdminProducts({ 
+    page: currentPage, 
+    limit: itemsPerPage 
+  });
+
+  // Extract products and pagination data from response
+  const products: Product[] = productsResponse?.items || [];
+  const paginationData = productsResponse?.pagination || {
+    page: 1,
+    limit: itemsPerPage,
+    total: 0,
+    totalPages: 1,
+    hasMore: false
+  };
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  // Handle items per page change
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
 
   const genderOptions = [
     { value: '', label: 'All' },
@@ -23,78 +53,19 @@ export default function ProductsPage() {
 
   const selectedOption = genderOptions.find(option => option.value === genderFilter) || genderOptions[0];
 
-  // Function to trigger table refresh
-  const triggerRefresh = () => {
-    setRefreshTrigger(prev => prev + 1);
+  // Handlers for modals (mutations handle cache updates automatically)
+  const handleProductAdded = () => {
+    // Mutation handles cache update, just close modal
+    setShowAddModal(false);
   };
 
-  const handleProductAdded = (product: any) => {
-    // Optimistically add the product to the state
-    setProducts(prev => [product, ...prev]);
+  const handleProductUpdated = () => {
+    // Mutation handles cache update, no action needed
   };
 
-  const handleProductUpdated = (updatedProduct: any) => {
-    console.log('ProductsPage: handleProductUpdated called with:', updatedProduct);
-    console.log('ProductsPage: updatedProduct._id:', updatedProduct._id);
-    console.log('ProductsPage: updatedProduct.id:', updatedProduct.id);
-    
-    // Validate that we have an ID to match against
-    if (!updatedProduct._id && !updatedProduct.id) {
-      console.error('ProductsPage: Updated product has no ID field! Cannot update.');
-      return;
-    }
-    
-    // Optimistically update the product in the state
-    setProducts(prev => {
-      console.log('ProductsPage: Current products before update:', prev.map(p => ({ name: p.name, _id: p._id, id: p.id })));
-      
-      let matchFound = false;
-      const updated = prev.map(product => {
-        const isMatch = product._id === updatedProduct._id;
-        console.log(`ProductsPage: Comparing product "${product.name}" (${product._id}) with updated product (${updatedProduct._id}) - Match: ${isMatch}`);
-        
-        if (isMatch) {
-          matchFound = true;
-          console.log('ProductsPage: Updating product:', product.name, 'with:', updatedProduct);
-        }
-        return isMatch ? updatedProduct : product;
-      });
-      
-      if (!matchFound) {
-        console.error('ProductsPage: No matching product found! This could cause all products to be replaced.');
-        console.log('ProductsPage: Available product IDs:', prev.map(p => ({ name: p.name, _id: p._id, id: p.id })));
-        console.log('ProductsPage: Looking for ID:', updatedProduct._id || updatedProduct.id);
-        return prev; // Don't update if no match found
-      }
-      
-      console.log('ProductsPage: Updated products array:', updated.map(p => ({ name: p.name, _id: p._id, id: p.id })));
-      return updated;
-    });
+  const handleProductDeleted = () => {
+    // Mutation handles cache update, no action needed
   };
-
-  const handleProductDeleted = (productId: string) => {
-    // Optimistically remove the product from the state
-    setProducts(prev => prev.filter(product => 
-      product._id !== productId && product.id !== productId
-    ));
-  };
-
-  // Fetch products on component mount
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setIsLoading(true);
-        const data = await adminGetProducts();
-        setProducts(data);
-      } catch (error) {
-        console.error('Error fetching products:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -110,13 +81,52 @@ export default function ProductsPage() {
     };
   }, []);
 
+  // Show loading spinner while fetching data
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Products</h1>
+            <p className="text-gray-600">Manage your product inventory</p>
+          </div>
+        </div>
+        <PageSpinner />
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Products</h1>
+            <p className="text-gray-600">Manage your product inventory</p>
+          </div>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800 font-medium">Error loading products</p>
+          <p className="text-red-600 text-sm mt-1">{error instanceof Error ? error.message : 'Failed to load products'}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-3 text-red-600 hover:text-red-800 underline text-sm"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Products <span className="text-lg font-normal text-gray-500">({productCount})</span>
+            Products <span className="text-lg font-normal text-gray-500">({paginationData.total || productCount})</span>
           </h1>
           <p className="text-gray-600">Manage your product inventory</p>
         </div>
@@ -189,13 +199,12 @@ export default function ProductsPage() {
       <ProductsTable 
         genderFilter={genderFilter} 
         onProductCountChange={setProductCount}
-        refreshTrigger={refreshTrigger}
         products={products}
-        onProductsChange={setProducts}
-        onProductAdded={handleProductAdded}
-        onProductUpdated={handleProductUpdated}
-        onProductDeleted={handleProductDeleted}
         isLoading={isLoading}
+        error={error}
+        pagination={paginationData}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
       />
 
       {/* Add Product Modal */}

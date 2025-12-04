@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useFabricStore } from '@/store/fabricStore';
+import { useRouter } from 'next/navigation';
+import { useFabricsQuery } from '@/hooks/useFabrics';
+import { useUIStore } from '@/store/uiStore';
 import { type Fabric } from '@/services/fabric';
 
 interface FabricMenuProps {
@@ -14,26 +16,24 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFabric, setSelectedFabric] = useState<Fabric | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const { closeMobileNav } = useUIStore();
   
-  const { fabrics, isLoading, fetchFabrics } = useFabricStore();
+  // React Query: Fetch fabrics (cached 10min, shared across components)
+  const { data: fabrics = [], isLoading } = useFabricsQuery();
+  
+  // Limit fabrics for display: 3 for mobile, 5 for desktop
+  const displayLimit = isMobile ? 3 : 5;
+  const displayedFabrics = fabrics.slice(0, displayLimit);
+  // Show "View More" if there are fabrics (even if exactly at limit, to navigate to full page)
+  const showViewMore = fabrics.length > 0 && !isLoading;
 
-  // Fetch fabrics on component mount with cleanup
+  // Auto-select first fabric when data loads
   useEffect(() => {
-    let isMounted = true;
-    
-    const loadFabrics = async () => {
-      await fetchFabrics();
-      if (isMounted && fabrics.length > 0 && !selectedFabric) {
-        setSelectedFabric(fabrics[0]);
-      }
-    };
-    
-    loadFabrics();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchFabrics, fabrics.length, selectedFabric]);
+    if (fabrics.length > 0 && !selectedFabric) {
+      setSelectedFabric(fabrics[0]);
+    }
+  }, [fabrics, selectedFabric]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -105,26 +105,42 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
               className="overflow-hidden"
             >
               <div className="pt-4 space-y-4">
-                {/* Fabric List */}
+                {/* Fabric List - Limited Items */}
                 <div className="space-y-2">
                   {isLoading ? (
-                    Array.from({ length: 4 }).map((_, index) => (
+                    Array.from({ length: displayLimit }).map((_, index) => (
                       <div key={index} className="h-8 bg-gray-700 rounded animate-pulse" />
                     ))
                   ) : (
-                    fabrics.map((fabric) => (
-                      <button
-                        key={fabric._id}
-                        onClick={() => handleFabricClick(fabric)}
-                        className={`w-full text-left px-3 py-2 rounded transition-colors cursor-pointer ${
-                          selectedFabric?._id === fabric._id
-                            ? 'bg-[#D4AF37] text-black'
-                            : 'text-white hover:bg-gray-700'
-                        }`}
-                      >
-                        {fabric.name}
-                      </button>
-                    ))
+                    <>
+                      {displayedFabrics.map((fabric) => (
+                        <button
+                          key={fabric._id}
+                          onClick={() => handleFabricClick(fabric)}
+                          className={`w-full text-left px-3 py-2 rounded transition-colors cursor-pointer ${
+                            selectedFabric?._id === fabric._id
+                              ? 'bg-[#D4AF37] text-black'
+                              : 'text-white hover:bg-gray-700'
+                          }`}
+                        >
+                          {fabric.name}
+                        </button>
+                      ))}
+                      {/* View More Button - Distinct styling from fabric items */}
+                      {showViewMore && (
+                        <button
+                          onClick={() => {
+                            setIsOpen(false);
+                            closeMobileNav(); // Close mobile nav menu
+                            router.push('/fabrics');
+                          }}
+                          className="w-full px-4 py-3 rounded-lg border-2 border-[#D4AF37] bg-transparent text-[#D4AF37] font-bold hover:bg-[#D4AF37] hover:text-black transition-all duration-200 cursor-pointer mt-3 text-center flex items-center justify-center gap-2 shadow-lg"
+                        >
+                          <span>View More Fabrics</span>
+                          <ChevronRight size={18} className="mt-0.5" />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -190,29 +206,44 @@ const FabricMenu: React.FC<FabricMenuProps> = ({ isMobile = false }) => {
           >
             <div className="p-6">
               <div className="flex gap-8">
-                {/* Left: Fabric List */}
+                {/* Left: Fabric List - Limited Items */}
                 <div className="w-2/5">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Fabric</h3>
                   <div className="space-y-2">
                     {isLoading ? (
-                      Array.from({ length: 4 }).map((_, index) => (
+                      Array.from({ length: displayLimit }).map((_, index) => (
                         <div key={index} className="h-8 bg-gray-200 rounded animate-pulse" />
                       ))
                     ) : (
-                      fabrics.map((fabric) => (
-                        <button
-                          key={fabric._id}
-                          onClick={() => handleFabricClick(fabric)}
-                          className={`w-full text-left px-3 py-2 rounded-lg transition-all duration-200 flex items-center justify-between border cursor-pointer ${
-                            selectedFabric?._id === fabric._id
-                              ? 'bg-[#D4AF37BD]/35 text-[#D4AF37] border-[#D4AF37]'
-                              : 'text-gray-700 hover:bg-gray-100 border-transparent'
-                          }`}
-                        >
-                          <span className="text-sm font-medium">{fabric.name}</span>
-                          <ChevronRight size={14} className={selectedFabric?._id === fabric._id ? 'text-[#D4AF37]' : 'text-gray-500'} />
-                        </button>
-                      ))
+                      <>
+                        {displayedFabrics.map((fabric) => (
+                          <button
+                            key={fabric._id}
+                            onClick={() => handleFabricClick(fabric)}
+                            className={`w-full text-left px-3 py-2 rounded-lg transition-all duration-200 flex items-center justify-between border cursor-pointer ${
+                              selectedFabric?._id === fabric._id
+                                ? 'bg-[#D4AF37BD]/35 text-[#D4AF37] border-[#D4AF37]'
+                                : 'text-gray-700 hover:bg-gray-100 border-transparent'
+                            }`}
+                          >
+                            <span className="text-sm font-medium">{fabric.name}</span>
+                            <ChevronRight size={14} className={selectedFabric?._id === fabric._id ? 'text-[#D4AF37]' : 'text-gray-500'} />
+                          </button>
+                        ))}
+                        {/* View More Button - Distinct styling from fabric items */}
+                        {showViewMore && (
+                          <button
+                            onClick={() => {
+                              setIsOpen(false);
+                              router.push('/fabrics');
+                            }}
+                            className="w-full px-4 py-2.5 rounded-lg bg-[#D4AF37] text-black font-semibold hover:bg-[#B8941F] transition-colors cursor-pointer mt-3 text-center flex items-center justify-center gap-2"
+                          >
+                            <span>View More</span>
+                            <ChevronRight size={16} className="text-black" />
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

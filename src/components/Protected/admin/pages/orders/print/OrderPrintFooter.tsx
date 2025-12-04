@@ -33,7 +33,7 @@ export default function OrderPrintFooter() {
         <div className="terms-section">
           <h4 className="terms-title">Terms & Conditions</h4>
           <p className="terms-text">
-            This invoice is generated automatically. All prices are in Nigerian Naira (NGN). 
+            This invoice is generated automatically. All prices are in US Dollars (USD). 
             For any disputes or clarifications, please contact our customer service team within 7 days of order delivery.
           </p>
         </div>

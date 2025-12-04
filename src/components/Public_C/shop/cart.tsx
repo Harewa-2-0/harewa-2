@@ -1,18 +1,179 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { X, Minus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCartStore, useCartTotalItems, useCartTotalItemsOptimistic } from "@/store/cartStore";
+import { useCartStore, useCartTotalItems, useCartTotalItemsOptimistic, getSizeInitial, type SizeBreakdown } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
-import { useOrderStore } from "@/store/orderStore";
 import { useToast } from "@/contexts/toast-context";
-import { createOrderFromCart } from "@/services/order";
-import PendingOrderModal from "@/components/common/pending-order-modal";
+import { useUpdateCartQuantityMutation, useRemoveFromCartMutation, useCartRawQuery } from "@/hooks/useCart";
+import { usePendingOrderQuery } from "@/hooks/useOrders";
+import { formatPrice } from "@/utils/currency";
+import { AlertCircle } from "lucide-react";
+
+// Size Selector Popover Component - Rendered via Portal to escape overflow clipping
+interface SizeSelectorPopoverProps {
+  isOpen: boolean;
+  onClose: () => void;
+  sizeBreakdown: SizeBreakdown;
+  availableSizes: string[];
+  onSizeQuantityChange: (size: string, qty: number) => void;
+  anchorRef: React.RefObject<HTMLDivElement | null>;
+  mode: 'increase' | 'decrease';
+}
+
+const SizeSelectorPopover: React.FC<SizeSelectorPopoverProps> = ({
+  isOpen,
+  onClose,
+  sizeBreakdown,
+  availableSizes,
+  onSizeQuantityChange,
+  anchorRef,
+  mode,
+}) => {
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  // Calculate position based on anchor element
+  useEffect(() => {
+    if (!isOpen || !anchorRef.current) return;
+    
+    const updatePosition = () => {
+      const anchorRect = anchorRef.current?.getBoundingClientRect();
+      const popoverHeight = popoverRef.current?.offsetHeight || 200; // Estimate if not yet rendered
+      
+      if (anchorRect) {
+        setPosition({
+          top: anchorRect.top - popoverHeight - 12, // Position above with gap
+          left: anchorRect.left,
+        });
+      }
+    };
+    
+    // Initial position with slight delay to allow popover to render
+    updatePosition();
+    const timer = setTimeout(updatePosition, 10);
+    
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [isOpen, anchorRef]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        popoverRef.current && 
+        !popoverRef.current.contains(e.target as Node) &&
+        anchorRef.current &&
+        !anchorRef.current.contains(e.target as Node)
+      ) {
+        onClose();
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, onClose, anchorRef]);
+
+  if (!isOpen) return null;
+
+  // For increase mode: show ALL available sizes (including ones not in cart yet)
+  // For decrease mode: show only sizes that are in cart (qty > 0)
+  const sizesToShow = mode === 'increase'
+    ? availableSizes.length > 0 
+      ? availableSizes 
+      : Object.keys(sizeBreakdown).filter(s => sizeBreakdown[s] > 0)
+    : Object.keys(sizeBreakdown).filter(s => sizeBreakdown[s] > 0);
+
+  const popoverContent = (
+    <motion.div
+      ref={popoverRef}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.15 }}
+      className="fixed bg-white rounded-xl shadow-2xl border border-gray-200 p-4 min-w-[220px]"
+      style={{ 
+        zIndex: 999999,
+        top: position.top,
+        left: position.left,
+      }}
+    >
+      <div className="text-xs font-medium text-gray-500 mb-3">
+        {mode === 'increase' ? 'Add to which size?' : 'Remove from which size?'}
+      </div>
+      <div className="space-y-3">
+        {sizesToShow.map((size) => {
+          const currentQty = sizeBreakdown[size] || 0;
+          const isNewSize = currentQty === 0;
+          
+          return (
+            <div key={size} className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-[80px]">
+                <span className={`text-sm font-semibold ${isNewSize ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {getSizeInitial(size)}
+                </span>
+                {currentQty > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-[#D4AF37] text-white text-xs font-bold shadow-sm">
+                    {currentQty}
+                  </span>
+                )}
+                {isNewSize && mode === 'increase' && (
+                  <span className="text-[10px] text-[#B8941F] font-semibold uppercase tracking-wide">NEW</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {mode === 'decrease' && currentQty > 0 && (
+                  <button
+                    onClick={() => {
+                      onSizeQuantityChange(size, currentQty - 1);
+                      onClose();
+                    }}
+                    className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+                    aria-label={`Decrease ${size}`}
+                  >
+                    <Minus size={14} className="text-gray-600" />
+                  </button>
+                )}
+                {mode === 'increase' && (
+                  <button
+                    onClick={() => {
+                      onSizeQuantityChange(size, currentQty + 1);
+                      onClose();
+                    }}
+                    className="w-8 h-8 bg-[#D4AF37] hover:bg-[#B8941F] rounded-full flex items-center justify-center transition-colors shadow-sm"
+                    aria-label={`Add ${size}`}
+                  >
+                    <Plus size={14} className="text-white" />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Arrow pointer */}
+      <div className="absolute -bottom-2 left-6 w-4 h-4 bg-white border-r border-b border-gray-200 transform rotate-45" />
+    </motion.div>
+  );
+
+  // Render via portal to escape overflow clipping
+  return typeof window !== 'undefined' 
+    ? createPortal(popoverContent, document.body)
+    : null;
+};
 
 interface CartUIProps {
   isOpen?: boolean;
@@ -39,25 +200,43 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   // Track pending operations per product to prevent double-submit
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
   
-  // Track order creation state
-  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  // Size selector popover state
+  const [sizePopover, setSizePopover] = useState<{
+    itemId: string;
+    mode: 'increase' | 'decrease';
+  } | null>(null);
+  const quantityButtonRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
   
-  // Order store state
-  const { fetchPendingOrder, pendingOrder, setCurrentOrder } = useOrderStore();
-  const [showPendingOrderModal, setShowPendingOrderModal] = useState(false);
+  // React Query hook for pending order warning
+  const { hasPendingOrder } = usePendingOrderQuery();
   
   const items = useCartStore((s) => s.items);
   const cartId = useCartStore((s) => s.cartId);
   const isGuestCart = useCartStore((s) => s.isGuestCart);
   const isLoading = useCartStore((s) => s.isLoading);
   const error = useCartStore((s) => s.error);
-  const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const removeItem = useCartStore((s) => s.removeItem);
+  const updateQuantityLocal = useCartStore((s) => s.updateQuantity);
+  const updateSizeQuantityLocal = useCartStore((s) => s.updateSizeQuantity);
+  const removeItemLocal = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
-  const fetchCart = useCartStore((s) => s.fetchCart);
-  const syncToServer = useCartStore((s) => s.syncToServer);
+  const setCartId = useCartStore((s) => s.setCartId);
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // React Query mutations for cart operations
+  const updateCartMutation = useUpdateCartQuantityMutation();
+  const removeCartMutation = useRemoveFromCartMutation();
+  const { data: rawCart } = useCartRawQuery(isAuthenticated && isOpen);
+
+  // Set cartId from rawCart when it loads
+  useEffect(() => {
+    if (rawCart && isAuthenticated) {
+      const id = (rawCart as any)._id || (rawCart as any).id;
+      if (id) {
+        setCartId(id);
+      }
+    }
+  }, [rawCart, isAuthenticated, setCartId]);
 
   // Prevent any automatic cart fetching while drawer is open
   useEffect(() => {
@@ -173,23 +352,89 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     };
   }, [isOpen, setIsOpen]);
 
-  const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
+  // Handle quantity change - shows popover if multiple sizes exist or multiple available sizes
+  const handleQuantityChange = (id: string, mode: 'increase' | 'decrease', showPopover: boolean = false) => {
+    if (pendingOperations.has(id)) return;
+    
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    
+    // If should show popover, show it to let user choose size
+    if (showPopover) {
+      setSizePopover({ itemId: id, mode });
+      return;
+    }
+    
+    // Single size or no breakdown - update directly
+    const newQty = mode === 'increase' ? item.quantity + 1 : Math.max(0, item.quantity - 1);
+    onChangeQty(id, newQty);
+  };
+
+  // Handle size-specific quantity change (from popover)
+  const onChangeSizeQty = async (id: string, size: string, qty: number) => {
+    if (pendingOperations.has(id)) return;
+    
+    try {
+      setPendingOperations(prev => new Set(prev).add(id));
+      
+      // Update local state immediately (optimistic)
+      updateSizeQuantityLocal(id, size, qty);
+      
+      // Sync to server if authenticated
+      if (isAuthenticated && cartId) {
+        try {
+          // IMPORTANT: Get FRESH state after local update
+          const freshItems = useCartStore.getState().items;
+          const updatedItem = freshItems.find(i => i.id === id);
+          
+          await updateCartMutation.mutateAsync({
+            cartId,
+            productId: id,
+            quantity: updatedItem?.quantity || qty,
+            currentItems: freshItems, // Use fresh items with updated productNote
+          });
+        } catch (serverError) {
+          console.error('Failed to update quantity on server:', serverError);
+          addToast("Failed to update quantity on server. Changes may not be saved.", "error");
+        }
+      }
+    } catch (error) {
+      addToast("Failed to update quantity. Please try again.", "error");
+      console.error("Failed to update quantity:", error);
+    } finally {
+      setPendingOperations(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+    }
+  };
 
   const onChangeQty = async (id: string, qty: number) => {
     if (pendingOperations.has(id)) return;
     
     try {
       setPendingOperations(prev => new Set(prev).add(id));
-      updateQuantity(id, qty);
       
+      // Update local state immediately (optimistic)
+      updateQuantityLocal(id, qty);
+      
+      // Sync to server if authenticated
       if (isAuthenticated && cartId) {
         try {
-          const { updateProductQuantityOptimistic } = await import('@/services/cart');
-          await updateProductQuantityOptimistic(cartId, id, qty, items);
+          // IMPORTANT: Get FRESH state after local update
+          const freshItems = useCartStore.getState().items;
+          
+          await updateCartMutation.mutateAsync({
+            cartId,
+            productId: id,
+            quantity: qty,
+            currentItems: freshItems, // Use fresh items with updated productNote
+          });
         } catch (serverError) {
           console.error('Failed to update quantity on server:', serverError);
-          addToast("Failed to update quantity on server. Please try again.", "error");
-          await fetchCart();
+          addToast("Failed to update quantity on server. Changes may not be saved.", "error");
+          // React Query will handle rollback if mutation fails
         }
       }
     } catch (error) {
@@ -206,17 +451,18 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   const onRemove = async (id: string) => {
     try {
-      removeItem(id);
+      // Update local state immediately (optimistic)
+      removeItemLocal(id);
       addToast("Item removed from cart", "success");
       
+      // Sync to server if authenticated
       if (isAuthenticated && cartId) {
         try {
-          const { removeProductFromCartById } = await import('@/services/cart');
-          await removeProductFromCartById(cartId, id);
+          await removeCartMutation.mutateAsync({ cartId, productId: id });
         } catch (serverError) {
           console.error('Failed to remove item from server:', serverError);
-          addToast("Failed to remove item from server. Please try again.", "error");
-          await fetchCart();
+          addToast("Failed to remove item from server. Changes may not be saved.", "error");
+          // React Query will handle rollback if mutation fails
         }
       }
     } catch (error) {
@@ -228,207 +474,34 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   const onClearCart = async () => {
     try {
       clearCart();
-      
-      if (isAuthenticated) {
-        await syncToServer();
-      }
-      
       addToast("Cart cleared successfully", "success");
+      
+      // For logged-in users, clearing is handled by updating cart to empty on server
+      // This will be implemented when clear cart button is added
     } catch (error) {
       addToast("Failed to clear cart. Please try again.", "error");
       console.error("Failed to clear cart:", error);
     }
   };
 
-  // UPDATED: Same checkout logic as cart page
-  const handleCheckout = async () => {
-    if (isCreatingOrder) return;
-    
+  // Instant navigation - order creation moved to checkout page
+  const handleCheckout = () => {
     if (uniqueItems.length === 0) {
       addToast("Your cart is empty. Add some items before checkout.", "error");
       return;
     }
     
-    try {
-      setIsCreatingOrder(true);
-
-      // Auth gate first
-      if (!isAuthenticated) {
-        addToast('Please sign in or create an account to checkout', 'error');
-        setIsOpen?.(false);
-        router.push('/signin');
-        return;
-      }
-
-      // Check for pending orders first
-      console.log('[CartDrawer] Checking for pending orders...');
-      const existingPendingOrder = await fetchPendingOrder();
-      console.log('[CartDrawer] Pending order result:', existingPendingOrder);
-      
-      if (existingPendingOrder) {
-        // FIXED: Show modal instead of navigating directly
-        console.log('[CartDrawer] Found pending order, showing modal');
-        setCurrentOrder(existingPendingOrder);
-        setShowPendingOrderModal(true);
-        setIsCreatingOrder(false);
-        console.log('[CartDrawer] Modal state set to:', true);
-        return;
-      }
-      
-      console.log('[CartDrawer] No pending order, creating new one...');
-
-      // No pending order, proceed with creating new order
-      const result = await createOrderFromCart();
-      const errMsg = (result.error || '').toLowerCase();
-
-      if (result.success && result.order) {
-        console.log('[CartDrawer] New order created:', result.order);
-        // CRITICAL: Set the new order as current order before navigation
-        setCurrentOrder(result.order);
-        
-        // Wait for store to update
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        addToast('Order created successfully! Please complete payment to confirm your order.', 'success');
-        setIsOpen?.(false);
-        router.push('/checkout');
-        return;
-      }
-
-      if (result.errorCode === 'NO_ADDRESS' || errMsg.includes('no delivery address')) {
-        addToast('Add a delivery address to your profile before checkout', 'error');
-        setIsOpen?.(false);
-        router.push('/profile');
-        return;
-      }
-
-      if (
-        result.errorCode === 'DUPLICATE_ORDER' ||
-        errMsg.includes('already exists') ||
-        errMsg.includes('exists for this cart')
-      ) {
-        console.log('[CartDrawer] Duplicate order detected, fetching existing order...');
-        const existingOrder = await fetchPendingOrder();
-        console.log('[CartDrawer] Fetched existing order:', existingOrder);
-        
-        const { allOrders } = useOrderStore.getState();
-        console.log('[CartDrawer] All orders in store:', allOrders);
-        
-        if (existingOrder) {
-          setCurrentOrder(existingOrder);
-          await new Promise(resolve => setTimeout(resolve, 100));
-          addToast('Continuing with existing order', 'info');
-          setIsOpen?.(false);
-          router.push('/checkout');
-        } else if (allOrders.length > 0) {
-          const mostRecentOrder = allOrders[0];
-          console.log('[CartDrawer] No pending order found, using most recent:', mostRecentOrder);
-          setCurrentOrder(mostRecentOrder);
-          await new Promise(resolve => setTimeout(resolve, 100));
-          addToast('Continuing with existing order', 'info');
-          setIsOpen?.(false);
-          router.push('/checkout');
-        } else {
-          addToast('Order already exists but could not be found. Please try again.', 'error');
-        }
-        return;
-      }
-
-      if (errMsg === 'bad request') {
-        console.log('[CartDrawer] Bad request (likely duplicate), fetching existing order...');
-        const existingOrder = await fetchPendingOrder();
-        console.log('[CartDrawer] Fetched existing order:', existingOrder);
-        
-        const { allOrders } = useOrderStore.getState();
-        console.log('[CartDrawer] All orders in store:', allOrders);
-        
-        if (existingOrder) {
-          setCurrentOrder(existingOrder);
-          await new Promise(resolve => setTimeout(resolve, 100));
-          addToast('Continuing with existing order', 'info');
-          setIsOpen?.(false);
-          router.push('/checkout');
-        } else if (allOrders.length > 0) {
-          const mostRecentOrder = allOrders[0];
-          console.log('[CartDrawer] No pending order found, using most recent:', mostRecentOrder);
-          setCurrentOrder(mostRecentOrder);
-          await new Promise(resolve => setTimeout(resolve, 100));
-          addToast('Continuing with existing order', 'info');
-          setIsOpen?.(false);
-          router.push('/checkout');
-        } else {
-          addToast('Order already exists but could not be found. Please try again.', 'error');
-        }
-        return;
-      }
-
-      // Generic failure
-      if (result.errorCode === 'NETWORK_ERROR') {
-        addToast('Order failed. Check your network and try again.', 'error');
-      } else if (result.error && result.error.trim().length > 0) {
-        addToast(result.error, 'error');
-      } else {
-        addToast('Order failed. Check your network and try again.', 'error');
-      }
-      return;
-
-    } catch (error) {
-      console.error('Checkout error:', error);
-      addToast('Order failed. Check your network and try again.', 'error');
-    } finally {
-      setIsCreatingOrder(false);
-    }
-  };
-
-  // Modal handlers
-  const handleContinueWithPendingOrder = () => {
-    if (pendingOrder) {
-      setCurrentOrder(pendingOrder);
+    // Auth gate first
+    if (!isAuthenticated) {
+      addToast('Please sign in or create an account to checkout', 'error');
       setIsOpen?.(false);
-      setShowPendingOrderModal(false);
-      addToast('Continuing with existing order', 'info');
-      router.push('/checkout');
+      router.push('/signin');
+      return;
     }
-  };
 
-  const handleStartNewOrder = async () => {
-    setShowPendingOrderModal(false);
-    setIsCreatingOrder(true);
-    
-    try {
-      const result = await createOrderFromCart();
-      const errMsg = (result.error || '').toLowerCase();
-
-      if (result.success && result.order) {
-        console.log('[CartDrawer] New order created:', result.order);
-        setCurrentOrder(result.order);
-        await new Promise(resolve => setTimeout(resolve, 100));
-        addToast('New order created successfully!', 'success');
-        setIsOpen?.(false);
-        router.push('/checkout');
-        return;
-      }
-
-      if (result.errorCode === 'NO_ADDRESS' || errMsg.includes('no delivery address')) {
-        addToast('Add a delivery address to your profile before checkout', 'error');
-        setIsOpen?.(false);
-        router.push('/profile');
-        return;
-      }
-
-      if (result.errorCode === 'NETWORK_ERROR') {
-        addToast('Order failed. Check your network and try again.', 'error');
-      } else if (result.error && result.error.trim().length > 0) {
-        addToast(result.error, 'error');
-      } else {
-        addToast('Failed to create new order', 'error');
-      }
-    } catch (error) {
-      console.error('Error creating new order:', error);
-      addToast('Failed to create new order', 'error');
-    } finally {
-      setIsCreatingOrder(false);
-    }
+    // Navigate immediately - order will be created on payment
+    setIsOpen?.(false);
+    router.push('/checkout');
   };
 
   if (!isOpen) return null;
@@ -496,6 +569,23 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
             </div>
           ) : (
             <>
+              {/* Pending Order Warning Banner */}
+              {hasPendingOrder && (
+                <div className="mx-6 mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-800">
+                        Active Order in Progress
+                      </p>
+                      <p className="text-xs text-yellow-700 mt-1">
+                        Changes to your cart will automatically update your pending order.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Cart Items */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <AnimatePresence>
@@ -504,9 +594,13 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                     const image = item.image || '/placeholder.png';
                     const itemPrice = typeof item.price === 'number' ? item.price : 0;
                     const itemTotal = itemPrice * item.quantity;
-                    const originalPrice = itemPrice * 1.75;
-                    const savings = originalPrice - itemTotal;
                     const isPending = pendingOperations.has(item.id);
+                    const sizeBreakdown = item.sizeBreakdown || {};
+                    const availableSizes = (item.availableSizes as string[]) || [];
+                    const activeSizes = Object.entries(sizeBreakdown).filter(([, qty]) => qty > 0);
+                    const hasMultiSizes = activeSizes.length > 1;
+                    // Show popover on + if there are multiple available sizes OR multiple sizes in cart
+                    const showPopoverOnIncrease = availableSizes.length > 1 || hasMultiSizes;
 
                     return (
                       <motion.div
@@ -529,26 +623,54 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
                             <div className="mb-2">
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-red-600">
+                                <span className="text-sm font-bold text-gray-900">
                                   {formatPrice(itemPrice)}
-                                </span>
-                                <span className="text-sm text-gray-500 line-through">
-                                  {formatPrice(originalPrice)}
                                 </span>
                               </div>
                             </div>
 
+                            {/* Size Breakdown Display - Toggle Style */}
                             <div className="mb-3">
-                              <span className="text-xs text-gray-600">Size: M</span>
+                              {activeSizes.length > 0 ? (
+                                <div className="flex flex-wrap gap-3">
+                                  {activeSizes.map(([size, qty]) => (
+                                    <div 
+                                      key={size}
+                                      className="inline-flex items-center h-7 rounded-full bg-gray-100 pl-2.5 pr-1 gap-1.5"
+                                    >
+                                      <span className="text-xs font-semibold text-gray-500">
+                                        {getSizeInitial(size)}
+                                      </span>
+                                      <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-[#D4AF37] text-white text-xs font-bold shadow-sm">
+                                        {qty}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-500">
+                                  Size: {(() => {
+                                    if (!item.size) return 'N/A';
+                                    const sizeStr = String(item.size);
+                                    return getSizeInitial(sizeStr);
+                                  })()}
+                                </span>
+                              )}
                             </div>
 
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
+                              <div 
+                                className="relative flex items-center gap-2"
+                                ref={(el) => { quantityButtonRefs.current.set(item.id, el); }}
+                              >
                                 <button
-                                  onClick={() => onChangeQty(item.id, Math.max(0, item.quantity - 1))}
+                                  onClick={() => handleQuantityChange(item.id, 'decrease', hasMultiSizes)}
                                   disabled={isPending}
-                                  className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  className={`w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                                    hasMultiSizes ? 'border-[#D4AF37] border-dashed' : ''
+                                  }`}
                                   aria-label="Decrease quantity"
+                                  title={hasMultiSizes ? 'Select size to decrease' : 'Decrease quantity'}
                                 >
                                   <Minus size={14} className="text-gray-600" />
                                 </button>
@@ -556,13 +678,31 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                                   {item.quantity}
                                 </span>
                                 <button
-                                  onClick={() => onChangeQty(item.id, item.quantity + 1)}
+                                  onClick={() => handleQuantityChange(item.id, 'increase', showPopoverOnIncrease)}
                                   disabled={isPending}
-                                  className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  className={`w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                                    showPopoverOnIncrease ? 'border-[#D4AF37] border-dashed' : ''
+                                  }`}
                                   aria-label="Increase quantity"
+                                  title={showPopoverOnIncrease ? 'Select size to add' : 'Increase quantity'}
                                 >
                                   <Plus size={14} className="text-gray-600" />
                                 </button>
+                                
+                                {/* Size Selector Popover */}
+                                <AnimatePresence>
+                                  {sizePopover?.itemId === item.id && (
+                                    <SizeSelectorPopover
+                                      isOpen={true}
+                                      onClose={() => setSizePopover(null)}
+                                      sizeBreakdown={sizeBreakdown}
+                                      availableSizes={availableSizes}
+                                      onSizeQuantityChange={(size, qty) => onChangeSizeQty(item.id, size, qty)}
+                                      anchorRef={{ current: quantityButtonRefs.current.get(item.id) || null }}
+                                      mode={sizePopover.mode}
+                                    />
+                                  )}
+                                </AnimatePresence>
                               </div>
 
                               <button
@@ -600,9 +740,10 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                 
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold text-gray-900">Subtotal:</span>
-                  <span className="text-lg font-bold text-red-600">{formatPrice(subtotal)}</span>
+                  <span className="text-lg font-bold text-gray-900">{formatPrice(subtotal)}</span>
                 </div>
 
+                {/* Fake savings calculation - commented out
                 {(() => {
                   const totalOriginalPrice = uniqueItems.reduce((total, item) => {
                     const itemPrice = typeof item.price === 'number' ? item.price : 0;
@@ -619,21 +760,15 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                     </div>
                   ) : null;
                 })()}
+                */}
 
                 <div className="space-y-3">
                   <button
                     onClick={handleCheckout}
-                    disabled={isCreatingOrder || uniqueItems.length === 0}
+                    disabled={uniqueItems.length === 0}
                     className="w-full bg-[#D4AF37] text-black font-medium py-3 px-4 rounded-lg hover:bg-[#B8941F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isCreatingOrder ? (
-                      <div className="flex items-center justify-center">
-                        <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
-                        PROCESSING...
-                      </div>
-                    ) : (
-                      'CHECKOUT'
-                    )}
+                    CHECKOUT
                   </button>
                   
                   <button
@@ -661,21 +796,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   );
 
   return typeof window !== 'undefined' 
-    ? createPortal(
-        <>
-          {cartDrawer}
-          {pendingOrder && (
-            <PendingOrderModal
-              isOpen={showPendingOrderModal}
-              onClose={() => setShowPendingOrderModal(false)}
-              onContinue={handleContinueWithPendingOrder}
-              onStartNew={handleStartNewOrder}
-              pendingOrder={pendingOrder}
-            />
-          )}
-        </>,
-        document.body
-      )
+    ? createPortal(cartDrawer, document.body)
     : null;
 };
 

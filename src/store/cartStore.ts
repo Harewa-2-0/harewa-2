@@ -1,627 +1,405 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Cart } from '@/services/cart';
-
-// Extend Window interface for guest cart timeout
-declare global {
-  interface Window {
-    guestCartSaveTimeout?: NodeJS.Timeout;
-  }
-}
-import {
-  mapServerCartToStoreItems,
-  getMyCart,
-  replaceCartProducts,
-  addLinesToMyCart,
-  deduplicateCartItems,
-} from '@/services/cart';
 
 /** ---------- Types ---------- */
 
+// Size breakdown: { "small": 2, "medium": 3 } means 2 small, 3 medium
+export type SizeBreakdown = Record<string, number>;
+
 export type CartLine = {
   id: string;          // product id
-  quantity: number;
+  quantity: number;    // total quantity (sum of all sizes)
   price?: number;
   name?: string;
   image?: string;
+  sizeBreakdown?: SizeBreakdown;  // quantities per size
+  productNote?: string;           // formatted note for backend: "2 small, 3 medium"
+  availableSizes?: string[];      // all available sizes from the product
 } & Record<string, unknown>;
 
+/** ---------- Size Helpers ---------- */
+
+// Map size names to single letters for display
+export const getSizeInitial = (size: string): string => {
+  const sizeMap: Record<string, string> = {
+    'small': 'S',
+    'medium': 'M',
+    'large': 'L',
+    'extra-large': 'XL',
+    'extra small': 'XS',
+    'xs': 'XS',
+    'xl': 'XL',
+    'xxl': 'XXL',
+    '2xl': '2XL',
+    '3xl': '3XL',
+  };
+  return sizeMap[size.toLowerCase()] || size.charAt(0).toUpperCase();
+};
+
+// Generate productNote from sizeBreakdown: { small: 2, medium: 3 } -> "2 small, 3 medium"
+export const generateProductNote = (breakdown: SizeBreakdown): string => {
+  return Object.entries(breakdown)
+    .filter(([, qty]) => qty > 0)
+    .map(([size, qty]) => `${qty} ${size}`)
+    .join(', ');
+};
+
+// Parse productNote back to sizeBreakdown: "2 small, 3 medium" -> { small: 2, medium: 3 }
+// Also handles array format: ["2 small", "3 medium"] or ["2 small, 3 medium"]
+export const parseProductNote = (note: string | string[] | undefined | null): SizeBreakdown => {
+  // Guard: handle empty or invalid values
+  if (!note) return {};
+  
+  // If it's an array, join it into a string
+  let noteStr: string;
+  if (Array.isArray(note)) {
+    if (note.length === 0) return {};
+    noteStr = note.join(', ');
+  } else if (typeof note === 'string') {
+    noteStr = note;
+  } else {
+    return {};
+  }
+  
+  const breakdown: SizeBreakdown = {};
+  const parts = noteStr.split(',').map(p => p.trim());
+  
+  for (const part of parts) {
+    const match = part.match(/^(\d+)\s+(.+)$/);
+    if (match) {
+      const qty = parseInt(match[1], 10);
+      const size = match[2].toLowerCase();
+      if (qty > 0) {
+        breakdown[size] = qty;
+      }
+    }
+  }
+  
+  return breakdown;
+};
+
+// Get total quantity from size breakdown
+const getTotalFromBreakdown = (breakdown: SizeBreakdown): number => {
+  return Object.values(breakdown).reduce((sum, qty) => sum + qty, 0);
+};
+
 type CartState = {
-  cartId?: string | null;
+  // Cart data (for UI display only - React Query owns server truth)
   items: CartLine[];
-  isLoading: boolean;
-  isMerging: boolean;
-  isRefreshing: boolean;
-  error: string | null;
+  cartId?: string | null;
   isGuestCart: boolean;
+  
+  // UI state
+  isLoading: boolean;
+  error: string | null;
+  isMerging: boolean; // Track when cart merge is in progress
 
-  hasHydratedCart: boolean;
-  mergedForUserId?: string | null;
+  // Guest cart localStorage key
+  guestCartStorageKey: string;
 
-  addItem: (item: { id: string; quantity?: number; price?: number } & Record<string, unknown>) => void;
+  // Actions for local state (used by React Query mutations for optimistic updates)
+  addItem: (item: { id: string; quantity?: number; price?: number; size?: string; availableSizes?: string[] } & Record<string, unknown>) => void;
   updateQuantity: (productId: string, qty: number) => void;
+  updateSizeQuantity: (productId: string, size: string, qty: number) => void; // Update specific size quantity
   removeItem: (productId: string) => void;
   clearCart: () => void;
-
-  fetchCart: () => Promise<void>;
-  syncToServer: () => Promise<void>;
-
-  handleAuthStateChange: (isAuthenticated: boolean, userId?: string | null) => Promise<void>;
-  markMergedFor: (userId: string | null) => void;
-  mergeCart: (guestCart: CartLine[]) => Promise<void>;
-  getGuestCart: () => CartLine[];
-  clearGuestCart: () => void;
-  refreshCartWithFullData: () => Promise<void>;
-  refreshCart: () => Promise<void>;
-
+  setItems: (items: CartLine[]) => void;
+  setCartId: (cartId: string | null) => void;
+  setIsGuestCart: (isGuest: boolean) => void;
   setLoading: (loading: boolean) => void;
-  setMerging: (merging: boolean) => void;
-  setRefreshing: (refreshing: boolean) => void;
   setError: (error: string | null) => void;
+  setIsMerging: (merging: boolean) => void;
+
+  // Guest cart helpers (localStorage-based, for non-authenticated users)
+  getGuestCart: () => CartLine[];
+  saveGuestCart: (items: CartLine[]) => void;
+  clearGuestCart: () => void;
 };
 
-/** ---------- SafeJSONStorage (with stale snapshot guard) ---------- */
+/** ---------- Guest Cart LocalStorage Helpers ---------- */
 
-const memoryFallback = new Map<string, string>();
+const GUEST_CART_KEY = 'guest_cart';
 
-// Helper function to debounce localStorage saves and handle quota issues
-const saveGuestCartDebounced = (items: CartLine[]) => {
+function loadGuestCartFromStorage(): CartLine[] {
+  if (typeof window === 'undefined') return [];
+  
+  try {
+    const data = localStorage.getItem(GUEST_CART_KEY);
+    if (!data) return [];
+    
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn('Failed to load guest cart from localStorage:', error);
+    return [];
+  }
+}
+
+function saveGuestCartToStorage(items: CartLine[]): void {
   if (typeof window === 'undefined') return;
   
-  // Clear any existing timeout
-  if (window.guestCartSaveTimeout) {
-    clearTimeout(window.guestCartSaveTimeout);
-  }
-  
-  // Debounce the save operation
-  window.guestCartSaveTimeout = setTimeout(() => {
-    try {
-      localStorage.setItem('guest_cart', JSON.stringify(items));
-    } catch (error: any) {
-      console.warn('Failed to save guest cart to localStorage:', error);
-      // If quota exceeded, try to clear old data and retry
-      if (error?.name === 'QuotaExceededError') {
-        try {
-          // Clear some old localStorage data
-          const keysToRemove = ['old_cart', 'temp_cart', 'backup_cart'];
-          keysToRemove.forEach(key => localStorage.removeItem(key));
-          // Retry with smaller data (only essential fields)
-          const compactItems = items.map(item => ({
-            id: item.id,
-            quantity: item.quantity,
-            price: item.price
-          }));
-          localStorage.setItem('guest_cart', JSON.stringify(compactItems));
-        } catch (retryError) {
-          console.error('Failed to save guest cart even after cleanup:', retryError);
-        }
-      }
-    }
-  }, 500); // 500ms debounce
-};
-let usingMemoryFallback = false;
-
-function storageAvailable(): boolean {
   try {
-    if (typeof window === 'undefined') return false;
-    const test = '__z_cart_test__';
-    window.localStorage.setItem(test, test);
-    window.localStorage.removeItem(test);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function cleanupLocalStorageForSpace() {
-  try {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (!k) continue;
-      if (k.startsWith('cache_') || k.startsWith('temp_') || k.endsWith('_tmp')) {
-        keysToRemove.push(k);
-      }
-    }
-    keysToRemove.forEach((k) => window.localStorage.removeItem(k));
-  } catch {
-    /* ignore */
-  }
-}
-
-// Best-effort removal to prevent stale rehydration when falling back
-function tryRemoveLocalStorageKey(key: string) {
-  try {
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(key);
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
-const SafeJSONStorage = {
-  getItem(key: string): string | null {
-    if (typeof window === 'undefined') return null;
-    if (usingMemoryFallback || !storageAvailable()) {
-      return memoryFallback.get(key) ?? null;
-    }
-    try {
-      return window.localStorage.getItem(key);
-    } catch {
-      usingMemoryFallback = true;
-      return memoryFallback.get(key) ?? null;
-    }
-  },
-
-  setItem(key: string, value: string): void {
-    if (typeof window === 'undefined') {
-      memoryFallback.set(key, value);
-      usingMemoryFallback = true;
-      return;
-    }
-
-    if (usingMemoryFallback || !storageAvailable()) {
-      memoryFallback.set(key, value);
-      usingMemoryFallback = true;
-      // prevent stale snapshot resurrection on next reload
-      tryRemoveLocalStorageKey(key);
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(key, value);
-    } catch {
-      cleanupLocalStorageForSpace();
+    localStorage.setItem(GUEST_CART_KEY, JSON.stringify(items));
+  } catch (error) {
+    console.warn('Failed to save guest cart to localStorage:', error);
+    // If quota exceeded, try to save minimal data
+    if ((error as any)?.name === 'QuotaExceededError') {
       try {
-        window.localStorage.setItem(key, value);
+        const compactItems = items.map(item => ({
+          id: item.id,
+          quantity: item.quantity,
+          price: item.price
+        }));
+        localStorage.setItem(GUEST_CART_KEY, JSON.stringify(compactItems));
       } catch {
-        memoryFallback.set(key, value);
-        usingMemoryFallback = true;
-        // prevent stale snapshot resurrection on next reload
-        tryRemoveLocalStorageKey(key);
-        if (process.env.NODE_ENV !== 'production') {
-          // eslint-disable-next-line no-console
-          console.warn(
-            '[cart] localStorage full/unavailable; using in-memory fallback. Cleared stale local snapshot.'
-          );
-        }
+        console.error('Failed to save even compact guest cart');
       }
     }
-  },
-
-  removeItem(key: string): void {
-    // Always clear memory copy
-    memoryFallback.delete(key);
-
-    if (typeof window === 'undefined') {
-      usingMemoryFallback = true;
-      return;
-    }
-
-    // Also clear localStorage copy (even in fallback) to avoid stale resurrection
-    tryRemoveLocalStorageKey(key);
-
-    if (usingMemoryFallback || !storageAvailable()) {
-      return;
-    }
-    try {
-      window.localStorage.removeItem(key);
-    } catch {
-      usingMemoryFallback = true;
-    }
-  },
-};
-
-/** ---------- Helpers: array equality (by id, quantity, price) ---------- */
-
-function normalize(lines: Array<{ id: string; quantity: number; price?: number }>) {
-  return [...lines]
-    .map(l => ({
-      id: String(l.id),
-      quantity: Math.max(1, Math.floor(l.quantity ?? 1)),
-      price: typeof l.price === 'number' ? l.price : undefined
-    }))
-    .sort((a, b) => a.id.localeCompare(b.id));
-}
-
-function sameLines(
-  a: Array<{ id: string; quantity: number; price?: number }>,
-  b: Array<{ id: string; quantity: number; price?: number }>
-) {
-  const A = normalize(a);
-  const B = normalize(b);
-  if (A.length !== B.length) return false;
-  for (let i = 0; i < A.length; i++) {
-    if (A[i].id !== B[i].id) return false;
-    if (A[i].quantity !== B[i].quantity) return false;
-    const ap = typeof A[i].price === 'number' ? A[i].price : undefined;
-    const bp = typeof B[i].price === 'number' ? B[i].price : undefined;
-    if (ap !== bp) return false;
   }
-  return true;
 }
 
-/** ---------- Store ---------- */
+function clearGuestCartFromStorage(): void {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    localStorage.removeItem(GUEST_CART_KEY);
+  } catch (error) {
+    console.warn('Failed to clear guest cart from localStorage:', error);
+  }
+}
 
-export const useCartStore = create<CartState>()(
-  persist(
-    (set, get) => ({
-      cartId: null,
-      items: [],
-      isLoading: false,
-      isMerging: false,
-      isRefreshing: false,
-      error: null,
-      isGuestCart: true,
+/** ---------- Store (No persist middleware - cleaner!) ---------- */
 
-      hasHydratedCart: false,
-      mergedForUserId: null,
+export const useCartStore = create<CartState>((set, get) => ({
+  items: [],
+  cartId: null,
+  isGuestCart: true,
+  isLoading: false,
+  error: null,
+  isMerging: false,
+  guestCartStorageKey: GUEST_CART_KEY,
 
-      addItem: (item) => {
-        set((state) => {
-          const quantity = Math.max(1, Math.floor(item.quantity ?? 1));
-          const id = String(item.id);
-          const idx = state.items.findIndex((i) => i.id === id);
+  // Local state management (for optimistic updates and guest cart)
+  addItem: (item) => {
+    set((state) => {
+      const quantity = Math.max(1, Math.floor(item.quantity ?? 1));
+      const id = String(item.id);
+      const size = item.size as string | undefined;
+      const availableSizes = item.availableSizes as string[] | undefined;
+      const idx = state.items.findIndex((i) => i.id === id);
 
-          let updatedItems;
-          if (idx >= 0) {
-            updatedItems = [...state.items];
-            updatedItems[idx] = {
-              ...updatedItems[idx],
-              quantity: updatedItems[idx].quantity + quantity,
-              price: item.price ?? updatedItems[idx].price,
-              name: (item.name as string) ?? updatedItems[idx].name,
-              image: (item.image as string) ?? updatedItems[idx].image,
-            };
-          } else {
-            const newItem: CartLine = {
-              id,
-              quantity,
-              price: item.price,
-              name: item.name as string,
-              image: item.image as string,
-            };
-            updatedItems = [...state.items, newItem];
-          }
-
-          // Save to guest cart if not authenticated (debounced)
-          if (state.isGuestCart) {
-            saveGuestCartDebounced(updatedItems);
-          }
-
-          return { items: updatedItems };
-        });
-      },
-
-      updateQuantity: (productId, qty) => {
-        set((state) => {
-          const quantity = Math.max(0, Math.floor(qty));
-          let updatedItems;
-          
-          if (quantity <= 0) {
-            updatedItems = state.items.filter((i) => i.id !== productId);
-          } else {
-            updatedItems = state.items.map((i) => (i.id === productId ? { ...i, quantity } : i));
-          }
-
-          // Save to guest cart if not authenticated (debounced)
-          if (state.isGuestCart) {
-            saveGuestCartDebounced(updatedItems);
-          }
-
-          return { items: updatedItems };
-        });
-      },
-
-      removeItem: (productId) => {
-        set((state) => {
-          const updatedItems = state.items.filter((i) => i.id !== productId);
-          
-          // Save to guest cart if not authenticated (debounced)
-          if (state.isGuestCart) {
-            saveGuestCartDebounced(updatedItems);
-          }
-          
-          return { items: updatedItems };
-        });
-      },
-
-      clearCart: () => {
-        // Save current items as guest cart before clearing (debounced)
-        const { items } = get();
-        if (items.length > 0) {
-          saveGuestCartDebounced(items);
+      let updatedItems: CartLine[];
+      if (idx >= 0) {
+        // Update existing item - merge size into breakdown
+        updatedItems = [...state.items];
+        const existingItem = updatedItems[idx];
+        
+        // Get or create size breakdown
+        const existingBreakdown = existingItem.sizeBreakdown || {};
+        const newBreakdown: SizeBreakdown = { ...existingBreakdown };
+        
+        if (size) {
+          // Add quantity to the specified size
+          newBreakdown[size] = (newBreakdown[size] || 0) + quantity;
+        } else {
+          // No size specified, add to 'default' or existing behavior
+          newBreakdown['default'] = (newBreakdown['default'] || 0) + quantity;
         }
         
-        set({ items: [], cartId: null, isGuestCart: true, mergedForUserId: null });
-      },
-
-      fetchCart: async () => {
-        set({ isLoading: true, error: null });
-        try {
-          const cart: Cart | null = await getMyCart();
-          if (cart) {
-            const serverItems = mapServerCartToStoreItems(cart);
-            const currentItems = get().items;
-
-            const mergedItems = serverItems.map((serverItem) => {
-              const local = currentItems.find((l) => l.id === serverItem.id);
-              return {
-                ...serverItem,
-                name: serverItem.name || local?.name,
-                image: serverItem.image || local?.image,
-                price: typeof serverItem.price === 'number' ? serverItem.price : local?.price,
-              };
-            });
-
-            set({
-              cartId: (cart as any)._id || (cart as any).id,
-              items: mergedItems,
-              isGuestCart: false,
-              error: null,
-            });
-          } else {
-            set({ cartId: null, isGuestCart: true, error: null });
-          }
-        } catch (error: any) {
-          if (error?.status === 401 || error?.status === 403) {
-            set({ cartId: null, isGuestCart: true, error: null });
-          } else {
-            set({ error: 'Failed to fetch cart' });
-          }
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-
-      syncToServer: async () => {
-        const { cartId, items } = get();
-        if (!cartId || items.length === 0) return;
-        try {
-          const serverItems = items.map((i) => ({
-            productId: i.id,
-            quantity: i.quantity,
-            price: i.price,
-          }));
-          await replaceCartProducts(cartId, serverItems);
-          set({ error: null });
-        } catch {
-          set({ error: 'Failed to sync cart' });
-        }
-      },
-
-      markMergedFor: (userId) => set({ mergedForUserId: userId }),
-
-      handleAuthStateChange: async (isAuthenticated: boolean, userId?: string | null) => {
-        if (!isAuthenticated) {
-          set({
-            cartId: null,
-            isGuestCart: true,
-            error: null,
-          });
-          return;
-        }
-
-        const uid = userId ?? undefined;
-        const { items: guestItems, mergedForUserId } = get();
-
-        try {
-          // 1) Fetch existing server cart (cookie-authenticated)
-          const serverCart = await getMyCart(uid);
-          const serverItems = serverCart ? mapServerCartToStoreItems(serverCart) : [];
-
-          // 2) Merge guest + server (server precedence for price if present)
-          const merged = deduplicateCartItems([...serverItems, ...guestItems]);
-
-          // 3) Only write if merged differs from server contents
-          if (!sameLines(merged, serverItems)) {
-            if (serverCart && (serverCart._id || serverCart.id)) {
-              await replaceCartProducts(serverCart._id || serverCart.id, merged.map(i => ({
-                productId: i.id,
-                quantity: i.quantity,
-                price: i.price,
-              })));
-            } else if (merged.length > 0) {
-              await addLinesToMyCart(merged.map(i => ({
-                productId: i.id,
-                quantity: i.quantity,
-                price: i.price,
-              })));
-            }
-          }
-
-          // 4) Mark merged to avoid noisy repeats (even if uid is undefined)
-          if (uid) {
-            if (mergedForUserId !== uid) get().markMergedFor(uid);
-          } else {
-            if (mergedForUserId !== '__merged__') get().markMergedFor('__merged__');
-          }
-        } catch (e) {
-          console.error('Guest->server cart merge failed:', e);
-          // continue to fetch server cart
-        }
-
-        // 5) Refresh to reflect server truth
-        await get().fetchCart();
-      },
-
-      mergeCart: async (guestCart: CartLine[]) => {
-        const { items: currentItems, cartId, mergedForUserId } = get();
+        // Calculate new total and generate product note
+        const newTotal = getTotalFromBreakdown(newBreakdown);
+        const newProductNote = generateProductNote(newBreakdown);
         
-        // Skip if already merged for this user or no guest items to merge
-        if (mergedForUserId || guestCart.length === 0) {
-          return;
+        // Merge available sizes (keep existing + add new ones)
+        const mergedAvailableSizes = Array.from(new Set([
+          ...(existingItem.availableSizes || []),
+          ...(availableSizes || [])
+        ]));
+        
+        updatedItems[idx] = {
+          ...existingItem,
+          quantity: newTotal,
+          price: item.price ?? existingItem.price,
+          name: (item.name as string) ?? existingItem.name,
+          image: (item.image as string) ?? existingItem.image,
+          sizeBreakdown: newBreakdown,
+          productNote: newProductNote,
+          availableSizes: mergedAvailableSizes.length > 0 ? mergedAvailableSizes : existingItem.availableSizes,
+        };
+      } else {
+        // Add new item with size breakdown
+        const sizeBreakdown: SizeBreakdown = {};
+        if (size) {
+          sizeBreakdown[size] = quantity;
+        } else {
+          sizeBreakdown['default'] = quantity;
         }
+        
+        const newItem: CartLine = {
+          id,
+          quantity,
+          price: item.price,
+          name: item.name as string,
+          image: item.image as string,
+          sizeBreakdown,
+          productNote: generateProductNote(sizeBreakdown),
+          availableSizes: availableSizes || [],
+        };
+        updatedItems = [...state.items, newItem];
+      }
 
-        try {
-          set({ isMerging: true, error: null });
+      // Save to localStorage if guest
+      if (state.isGuestCart) {
+        saveGuestCartToStorage(updatedItems);
+      }
 
-          // 1) Fetch existing server cart
-          const { getMyCart, mapServerCartToStoreItems, replaceCartProducts, addLinesToMyCart } = await import('@/services/cart');
-          const serverCart = await getMyCart();
-          const serverItems = serverCart ? mapServerCartToStoreItems(serverCart) : [];
+      return { items: updatedItems };
+    });
+  },
 
-          // 2) Merge guest + server items (idempotent)
-          const { deduplicateCartItems } = await import('@/services/cart');
-          const merged = deduplicateCartItems([...serverItems, ...guestCart]);
-
-          // 3) Only write to server if merged differs from server contents
-          if (merged.length !== serverItems.length || !merged.every((item, index) => 
-            serverItems[index] && 
-            serverItems[index].id === item.id && 
-            serverItems[index].quantity === item.quantity
-          )) {
-            if (serverCart && (serverCart._id || serverCart.id)) {
-              // Update existing server cart
-              await replaceCartProducts(serverCart._id || serverCart.id, merged.map(i => ({
-                productId: i.id,
-                quantity: i.quantity,
-                price: i.price,
-              })));
-            } else if (merged.length > 0) {
-              // Create new server cart
-              await addLinesToMyCart(merged.map(i => ({
-                productId: i.id,
-                quantity: i.quantity,
-                price: i.price,
-              })));
-            }
-          }
-
-          // 4) Update local state with merged items
-          set({
-            items: merged,
-            cartId: serverCart ? (serverCart._id || serverCart.id) : null,
-            isGuestCart: false,
-            mergedForUserId: '__merged__',
-            isMerging: false,
-            error: null,
-          });
-
-          // 5) Clear guest cart from localStorage after successful merge
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('guest_cart');
-            // Clear any pending save timeout
-            if (window.guestCartSaveTimeout) {
-              clearTimeout(window.guestCartSaveTimeout);
-              window.guestCartSaveTimeout = undefined;
-            }
-          }
-
-          // 6) Refresh cart with full data to get images and complete product info
-          try {
-            set({ isRefreshing: true });
-            await get().refreshCartWithFullData();
-          } catch (refreshError) {
-            console.warn('Failed to refresh cart with full data after merge:', refreshError);
-            // Don't fail the entire merge if refresh fails
-          } finally {
-            set({ isRefreshing: false });
-          }
-
-        } catch (error) {
-          console.error('Cart merge failed:', error);
-          set({ 
-            error: 'Failed to merge cart. Please try again.',
-            isMerging: false,
-            isRefreshing: false
-          });
+  updateQuantity: (productId, qty) => {
+    set((state) => {
+      const quantity = Math.max(0, Math.floor(qty));
+      let updatedItems: CartLine[];
+      
+      if (quantity <= 0) {
+        updatedItems = state.items.filter((i) => i.id !== productId);
+      } else {
+        updatedItems = state.items.map((i) => {
+          if (i.id !== productId) return i;
           
-          // Retry logic with exponential backoff
-          setTimeout(() => {
-            const { mergedForUserId } = get();
-            if (!mergedForUserId) {
-              get().mergeCart(guestCart);
-            }
-          }, 2000);
-        } finally {
-          set({ isMerging: false, isRefreshing: false });
-        }
-      },
-
-      getGuestCart: () => {
-        if (typeof window === 'undefined') return [];
-        
-        try {
-          const guestCartData = localStorage.getItem('guest_cart');
-          return guestCartData ? JSON.parse(guestCartData) : [];
-        } catch (error) {
-          console.error('Failed to parse guest cart:', error);
-          return [];
-        }
-      },
-
-      clearGuestCart: () => {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('guest_cart');
-          // Clear any pending save timeout
-          if (window.guestCartSaveTimeout) {
-            clearTimeout(window.guestCartSaveTimeout);
-            window.guestCartSaveTimeout = undefined;
-          }
-        }
-      },
-
-      refreshCartWithFullData: async () => {
-        const { cartId, isGuestCart } = get();
-        
-        // Only refresh if user is authenticated and has a cart
-        if (isGuestCart || !cartId) return;
-        
-        try {
-          set({ isRefreshing: true, error: null });
-          
-          // Use the same getMyCart utility for consistency and proper token handling
-          const { getMyCart, mapServerCartToStoreItems } = await import('@/services/cart');
-          const serverCart = await getMyCart();
-          
-          if (serverCart) {
-            // Map the server cart data to store items
-            const fullItems = mapServerCartToStoreItems(serverCart);
+          // If there's a size breakdown, scale all sizes proportionally
+          if (i.sizeBreakdown && Object.keys(i.sizeBreakdown).length > 0) {
+            const currentTotal = i.quantity;
+            const ratio = quantity / currentTotal;
+            const newBreakdown: SizeBreakdown = {};
             
-            set({
-              items: fullItems,
-              cartId: serverCart._id || serverCart.id,
-              error: null
+            // Scale each size, ensuring at least 1 for sizes that had quantity
+            let allocatedQty = 0;
+            const sizes = Object.entries(i.sizeBreakdown).filter(([, q]) => q > 0);
+            
+            sizes.forEach(([size, oldQty], index) => {
+              if (index === sizes.length - 1) {
+                // Last size gets the remainder to ensure total matches
+                newBreakdown[size] = quantity - allocatedQty;
+              } else {
+                const scaledQty = Math.max(1, Math.round(oldQty * ratio));
+                newBreakdown[size] = scaledQty;
+                allocatedQty += scaledQty;
+              }
             });
+            
+            return {
+              ...i,
+              quantity,
+              sizeBreakdown: newBreakdown,
+              productNote: generateProductNote(newBreakdown),
+            };
           }
-        } catch (error) {
-          console.error('Failed to refresh cart with full data:', error);
-          set({ error: 'Failed to refresh cart data' });
-        } finally {
-          set({ isRefreshing: false });
+          
+          return { ...i, quantity };
+        });
+      }
+
+      // Save to localStorage if guest
+      if (state.isGuestCart) {
+        saveGuestCartToStorage(updatedItems);
+      }
+
+      return { items: updatedItems };
+    });
+  },
+
+  // Update quantity for a specific size within a product
+  updateSizeQuantity: (productId, size, qty) => {
+    set((state) => {
+      const quantity = Math.max(0, Math.floor(qty));
+      
+      const updatedItems = state.items.map((item) => {
+        if (item.id !== productId) return item;
+        
+        const breakdown = { ...(item.sizeBreakdown || {}) };
+        
+        if (quantity <= 0) {
+          // Remove this size from breakdown
+          delete breakdown[size];
+        } else {
+          breakdown[size] = quantity;
         }
-      },
+        
+        // Calculate new total
+        const newTotal = getTotalFromBreakdown(breakdown);
+        
+        // If no sizes left, item will be filtered out
+        if (newTotal <= 0) {
+          return { ...item, quantity: 0, sizeBreakdown: {}, productNote: '' };
+        }
+        
+        return {
+          ...item,
+          quantity: newTotal,
+          sizeBreakdown: breakdown,
+          productNote: generateProductNote(breakdown),
+        };
+      }).filter((item) => item.quantity > 0);
 
-      refreshCart: async () => {
-        // Simple wrapper that calls refreshCartWithFullData
-        await get().refreshCartWithFullData();
-      },
+      // Save to localStorage if guest
+      if (state.isGuestCart) {
+        saveGuestCartToStorage(updatedItems);
+      }
 
-      setLoading: (loading: boolean) => set({ isLoading: loading }),
-      setMerging: (merging: boolean) => set({ isMerging: merging }),
-      setRefreshing: (refreshing: boolean) => set({ isRefreshing: refreshing }),
-      setError: (error: string | null) => set({ error }),
-    }),
-    {
-      name: 'cart',
-      storage: createJSONStorage(() => SafeJSONStorage as unknown as Storage),
-      partialize: (state) => ({
-        items: state.items,
-        isGuestCart: state.isGuestCart,
-        cartId: state.cartId,
-        mergedForUserId: state.mergedForUserId,
-      }),
-      onRehydrateStorage: () => (state) => {
-        if (state) state.hasHydratedCart = true;
-      },
-      version: 2, // bump to invalidate any stale snapshots already saved
+      return { items: updatedItems };
+    });
+  },
+
+  removeItem: (productId) => {
+    set((state) => {
+      const updatedItems = state.items.filter((i) => i.id !== productId);
+      
+      // Save to localStorage if guest
+      if (state.isGuestCart) {
+        saveGuestCartToStorage(updatedItems);
+      }
+      
+      return { items: updatedItems };
+    });
+  },
+
+  clearCart: () => {
+    const { isGuestCart } = get();
+    
+    if (isGuestCart) {
+      clearGuestCartFromStorage();
     }
-  )
-);
+    
+    set({ items: [], cartId: null });
+  },
+
+  setItems: (items) => set({ items }),
+  setCartId: (cartId) => set({ cartId }),
+  setIsGuestCart: (isGuest) => set({ isGuestCart: isGuest }),
+  setLoading: (loading) => set({ isLoading: loading }),
+  setError: (error) => set({ error }),
+  setIsMerging: (merging) => set({ isMerging: merging }),
+
+  // Guest cart helpers
+  getGuestCart: () => {
+    return loadGuestCartFromStorage();
+  },
+
+  saveGuestCart: (items) => {
+    saveGuestCartToStorage(items);
+    set({ items });
+  },
+
+  clearGuestCart: () => {
+    clearGuestCartFromStorage();
+    set({ items: [], isGuestCart: true });
+  },
+}));
+
+/** ---------- Selector Hooks ---------- */
 
 export const useCartTotalItems = () =>
   useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
@@ -634,28 +412,7 @@ export const useCartSubtotal = () =>
     )
   );
 
-// Smart counter hook with optimistic updates
 export const useCartTotalItemsOptimistic = () => {
   const items = useCartStore((s) => s.items);
-  const isMerging = useCartStore((s) => s.isMerging);
-  const isRefreshing = useCartStore((s) => s.isRefreshing);
-  const getGuestCart = useCartStore((s) => s.getGuestCart);
-  
-  // Calculate current cart count
-  const currentCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  
-  // During merge, show guest cart count (optimistic)
-  if (isMerging) {
-    const guestCart = getGuestCart();
-    const guestCount = guestCart.reduce((sum, item) => sum + item.quantity, 0);
-    return guestCount > 0 ? guestCount : currentCount;
-  }
-  
-  // During refresh, show current count (don't show 0)
-  if (isRefreshing) {
-    return currentCount;
-  }
-  
-  // Normal state - show actual count
-  return currentCount;
+  return items.reduce((sum, item) => sum + item.quantity, 0);
 };

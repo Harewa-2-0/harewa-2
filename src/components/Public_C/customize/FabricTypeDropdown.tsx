@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
-import { useFabricStore } from '@/store/fabricStore';
+import { useFabricsQuery } from '@/hooks/useFabrics';
+import { formatPrice } from '@/utils/currency';
 
 interface FabricTypeDropdownProps {
   selectedFabric: string;
@@ -15,15 +16,8 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Get fabrics from store
-  const { fabrics, isLoading, error, fetchFabrics, hasLoaded } = useFabricStore();
-
-  // Fetch fabrics on mount
-  useEffect(() => {
-    if (!hasLoaded && !isLoading) {
-      fetchFabrics();
-    }
-  }, [fetchFabrics, hasLoaded, isLoading]);
+  // React Query: Fetch fabrics (cached 10min, shared with FabricMenu!)
+  const { data: fabrics = [], isLoading, error } = useFabricsQuery();
 
   // Filter fabrics based on search term
   const filteredFabrics = fabrics.filter(fabric =>
@@ -70,6 +64,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
       
       <div className="relative">
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
           disabled={isLoading}
           className={`w-full px-4 py-3 text-left bg-white border-2 rounded-lg transition-colors flex items-center justify-between ${
@@ -115,7 +110,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
             <div className="max-h-48 overflow-y-auto">
               {error ? (
                 <div className="px-4 py-3 text-red-500 text-sm">
-                  Error loading fabrics: {error}
+                  Error loading fabrics: {error instanceof Error ? error.message : String(error)}
                 </div>
               ) : isLoading ? (
                 <div className="px-4 py-3 flex items-center justify-center">
@@ -129,6 +124,7 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
                   return (
                     <button
                       key={fabric._id}
+                      type="button"
                       onClick={() => handleFabricSelect(fabric._id)}
                       className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
                         selectedFabric === fabric._id ? 'bg-[#D4AF37]/10 text-[#D4AF37]' : 'text-gray-900'
@@ -154,10 +150,10 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
                           {description && (
                             <span className="text-xs text-gray-500 mt-1 truncate">{description}</span>
                           )}
-                          {/* Show price if available */}
-                          {fabric.pricePerMeter && (
+                          {/* Show price if available - using live data from API */}
+                          {fabric.pricePerMeter !== undefined && fabric.pricePerMeter !== null && (
                             <span className="text-xs text-[#D4AF37] font-medium mt-1">
-                              ₦{fabric.pricePerMeter.toLocaleString()}/meter
+                              {formatPrice(fabric.pricePerMeter)} per 6 yards
                             </span>
                           )}
                           {/* Show stock status */}
@@ -207,9 +203,9 @@ const FabricTypeDropdown: React.FC<FabricTypeDropdownProps> = ({
                   {getFabricDescription(selectedFabricOption)}
                 </p>
               )}
-              {selectedFabricOption.pricePerMeter && (
+              {selectedFabricOption.pricePerMeter !== undefined && selectedFabricOption.pricePerMeter !== null && (
                 <p className="text-xs text-[#D4AF37] font-medium mt-1">
-                  ₦{selectedFabricOption.pricePerMeter.toLocaleString()} per meter
+                  {formatPrice(selectedFabricOption.pricePerMeter)} per 6 yards
                 </p>
               )}
             </div>

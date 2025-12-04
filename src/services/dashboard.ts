@@ -1,6 +1,7 @@
 // Dashboard service - transforms real data for dashboard components
 import { getOrders } from './order';
 import { adminGetProducts } from './products';
+import { formatPrice } from '@/utils/currency';
 import { MetricData, Product, Transaction, Order, ChartData } from '../components/Protected/admin/pages/types/dashboard';
 
 // Transform orders to recent orders format
@@ -40,7 +41,7 @@ export function transformOrdersToRecent(orders: any[]): Order[] {
         id: order._id,
         customer: customerName,
         status,
-        amount: `NGN${Number(order.amount || order.total || 0).toLocaleString()}`
+        amount: formatPrice(Number(order.amount || order.total || 0))
       };
     });
 }
@@ -68,7 +69,7 @@ export function transformOrdersToTransactions(orders: any[]): Transaction[] {
       return {
         id: order._id,
         issuedDate,
-        total: `NGN${Number(order.amount || order.total || 0).toLocaleString()}`,
+        total: formatPrice(Number(order.amount || order.total || 0)),
         status: order.status || 'pending'
       };
     });
@@ -89,7 +90,7 @@ export function transformProductsToPopular(products: any[]): Product[] {
         : '#UNKNOWN';
 
       const price = Number(product.price || 0);
-      const priceFormatted = `NGN${price.toLocaleString()}`;
+      const priceFormatted = formatPrice(price);
 
       // Handle image - could be array or single string
       let image = undefined;
@@ -206,16 +207,20 @@ export async function getDashboardData() {
   try {
     //console.log('📊 Fetching dashboard data...');
     
-    const [orders, products] = await Promise.all([
+    const [orders, productsResponse] = await Promise.all([
       getOrders().catch(err => {
         console.error('Error fetching orders:', err);
         return []; // Return empty array on error
       }),
-      adminGetProducts().catch(err => {
+      adminGetProducts({ page: 1, limit: 6 }).catch(err => {
         console.error('Error fetching products:', err);
         return []; // Return empty array on error
       })
     ]);
+
+    // Handle paginated response or legacy array
+    const products = 'items' in productsResponse ? productsResponse.items : productsResponse;
+    const productsArray = Array.isArray(products) ? products : [];
 
     //console.log('✅ Raw data received:', { 
       //ordersCount: orders.length, 
@@ -225,7 +230,7 @@ export async function getDashboardData() {
     const dashboardData = {
       recentOrders: transformOrdersToRecent(orders),
       lastTransactions: transformOrdersToTransactions(orders),
-      popularProducts: transformProductsToPopular(products),
+      popularProducts: transformProductsToPopular(productsArray),
       todayOrderChart: transformOrdersToChart(orders),
     };
 

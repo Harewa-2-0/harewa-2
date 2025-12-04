@@ -175,9 +175,10 @@ export default function Header() {
               
               {/* Mobile menu - starts from top of screen */}
               <motion.div
-                className="md:hidden fixed top-0 left-0 right-0 w-full bg-black px-4 pb-8 text-white text-base font-medium flex flex-col overflow-y-auto z-[101]"
+                className="md:hidden fixed top-0 left-0 right-0 w-full bg-black px-5 pb-6 text-white text-base font-medium flex flex-col z-[101]"
                 style={{
                   height: '100vh',
+                  maxHeight: '100vh',
                 }}
                 initial={{ x: '-100%' }}
                 animate={{ x: 0 }}
@@ -185,58 +186,93 @@ export default function Header() {
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
               >
                 {/* Mobile Header inside menu */}
-                <div className="flex items-center justify-between py-3 border-b border-gray-700 mb-6">
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 }}
+                  className="flex items-center justify-between py-3 border-b border-gray-700 mb-4 flex-shrink-0"
+                >
                   <Link href="/home" onClick={closeMobileNav}>
                     <Image src="/logo.webp" alt="Harewa Logo" width={120} height={40} priority />
                   </Link>
                   <button
                     onClick={closeMobileNav}
-                    className="text-white"
+                    className="text-white p-1"
                     aria-label="Close navigation"
                   >
                     <X size={30} />
                   </button>
+                </motion.div>
+
+                {/* Navigation Links - Scrollable when expandables open */}
+                <div className="flex-1 overflow-y-auto min-h-0">
+                  <div className="flex flex-col space-y-4 pt-4">
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: 0.15 }}
+                    >
+                      <FabricMenu isMobile={true} />
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: 0.2 }}
+                    >
+                      <AboutMenu isMobile={true} />
+                    </motion.div>
+                    {navItems.map(({ label, href }, index) => (
+                      <motion.div
+                        key={label}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.25 + index * 0.05 }}
+                      >
+                        <Link
+                          href={href}
+                          onClick={closeMobileNav}
+                          className="block py-2.5 px-2 hover:text-[#FFE181] text-base transition-colors"
+                        >
+                          {label}
+                        </Link>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Navigation Links */}
-                <div className="flex flex-col space-y-8 pt-2">
-                  <FabricMenu isMobile={true} />
-                  <AboutMenu isMobile={true} />
-                  {navItems.map(({ label, href }) => (
-                    <Link key={label} href={href} onClick={closeMobileNav} className="block hover:text-[#FFE181] text-lg">
-                      {label}
-                    </Link>
-                  ))}
-                </div>
-
-                {/* Auth Buttons & CTA */}
-                <div className="mt-auto flex flex-col space-y-3 pt-8">
+                {/* Auth Buttons & CTA - Always at bottom */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.4 }}
+                  className="flex flex-col space-y-3 pt-6 flex-shrink-0 border-t border-gray-700 mt-4"
+                >
                   {isReady && !isLoggedIn && (
-                    <div className="flex gap-4">
+                    <div className="flex gap-3">
                       <Link
                         href="/signup"
                         onClick={closeMobileNav}
-                        className="flex-1 border border-white text-[#D4AF37] text-center px-4 py-2 rounded-full hover:bg-white hover:text-black transition-colors"
+                        className="flex-1 border border-white text-[#D4AF37] text-center px-4 py-3 rounded-full hover:bg-white hover:text-black transition-colors text-sm font-medium"
                       >
                         Sign Up
                       </Link>
                       <Link
                         href="/signin"
                         onClick={closeMobileNav}
-                        className="flex-1 bg-[#FFE181] text-black text-center px-4 py-2 rounded-full hover:bg-yellow-200 transition-colors"
+                        className="flex-1 bg-[#FFE181] text-black text-center px-4 py-3 rounded-full hover:bg-yellow-200 transition-colors text-sm font-medium"
                       >
-                        Login <ArrowUpRight size={16} className="inline ml-1" />
+                        Login <ArrowUpRight size={14} className="inline ml-1" />
                       </Link>
                     </div>
                   )}
                   <Link
-                    href="/customize"
+                    href="/shop"
                     onClick={closeMobileNav}
-                    className="bg-[#F4D35E] text-black text-center text-sm py-3 rounded-full hover:bg-[#F4D35E]/90 transition-colors"
+                    className="bg-[#F4D35E] text-black text-center text-sm py-3 rounded-full hover:bg-[#F4D35E]/90 transition-colors font-medium"
                   >
                     Customise Your Fabric
                   </Link>
-                </div>
+                </motion.div>
               </motion.div>
             </>
           )}

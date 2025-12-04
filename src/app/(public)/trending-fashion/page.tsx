@@ -1,19 +1,8 @@
 'use client';
 
 import { TrendingFashionGallery } from '@/components/Public_C/trending_fashion_gallery';
-import { useRouter } from 'next/navigation';
 
 export default function TrendingFashionPage() {
-  const router = useRouter();
-
-  const handleProductClick = (product: any) => {
-    // Navigate to product detail page
-    const productId = product._id || product.id;
-    if (productId) {
-      router.push(`/products/${productId}`);
-    }
-  };
-
   const handleCategoryChange = (category: string) => {
     // You can add analytics or other logic here
     console.log('Category changed to:', category);
@@ -35,9 +24,8 @@ export default function TrendingFashionPage() {
         </div>
       </div>
 
-      {/* Trending Fashion Gallery */}
+      {/* Trending Fashion Gallery - Products are not clickable */}
       <TrendingFashionGallery
-        onProductClick={handleProductClick}
         onCategoryChange={handleCategoryChange}
       />
     </div>

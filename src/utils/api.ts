@@ -1,7 +1,7 @@
 // src/utils/api.ts
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
-const DEFAULT_TIMEOUT = 30000; // Increased to 30s
+const DEFAULT_TIMEOUT = 60000; // Increased to 60s for initial load (indexes being created)
 
 export type Json =
   | string

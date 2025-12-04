@@ -1,10 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useProfileQuery } from '@/hooks/useProfile';
+import { clearUserQueries } from '@/utils/clearUserQueries';
 
 type UserMenuProps = {
   desktop?: boolean; // true for desktop header, false for mobile
@@ -17,8 +21,14 @@ export default function UserMenu({
   className = '',
   getAvatarUrl,
 }: UserMenuProps) {
-  const { user, logout } = useAuthStore();
+  const { user, logout, isAuthenticated } = useAuthStore();
   const [open, setOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  
+  // Fetch profile data via React Query - same pattern as desktop-sidebar
+  const { data: profile } = useProfileQuery(isAuthenticated);
 
   if (!user) return null;
 
@@ -28,58 +38,54 @@ export default function UserMenu({
   const chipPadX = desktop ? 'px-2.5' : 'px-2';
   const chipPadY = desktop ? 'py-1.5' : 'py-1';
 
-  // Prefer explicit prop > server avatar; else no URL (fall back to initial)
-  const resolvedAvatarUrl = useMemo(() => {
-    const fromProp = getAvatarUrl?.();
-    return fromProp || user?.avatar || null;
-  }, [getAvatarUrl, user?.avatar]);
+  const displayName = profile?.firstName || user?.fullName || user?.name || user?.email || 'User';
+  
+  const firstName = profile?.firstName || user?.fullName?.split(' ')[0] || user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'User';
 
-  const displayName = useMemo(
-    () => user?.fullName || user?.name || user?.email || 'User',
-    [user]
-  );
-
-  const firstName = useMemo(() => {
-    if (user?.fullName) return user.fullName.split(' ')[0];
-    if (user?.name) return user.name.split(' ')[0];
-    if (user?.email) return user.email.split('@')[0];
-    return 'User';
-  }, [user]);
-
-  const initial = useMemo(() => {
-    const src = user?.name || user?.fullName || user?.email || 'U';
-    return src.trim().charAt(0).toUpperCase() || 'U';
-  }, [user]);
+  const initial = (profile?.firstName || user?.name || user?.fullName || user?.email || 'U').trim().charAt(0).toUpperCase() || 'U';
 
   const handleToggle = () => setOpen((v) => !v);
 
   const handleLogout = async () => {
     setOpen(false);
-    await logout();
+    setIsLoggingOut(true);
+    try {
+      // Clear user-specific React Query caches before logout
+      clearUserQueries(queryClient);
+      await logout();
+      // Navigate to home page (preserves React Query cache for public data)
+      router.push('/home');
+      // Keep spinner until navigation completes (component will unmount anyway)
+    } catch (error) {
+      console.error('Logout error:', error);
+      setIsLoggingOut(false);
+    }
   };
 
   return (
     <div className={`relative ${className}`}>
       {/* Mobile: Just the initial, no background at all */}
       {!desktop ? (
-        <motion.button
-          whileHover={{ scale: 1.04 }}
+        <button
           onClick={handleToggle}
           aria-label="User menu"
-          className="focus:outline-none focus:ring-2 focus:ring-[#FDC713] rounded-full"
-          style={{ cursor: 'pointer' }}
+          className="focus:outline-none active:outline-none outline-none rounded-full"
+          style={{ 
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent'
+          }}
         >
           {/* Just the bare circular initial OR avatar */}
           <span
-            className="inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 border-[#D4AF37]"
+            className={`relative inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 transition-colors ${
+              open ? 'border-transparent' : 'border-[#D4AF37]'
+            }`}
             style={{ width: avatarPx, height: avatarPx }}
           >
-            {resolvedAvatarUrl ? (
-              <Image
-                src={resolvedAvatarUrl}
+            {(profile?.profilePicture || user?.avatar) ? (
+              <img
+                src={profile?.profilePicture || user?.avatar}
                 alt={`${firstName}'s avatar`}
-                width={avatarPx}
-                height={avatarPx}
                 className="w-full h-full object-cover rounded-full"
               />
             ) : (
@@ -87,8 +93,14 @@ export default function UserMenu({
                 {initial}
               </span>
             )}
+            {/* Logout spinner overlay */}
+            {isLoggingOut && (
+              <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+              </div>
+            )}
           </span>
-        </motion.button>
+        </button>
       ) : (
         /* Desktop: Curvy background that starts FROM the initial edge */
         <motion.button
@@ -117,21 +129,25 @@ export default function UserMenu({
           <div className="relative flex items-center gap-2 z-10">
             {/* Circular initial OR avatar - completely separate, no background */}
             <span
-              className="inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 border-[#FDC713] group-hover:border-[#D4AF37] transition-colors"
+              className="relative inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 border-[#FDC713] group-hover:border-[#D4AF37] transition-colors"
               style={{ width: avatarPx, height: avatarPx }}
             >
-              {resolvedAvatarUrl ? (
-                <Image
-                  src={resolvedAvatarUrl}
+              {(profile?.profilePicture || user?.avatar) ? (
+                <img
+                  src={profile?.profilePicture || user?.avatar}
                   alt={`${firstName}'s avatar`}
-                  width={avatarPx}
-                  height={avatarPx}
                   className="w-full h-full object-cover rounded-full"
                 />
               ) : (
                 <span className="font-semibold" style={{ fontSize: 14 }}>
                   {initial}
                 </span>
+              )}
+              {/* Logout spinner overlay */}
+              {isLoggingOut && (
+                <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                </div>
               )}
             </span>
 

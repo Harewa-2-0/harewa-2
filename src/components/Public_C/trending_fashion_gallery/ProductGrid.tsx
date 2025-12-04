@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { easeOut } from 'framer-motion';
 import ProductCard from './ProductCard';
@@ -9,16 +9,27 @@ import { Product } from './types';
 interface ProductGridProps {
   products: Product[];
   activeCategory: string;
-  onProductClick?: (product: Product) => void;
   loading?: boolean;
 }
 
 const ProductGrid: React.FC<ProductGridProps> = ({
   products,
   activeCategory,
-  onProductClick,
   loading = false,
 }) => {
+  // Detect mobile viewport
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    
+    checkMobile(); // Check on mount
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -37,11 +48,14 @@ const ProductGrid: React.FC<ProductGridProps> = ({
   };
 
   if (loading) {
+    // Show 5 skeletons on mobile, 9 on desktop
+    const skeletonCount = isMobile ? 5 : 9;
+    
     return (
       <div className="lg:flex-1">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-          {/* Show 9 skeleton cards to match the product limit */}
-          {Array.from({ length: 9 }).map((_, index) => (
+          {/* Show skeleton cards to match the product limit */}
+          {Array.from({ length: skeletonCount }).map((_, index) => (
             <div
               key={index}
               className="bg-white rounded-2xl shadow-lg overflow-hidden animate-pulse"
@@ -108,7 +122,6 @@ const ProductGrid: React.FC<ProductGridProps> = ({
             <ProductCard
               key={product._id}
               product={product}
-              onProductClick={onProductClick}
               variants={itemVariants}
             />
           ))}

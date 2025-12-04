@@ -100,7 +100,7 @@ export function transformToKeyMetrics(
     },
     {
       title: "Total Revenue",
-      value: `NGN${formatValue(totals.revenue)}`,
+      value: `$${formatValue(totals.revenue)}`,
       change: `${Math.abs(revenueChange)}% vs last 7 days`,
       changeType: revenueChange >= 0 ? 'positive' : 'negative',
       icon: React.createElement('div', { className: 'text-green-600' }, '💰'), // Placeholder icon

@@ -7,7 +7,7 @@ import CartUI from '../shop/cart';
 import { useCartActions, useCartOpen } from '@/hooks/use-cart';
 import { useCartStore, useCartTotalItemsOptimistic } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
-import { useShallow } from 'zustand/react/shallow';
+import { usePrefetchCart } from '@/hooks/useCartSync';
 
 type CartButtonProps = {
   size?: number;
@@ -28,16 +28,17 @@ export default function CartButton({
 }: CartButtonProps) {
   // Get count using optimistic counter and loading states
   const count = useCartTotalItemsOptimistic();
-  const { isMerging, isRefreshing } = useCartStore(
-    useShallow((s) => ({ isMerging: s.isMerging, isRefreshing: s.isRefreshing }))
-  );
+  const isMerging = useCartStore((s) => s.isMerging);
   
-  // Show spinner only during merge, not during refresh
+  // Show spinner during merge to prevent showing "0" then updating
   const isLoading = isMerging;
   
   const isOpen = useCartOpen();
   const { openCart, closeCart, openCartForGuest } = useCartActions();
   const { isAuthenticated } = useAuthStore();
+  
+  // Prefetch cart data on hover for faster drawer open
+  const { prefetch } = usePrefetchCart();
 
   const iconSrc = getCartIconUrl ? getCartIconUrl() : '/cartt.png';
 
@@ -54,6 +55,8 @@ export default function CartButton({
       <motion.button
         whileHover={{ scale: 1.12 }}
         onClick={handleOpen}
+        onMouseEnter={prefetch}
+        onFocus={prefetch}
         className={`relative cursor-pointer ${className}`}
         aria-label="Open cart"
       >

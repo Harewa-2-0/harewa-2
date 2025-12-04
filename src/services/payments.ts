@@ -3,7 +3,7 @@
 import { api, json, type MaybeWrapped, unwrap } from '@/utils/api';
 
 /** Payment purchase endpoint payload */
-export type PurchaseType = 'gateway' | 'wallet';
+export type PurchaseType = 'stripe-gateway' | 'paystack-gateway' | 'wallet';
 
 export interface PurchaseRequest {
   type: PurchaseType;
@@ -42,14 +42,14 @@ function timeoutPromise<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 /**
  * Initiate a purchase. The backend decides the provider based on `type`.
- * Body: { type: 'gateway' | 'wallet', orderId }
+ * Body: { type: 'stripe-gateway' | 'paystack-gateway' | 'wallet', orderId }
  */
 export async function purchase(payload: PurchaseRequest): Promise<PurchaseResponse> {
   if (!payload?.orderId || !payload.orderId.trim()) {
     throw new Error('purchase: `orderId` is required.');
   }
-  if (payload.type !== 'gateway' && payload.type !== 'wallet') {
-    throw new Error("purchase: `type` must be 'gateway' or 'wallet'.");
+  if (payload.type !== 'stripe-gateway' && payload.type !== 'paystack-gateway' && payload.type !== 'wallet') {
+    throw new Error("purchase: `type` must be 'stripe-gateway', 'paystack-gateway', or 'wallet'.");
   }
 
   try {
@@ -85,6 +85,9 @@ export function getRedirectUrl(resp: PurchaseResponse | null | undefined): strin
     resp.redirectUrl ||
     resp.authorization_url ||
     resp.data?.redirectUrl ||
+    resp.data?.url ||
+    // Stripe response structure: data.data.url
+    (resp.data as any)?.data?.url ||
     (resp.data as any)?.authorization_url ||
     // Paystack response structure: data.data.authorization_url
     (resp.data as any)?.data?.authorization_url ||
