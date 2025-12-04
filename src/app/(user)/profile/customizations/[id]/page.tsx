@@ -1,17 +1,18 @@
 'use client';
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import ProfileLayoutWithDetail from '@/components/Protected/profile/ProfileLayoutWithDetail';
 
 interface CustomizationDetailProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function CustomizationDetail({ params }: CustomizationDetailProps) {
+  const resolvedParams = React.use(params);
   const { isAuthenticated, hasHydratedAuth, user } = useAuthStore();
   const router = useRouter();
 
@@ -49,5 +50,5 @@ export default function CustomizationDetail({ params }: CustomizationDetailProps
     );
   }
 
-  return <ProfileLayoutWithDetail customizationId={params.id} />;
+  return <ProfileLayoutWithDetail customizationId={resolvedParams.id} />;
 }

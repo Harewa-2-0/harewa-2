@@ -25,31 +25,38 @@ export default function CustomizationsSection() {
     isLoading: isLoadingFabrics 
   } = useFabricsQuery();
 
-  // Filter customizations based on search term
-  const filteredCustomizations = customizations.filter(customization => {
-    if (!searchTerm) return true;
-    
-    const searchLower = searchTerm.toLowerCase();
-    
-    // Search by outfit type
-    if (customization.outfit.toLowerCase().includes(searchLower)) return true;
-    
-    // Search by outfit option
-    if (customization.outfitOption?.toLowerCase().includes(searchLower)) return true;
-    
-    // Search by fabric name (lookup fabric by ID)
-    const fabric = fabrics.find(f => f._id === customization.fabricType);
-    if (fabric?.name?.toLowerCase().includes(searchLower)) return true;
-    if (fabric?.type?.toLowerCase().includes(searchLower)) return true;
-    
-    // Search by preferred color
-    if (customization.preferredColor?.toLowerCase().includes(searchLower)) return true;
-    
-    // Search by size
-    if (customization.size?.toLowerCase().includes(searchLower)) return true;
-    
-    return false;
-  });
+  // Filter and sort customizations (latest first)
+  const filteredCustomizations = customizations
+    .filter(customization => {
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      
+      // Search by outfit type
+      if (customization.outfit.toLowerCase().includes(searchLower)) return true;
+      
+      // Search by outfit option
+      if (customization.outfitOption?.toLowerCase().includes(searchLower)) return true;
+      
+      // Search by fabric name (lookup fabric by ID)
+      const fabric = fabrics.find(f => f._id === customization.fabricType);
+      if (fabric?.name?.toLowerCase().includes(searchLower)) return true;
+      if (fabric?.type?.toLowerCase().includes(searchLower)) return true;
+      
+      // Search by preferred color
+      if (customization.preferredColor?.toLowerCase().includes(searchLower)) return true;
+      
+      // Search by size
+      if (customization.size?.toLowerCase().includes(searchLower)) return true;
+      
+      return false;
+    })
+    .sort((a, b) => {
+      // Sort by createdAt descending (latest first)
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
 
   const handleCustomizationClick = (customizationId: string) => {
     router.push(`/profile/customizations/${customizationId}`);
