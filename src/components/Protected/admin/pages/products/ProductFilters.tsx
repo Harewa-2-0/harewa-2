@@ -30,7 +30,7 @@ export default function ProductFilters({ filters, onFiltersChange }: ProductFilt
             placeholder="Search products..."
             value={filters.search}
             onChange={(e) => handleFilterChange('search', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent text-gray-900 placeholder-gray-500"
           />
         </div>
 
@@ -42,7 +42,7 @@ export default function ProductFilters({ filters, onFiltersChange }: ProductFilt
           <select
             value={filters.category}
             onChange={(e) => handleFilterChange('category', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent text-gray-900"
           >
             <option value="">All Categories</option>
             <option value="dresses">Dresses</option>
@@ -60,7 +60,7 @@ export default function ProductFilters({ filters, onFiltersChange }: ProductFilt
           <select
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent text-gray-900"
           >
             <option value="">All Status</option>
             <option value="active">Active</option>

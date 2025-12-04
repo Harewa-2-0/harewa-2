@@ -2,11 +2,16 @@
 
 import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
-import { Minus, Plus, Trash2, Heart, ChevronDown } from 'lucide-react';
+import { Minus, Plus, Trash2, Heart, ChevronDown, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
+//import { useOrderStore } from '@/store/orderStore';
 import { useToast } from '@/contexts/toast-context';
+import { useUpdateCartQuantityMutation, useRemoveFromCartMutation, cartKeys } from '@/hooks/useCart';
+import { usePendingOrderQuery } from '@/hooks/useOrders';
+import { formatPrice } from '@/utils/currency';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function CartItems() {
   const { addToast } = useToast();
@@ -17,10 +22,17 @@ export default function CartItems() {
   const items = useCartStore((s) => s.items);
   const cartId = useCartStore((s) => s.cartId);
   const isLoading = useCartStore((s) => s.isLoading);
-  const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const removeItem = useCartStore((s) => s.removeItem);
-  const fetchCart = useCartStore((s) => s.fetchCart);
+  const updateQuantityLocal = useCartStore((s) => s.updateQuantity);
+  const removeItemLocal = useCartStore((s) => s.removeItem);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  
+  // React Query hook for pending order
+  const { hasPendingOrder } = usePendingOrderQuery();
+
+  // React Query mutations and client
+  const queryClient = useQueryClient();
+  const updateCartMutation = useUpdateCartQuantityMutation();
+  const removeCartMutation = useRemoveFromCartMutation();
 
   // Items should already be deduplicated by the cartStore, but ensure no duplicates
   const uniqueItems = useMemo(() => {
@@ -36,7 +48,6 @@ export default function CartItems() {
     return Array.from(productMap.values());
   }, [items]);
 
-  const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
   const sizeOptions = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
   const toggleSizeDropdown = (itemId: string) => {
@@ -67,23 +78,22 @@ export default function CartItems() {
       setPendingOperations(prev => new Set(prev).add(id));
       
       // Update local state immediately for optimistic UI
-      updateQuantity(id, qty);
-      
-      // Quantity updated - no toast notification needed
+      updateQuantityLocal(id, qty);
       
       // Sync to server in background if authenticated
       if (isAuthenticated && cartId) {
         try {
-          // Use the truly optimistic UPDATE endpoint that uses local state
-          const { updateProductQuantityOptimistic } = await import('@/services/cart');
-          await updateProductQuantityOptimistic(cartId, id, qty, items);
-          // Don't refetch cart - trust the update operation succeeded
+          await updateCartMutation.mutateAsync({
+            cartId,
+            productId: id,
+            quantity: qty,
+            currentItems: items,
+          });
+          // React Query handles refetch automatically
         } catch (serverError) {
           console.error('Failed to update quantity on server:', serverError);
-          // Revert the local state on server error
-          addToast("Failed to update quantity on server. Please try again.", "error");
-          // Revert to server state by refetching cart
-          await fetchCart();
+          addToast("Failed to update quantity. Changes may not be saved.", "error");
+          // React Query will handle rollback automatically
         }
       }
     } catch (error) {
@@ -101,7 +111,7 @@ export default function CartItems() {
   const onRemove = async (id: string) => {
     try {
       // Update local state immediately for optimistic UI
-      removeItem(id);
+      removeItemLocal(id);
       
       // Show success toast immediately
       addToast('Item removed from cart', 'success');
@@ -109,16 +119,12 @@ export default function CartItems() {
       // Sync to server in background if authenticated
       if (isAuthenticated && cartId) {
         try {
-          // Use the optimistic DELETE endpoint that doesn't fetch cart first
-          const { removeProductFromCartById } = await import('@/services/cart');
-          await removeProductFromCartById(cartId, id);
-          // Don't refetch cart - trust the delete operation succeeded
+          await removeCartMutation.mutateAsync({ cartId, productId: id });
+          // React Query handles refetch automatically
         } catch (serverError) {
           console.error('Failed to remove item from server:', serverError);
-          // Revert the local state on server error
-          addToast('Failed to remove item from server. Please try again.', 'error');
-          // Re-add the item to local state by refetching cart
-          await fetchCart();
+          addToast('Failed to remove item. Changes may not be saved.', 'error');
+          // React Query will handle rollback automatically
         }
       }
     } catch (error) {
@@ -178,14 +184,31 @@ export default function CartItems() {
 
   return (
     <div className="space-y-3 md:space-y-4">
+      {/* Pending Order Warning Banner */}
+      {hasPendingOrder && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800">
+                Active Order in Progress
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                Changes to your cart will automatically update your pending order.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cart Items */}
       <AnimatePresence>
         {uniqueItems.map((item) => {
         const name = item.name || 'Product Name';
         const image = item.image || '/placeholder.png';
         const itemTotal = typeof item.price === 'number' ? item.price * item.quantity : 0;
-        const originalPrice =
-          typeof item.price === 'number' ? item.price * 1.2 * item.quantity : 0; // ensure quantity applied
+        // const originalPrice =
+        //   typeof item.price === 'number' ? item.price * 1.2 * item.quantity : 0; // Fake discount - commented out
         const isFavorite = favoriteItems.has(item.id);
 
         return (
@@ -208,7 +231,7 @@ export default function CartItems() {
                 >
                   <Heart
                     size={12}
-                    className={`${isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-400'} md:w-4 md:h-4`}
+                    className={`${isFavorite ? 'text-[#D4AF37] fill-[#D4AF37]' : 'text-gray-400'} md:w-4 md:h-4`}
                   />
                 </button>
               </div>
@@ -276,14 +299,16 @@ export default function CartItems() {
 
                   {/* Price */}
                   <div className="text-right ml-auto">
-                    <div className="text-sm md:text-lg font-bold text-red-600">
+                    <div className="text-sm md:text-lg font-bold text-gray-900">
                       {formatPrice(itemTotal)}
                     </div>
+                    {/* Fake original price - commented out
                     {originalPrice > 0 && (
                       <div className="text-xs md:text-sm text-gray-400 line-through">
                         {formatPrice(originalPrice)}
                       </div>
                     )}
+                    */}
                   </div>
                 </div>
 

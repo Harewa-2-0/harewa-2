@@ -6,26 +6,22 @@ import { Product } from './types';
 
 interface ProductCardProps {
   product: Product;
-  onProductClick?: (product: Product) => void;
   variants?: any;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
-  onProductClick,
   variants,
 }) => {
-  const handleCardClick = () => {
-    onProductClick?.(product);
-  };
+  // Removed click handler - products are not clickable
+  // Removed cursor-pointer class - cards are display-only
 
   return (
     <motion.div
       variants={variants}
-      className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 group cursor-pointer"
-      onClick={handleCardClick}
+      className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 group"
     >
-      {/* Image Only */}
+      {/* Image Only - Not Clickable */}
       <div className="relative h-64 overflow-hidden">
         <img
           src={product.images[0] || '/placeholder-fashion.jpg'}

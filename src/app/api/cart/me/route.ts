@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
         const decoded = requireAuth(request);
 
         const cart = await Cart.findOne({ user: decoded.sub })
+            .sort({ createdAt: -1 })
             .populate({
                 path: "products.product",
                 model: Product,
@@ -62,10 +63,11 @@ export async function POST(request: NextRequest) {
         const body = await request.json(); // expect [{ product, quantity }]
         const decoded = requireAuth(request);
 
-        let cart = await Cart.findOne({ user: decoded.sub });
+        let cart = await Cart.findOne({ user: decoded.sub })
+            .sort({ createdAt: -1 });
 
         if (cart) {
-            body.forEach((newItem: { product: string; quantity: number; productNote?: string[] }) => {
+            body.forEach((newItem: { product: string; quantity: number }) => {
                 if (!newItem.product) return; // skip invalid
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const existingProduct = cart.products.find(
@@ -75,16 +77,11 @@ export async function POST(request: NextRequest) {
                 if (existingProduct) {
                     // ✅ replace with the sum
                     existingProduct.quantity = Number(existingProduct.quantity || 0) + Number(newItem.quantity || 0);
-                    // Update productNote if provided
-                    if (newItem.productNote) {
-                        existingProduct.productNote = newItem.productNote;
-                    }
                 } else {
                     // ✅ add as new product
                     cart.products.push({
                         product: newItem.product,
                         quantity: newItem.quantity || 1,
-                        productNote: newItem.productNote || []
                     });
                 }
             });
@@ -96,10 +93,9 @@ export async function POST(request: NextRequest) {
         // if no cart exists, create a new one
         const newCart = new Cart({
             user: decoded.sub,
-            products: body.map((item: { product: string; quantity: number; productNote?: string[] }) => ({
+            products: body.map((item: { product: string; quantity: number }) => ({
                 product: item.product,
                 quantity: item.quantity || 1,
-                productNote: item.productNote || []
             })),
         });
 

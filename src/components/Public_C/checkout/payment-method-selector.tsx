@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { useOrderStore } from '@/store/orderStore';
 import { purchase, getRedirectUrl } from '@/services/payments';
 import { useToast } from '@/contexts/toast-context';
+import { useCreateOrderMutation, useDeleteOrderMutation, usePendingOrderQuery } from '@/hooks/useOrders';
+import { useRouter } from 'next/navigation';
 
 interface PaymentMethodSelectorProps {
   isEnabled: boolean;
@@ -17,34 +19,67 @@ export default function PaymentMethodSelector({
 }: PaymentMethodSelectorProps) {
   const [selectedMethod, setSelectedMethod] = useState<'paystack' | 'stripe' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { currentOrder } = useOrderStore();
   const { addToast } = useToast();
+  const router = useRouter();
+  
+  // React Query hooks for order operations
+  const { data: pendingOrder } = usePendingOrderQuery();
+  const createOrderMutation = useCreateOrderMutation();
+  const deleteOrderMutation = useDeleteOrderMutation();
+  const { setCurrentOrder } = useOrderStore();
 
   const handleMethodSelect = (method: 'paystack' | 'stripe') => {
     if (!isEnabled) return;
-    if (method === 'stripe') return; // Stripe disabled for now
+    // if (method === 'stripe') return; // Stripe enabled now
+    if (method === 'paystack') return; // Paystack disabled for now
     setSelectedMethod(method);
     onPaymentMethodSelect?.(method);
   };
 
   const handlePay = async () => {
     if (!isEnabled) return;
-    if (!currentOrder?._id) {
-      addToast('No active order found. Please create an order first.', 'error');
-      return;
-    }
-    if (selectedMethod !== 'paystack') {
-      addToast('Please select Paystack to continue.', 'error');
+    if (selectedMethod !== 'stripe') {
+      addToast('Please select Stripe to continue.', 'error');
       return;
     }
     
     try {
       setIsProcessing(true);
-      addToast('Initializing payment… This may take a few moments.', 'info');
       
-      console.log('Initiating payment for order:', currentOrder._id);
-      const resp = await purchase({ type: 'gateway', orderId: currentOrder._id });
-      console.log('Payment response:', resp);
+      // Step 1: Delete any existing pending order
+      if (pendingOrder) {
+        console.log('[Payment] Deleting old pending order...');
+        await deleteOrderMutation.mutateAsync(pendingOrder._id);
+      }
+      
+      // Step 2: Create new order from current cart
+      console.log('[Payment] Creating order from cart...');
+      addToast('Creating order...', 'info');
+      const orderResult = await createOrderMutation.mutateAsync();
+      
+      if (!orderResult.success || !orderResult.order) {
+        const errMsg = orderResult.error || 'Failed to create order';
+        
+        // Handle specific errors
+        if (orderResult.errorCode === 'NO_ADDRESS') {
+          addToast('Please add a delivery address to your profile', 'error');
+          router.push('/profile');
+          return;
+        }
+        
+        addToast(errMsg, 'error');
+        return;
+      }
+      
+      // Store order for reference
+      setCurrentOrder(orderResult.order);
+      
+      // Step 3: Initiate payment with the new order
+      console.log('[Payment] Initiating payment for order:', orderResult.order._id);
+      addToast('Initializing payment...', 'info');
+      
+      const resp = await purchase({ type: 'stripe-gateway', orderId: orderResult.order._id });
+      console.log('[Payment] Payment response:', resp);
       
       const redirect = getRedirectUrl(resp);
       if (redirect) {
@@ -76,7 +111,7 @@ export default function PaymentMethodSelector({
       </div>
       
       <div className="flex flex-col sm:flex-row gap-8 justify-center items-center">
-        {/* Paystack Image */}
+        {/* Paystack Image - COMMENTED OUT (using Stripe only)
         <div className="relative">
           <Image 
             src="/paystack.png" 
@@ -94,7 +129,6 @@ export default function PaymentMethodSelector({
             `}
           />
           
-          {/* Selection indicator */}
           {selectedMethod === 'paystack' && (
             <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
               <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -103,8 +137,9 @@ export default function PaymentMethodSelector({
             </div>
           )}
         </div>
+        */}
 
-        {/* Stripe Image (disabled for now) */}
+        {/* Stripe Image (ENABLED) */}
         <div className="relative">
           <Image 
             src="/stripe.png" 
@@ -113,8 +148,12 @@ export default function PaymentMethodSelector({
             height={120}
             onClick={() => handleMethodSelect('stripe')}
             className={`
-              transition-all duration-200 rounded-lg border-2 p-4 opacity-50 cursor-not-allowed
-              border-purple-200
+              cursor-pointer transition-all duration-200 rounded-lg border-2 p-4
+              ${selectedMethod === 'stripe' 
+                ? 'border-purple-500 shadow-lg' 
+                : 'border-purple-200 hover:border-purple-300 hover:shadow-md hover:scale-105'
+              }
+              ${!isEnabled ? 'opacity-50 cursor-not-allowed' : ''}
             `}
           />
           
@@ -130,14 +169,14 @@ export default function PaymentMethodSelector({
       </div>
 
       {/* Payment Button */}
-      {selectedMethod === 'paystack' && (
+      {selectedMethod === 'stripe' && (
         <div className="mt-8 text-center">
           <button
             onClick={handlePay}
             disabled={!isEnabled || isProcessing}
             className={`px-8 py-3 bg-[#D4AF37] text-black font-semibold rounded-lg hover:bg-[#B8941F] transition-colors ${(!isEnabled || isProcessing) ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
-            {isProcessing ? 'Processing…' : 'PAY WITH PAYSTACK'}
+            {isProcessing ? 'Processing…' : 'PAY WITH STRIPE'}
           </button>
           
           {isProcessing && (

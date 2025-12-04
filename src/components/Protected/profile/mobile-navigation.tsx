@@ -1,9 +1,12 @@
 'use client';
 
 import clsx from 'clsx';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { menuItems } from './profile-tabs';
 import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
+import { clearUserQueries } from '@/utils/clearUserQueries';
 
 interface MobileNavigationProps {
   activeTab: string;
@@ -18,10 +21,16 @@ export default function MobileNavigation({
 }: MobileNavigationProps) {
   const { isAnnouncementVisible, isAnnouncementHiddenByScroll } = useUIStore();
   const { logout } = useAuthStore();
+  const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleItemClick = async (itemId: string) => {
     if (itemId === 'logout') {
+      // Clear user-specific React Query caches before logout
+      clearUserQueries(queryClient);
       await logout();
+      // Navigate to home page (preserves React Query cache for public data)
+      router.push('/home');
     } else {
       onTabChange(itemId);
     }

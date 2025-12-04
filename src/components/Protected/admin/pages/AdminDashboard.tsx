@@ -1,74 +1,30 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import KeyMetricsGrid from './components/dashboard/KeyMetricsGrid';
 import PopularProducts from './components/dashboard/PopularProducts';
 import LastTransactions from './components/dashboard/LastTransactions';
 import TodayOrderChart from './components/dashboard/TodayOrderChart';
 import RecentOrders from './components/dashboard/RecentOrders';
 import ReportsSection from './components/dashboard/ReportsSection';
-import { getDashboardData } from '@/services/dashboard';
-import { getDashboardAnalytics } from '@/services/analytics';
-import { MetricData, ReportMetric, ChartData } from './types/dashboard';
-
-interface DashboardData {
-  recentOrders: any[];
-  lastTransactions: any[];
-  popularProducts: any[];
-  todayOrderChart: {
-    chartData: any[];
-    totalOrders: string;
-    changePercentage: string;
-    changeType: 'positive' | 'negative';
-  };
-}
-
-interface AnalyticsData {
-  keyMetrics: MetricData[];
-  reportMetrics: ReportMetric[];
-  reportChartData: ChartData[];
-}
+import { useDashboardQuery, useDashboardAnalyticsQuery } from '@/hooks/useDashboard';
+import { PageSpinner } from '../components/Spinner';
 
 export default function AdminDashboard() {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Use React Query hooks for data fetching
+  const { 
+    data: dashboardData, 
+    isLoading: isLoadingDashboard, 
+    error: dashboardError 
+  } = useDashboardQuery();
 
-  useEffect(() => {
-    async function loadAllData() {
-      try {
-        setLoading(true);
-        setError(null);
+  const { 
+    data: analyticsData, 
+    isLoading: isLoadingAnalytics, 
+    error: analyticsError 
+  } = useDashboardAnalyticsQuery();
 
-        // Fetch both dashboard data and analytics in parallel
-        const [dashboard, analytics] = await Promise.all([
-          getDashboardData().catch(err => {
-            console.error('Dashboard data error:', err);
-            return null;
-          }),
-          getDashboardAnalytics().catch(err => {
-            console.error('Analytics data error:', err);
-            return null;
-          })
-        ]);
-
-        if (!dashboard) {
-          throw new Error('Failed to load dashboard data');
-        }
-
-        setDashboardData(dashboard);
-        setAnalyticsData(analytics);
-      } catch (err) {
-        console.error('Error loading dashboard:', err);
-        setError('Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadAllData();
-  }, []);
+  const loading = isLoadingDashboard || isLoadingAnalytics;
+  const error = dashboardError || analyticsError;
 
   const handleMetricClick = (metric: any) => {
     console.log('Metric clicked:', metric);
@@ -82,14 +38,16 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600">Welcome to your admin dashboard</p>
         </div>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D4AF37]"></div>
-        </div>
+        <PageSpinner />
       </div>
     );
   }
 
-  if (error || !dashboardData) {
+  if (error) {
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : 'Failed to load dashboard data';
+    
     return (
       <div className="space-y-6">
         <div>
@@ -97,14 +55,27 @@ export default function AdminDashboard() {
           <p className="text-gray-600">Welcome to your admin dashboard</p>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error || 'Failed to load dashboard data'}</p>
+          <p className="text-red-800 font-medium">Error loading dashboard</p>
+          <p className="text-red-600 text-sm mt-1">{errorMessage}</p>
           <button 
             onClick={() => window.location.reload()} 
-            className="mt-2 text-red-600 hover:text-red-800 underline"
+            className="mt-3 text-red-600 hover:text-red-800 underline text-sm"
           >
             Try again
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600">Welcome to your admin dashboard</p>
+        </div>
+        <PageSpinner />
       </div>
     );
   }

@@ -1,87 +1,56 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import { DataTable, TableColumn } from '../components/shared';
 import DeleteProductModal from './DeleteProductModal';
 import EditProductModal from './EditProductModal';
-import { adminGetProducts, adminUpdateProduct, type Product as ApiProduct } from '@/services/products';
-import { TableSpinner } from '../../components/Spinner';
-
-// Use the API Product type with flexible id field
-type Product = ApiProduct & { id?: string };
+import { useUpdateProductMutation, useDeleteProductMutation } from '@/hooks/useProducts';
+import { formatPrice } from '@/utils/currency';
+import { PageSpinner } from '../../components/Spinner';
+import type { Product } from '@/services/products';
 
 interface ProductsTableProps {
   genderFilter: string;
   onProductCountChange?: (count: number) => void;
-  refreshTrigger?: number; // Add this to trigger refresh from parent
-  products?: Product[]; // Products from parent
-  onProductsChange?: (products: Product[]) => void; // Update products in parent
-  onProductAdded?: (product: Product) => void; // For optimistic updates
-  onProductUpdated?: (product: Product) => void; // For optimistic updates
-  onProductDeleted?: (productId: string) => void; // For optimistic updates
+  products: Product[]; // Products from parent (required now)
   isLoading?: boolean; // Loading state from parent
+  error?: Error | null; // Error state from parent
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+  onPageChange?: (page: number) => void;
+  onItemsPerPageChange?: (itemsPerPage: number) => void;
 }
 
 export default function ProductsTable({ 
   genderFilter, 
   onProductCountChange, 
-  refreshTrigger,
-  products: parentProducts,
-  onProductsChange,
-  onProductAdded,
-  onProductUpdated,
-  onProductDeleted,
-  isLoading: parentIsLoading
+  products,
+  isLoading = false,
+  error: parentError,
+  pagination,
+  onPageChange,
+  onItemsPerPageChange
 }: ProductsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
-  const isFetchingRef = useRef(false);
 
-  // Use parent products if available, otherwise use local state
-  const currentProducts = parentProducts || products;
-  const setCurrentProducts = onProductsChange || setProducts;
-  const currentIsLoading = parentIsLoading !== undefined ? parentIsLoading : isLoading;
+  // Use React Query mutations
+  const updateProductMutation = useUpdateProductMutation();
+  const deleteProductMutation = useDeleteProductMutation();
 
-  // Fetch products from API (only if not using parent products)
-  useEffect(() => {
-    // Skip fetching if we have parent products
-    if (parentProducts) {
-      setIsLoading(false);
-      return;
-    }
-
-    // Prevent duplicate calls (React Strict Mode protection)
-    if (isFetchingRef.current) return;
-    
-    const fetchProducts = async () => {
-      isFetchingRef.current = true;
-      try {
-        setIsLoading(true);
-        setError(null);
-        const data = await adminGetProducts();
-        setProducts(data);
-      } catch (err) {
-        console.error('Error fetching products:', err);
-        setError('Failed to fetch products. Please check your connection and try again.');
-        // Don't clear products array on error - keep existing data if available
-      } finally {
-        setIsLoading(false);
-        isFetchingRef.current = false;
-      }
-    };
-
-    fetchProducts();
-  }, [refreshTrigger, parentProducts]); // Add parentProducts as dependency
-
-  // Filter products based on gender
-  const filteredProducts = currentProducts.filter(product => {
+  // Filter products based on gender (client-side filter)
+  const filteredProducts = products.filter(product => {
     if (!genderFilter) return true;
     return product.gender === genderFilter || product.gender === 'unisex';
   });
@@ -89,88 +58,18 @@ export default function ProductsTable({
   // Notify parent component of product count changes
   useEffect(() => {
     if (onProductCountChange) {
-      onProductCountChange(filteredProducts.length);
+      // When using server-side pagination, use the total from pagination
+      // Otherwise, use filtered products count
+      const count = pagination ? pagination.total : filteredProducts.length;
+      onProductCountChange(count);
     }
-  }, [filteredProducts.length, onProductCountChange]);
-
-  // Handle optimistic product addition
-  useEffect(() => {
-    if (onProductAdded) {
-      // This will be called when a product is successfully created
-      // The actual optimistic update happens in the parent component
-    }
-  }, [onProductAdded]);
-
-  // Optimistic update functions
-  const handleOptimisticAdd = (newProduct: Product) => {
-    if (onProductsChange) {
-      onProductsChange([newProduct, ...currentProducts]);
-    } else {
-      setProducts((prev: Product[]) => [newProduct, ...prev]);
-    }
-  };
-
-  const handleOptimisticUpdate = (updatedProduct: Product) => {
-    console.log('ProductsTable: handleOptimisticUpdate called with:', updatedProduct);
-    console.log('ProductsTable: updatedProduct._id:', updatedProduct._id);
-    console.log('ProductsTable: updatedProduct.id:', updatedProduct.id);
-    console.log('ProductsTable: currentProducts before update:', currentProducts.map(p => ({ name: p.name, _id: p._id, id: p.id })));
-    
-    // Validate that we have an ID to match against
-    if (!updatedProduct._id && !updatedProduct.id) {
-      console.error('ProductsTable: Updated product has no ID field! Cannot update.');
-      return;
-    }
-    
-    let matchFound = false;
-    const updatedProducts = currentProducts.map((product: Product) => {
-      const isMatch = product._id === updatedProduct._id;
-      console.log(`ProductsTable: Comparing product "${product.name}" (${product._id}) with updated product (${updatedProduct._id}) - Match: ${isMatch}`);
-      
-      if (isMatch) {
-        matchFound = true;
-      }
-      return isMatch ? updatedProduct : product;
-    });
-    
-    if (!matchFound) {
-      console.error('ProductsTable: No matching product found! This could cause all products to be replaced.');
-      console.log('ProductsTable: Available product IDs:', currentProducts.map(p => ({ name: p.name, _id: p._id, id: p.id })));
-      console.log('ProductsTable: Looking for ID:', updatedProduct._id || updatedProduct.id);
-      return; // Don't update if no match found
-    }
-    
-    console.log('ProductsTable: updatedProducts after update:', updatedProducts.map(p => ({ name: p.name, _id: p._id, id: p.id })));
-    
-    if (onProductsChange) {
-      console.log('ProductsTable: Calling onProductsChange with updated products');
-      onProductsChange(updatedProducts);
-    } else {
-      console.log('ProductsTable: Setting local products state');
-      setProducts(updatedProducts);
-    }
-  };
-
-  const handleOptimisticDelete = (productId: string) => {
-    setDeletingProductId(productId);
-    // Add slide-out animation delay
-    setTimeout(() => {
-      const filteredProducts = currentProducts.filter((product: Product) => 
-        product._id !== productId && product.id !== productId
-      );
-      
-      if (onProductsChange) {
-        onProductsChange(filteredProducts);
-      } else {
-        setProducts(filteredProducts);
-      }
-      setDeletingProductId(null);
-    }, 300); // 300ms for slide-out animation
-  };
+  }, [filteredProducts.length, onProductCountChange, pagination]);
 
   // Calculate pagination
-  const totalItems = filteredProducts.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  // When pagination prop is provided, use server-side pagination totals
+  // Otherwise, use client-side pagination
+  const totalItems = pagination ? pagination.total : filteredProducts.length;
+  const totalPages = pagination ? pagination.totalPages : Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
@@ -198,61 +97,68 @@ export default function ProductsTable({
     );
   };
 
-  const columns: TableColumn<Product>[] = [
+  // Define handlers before columns so they can be used in useMemo dependencies
+  const handleEditClick = useCallback((product: Product) => {
+    setSelectedProduct(product);
+    setShowEditModal(true);
+  }, []);
+
+  const handleDeleteClick = useCallback((product: Product) => {
+    setSelectedProduct(product);
+    setShowDeleteModal(true);
+  }, []);
+
+  // Memoize columns to prevent unnecessary re-renders
+  const columns: TableColumn<Product>[] = useMemo(() => [
     {
       key: 'name',
       label: 'Product',
       render: (product) => {
-  return (
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 h-10 w-10">
-                      <img
-                        className="h-10 w-10 rounded-lg object-cover"
+        const productName = product.name || 'Unknown Product';
+        const truncatedName = productName.length > 10 
+          ? `${productName.substring(0, 10)}...` 
+          : productName;
+        const productId = product.id || product._id || 'N/A';
+        const shortId = productId.length > 8 ? `${productId.substring(0, 8)}...` : productId;
+        
+        return (
+          <Link 
+            href={`/admin/products/${productId}`}
+            className="flex items-center hover:opacity-80 transition-opacity"
+          >
+            <div className="flex-shrink-0 h-10 w-10 relative">
+              <Image
+                className="rounded-lg object-cover"
                 src={product.images?.[0] || '/placeholder-product.jpg'}
-                alt={product.name || 'Product'}
+                alt={productName}
+                fill
+                sizes="40px"
+                loading="lazy"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = '/placeholder-product.jpg';
                 }}
-                      />
-                    </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">
-                {product.name || 'Unknown Product'}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                ID: {product.id || product._id || 'N/A'}
-                      </div>
-                    </div>
-                  </div>
+              />
+            </div>
+            <div className="ml-4">
+              <div className="text-sm font-medium text-gray-900" title={productName}>
+                {truncatedName}
+              </div>
+              <div className="text-sm text-gray-500" title={productId}>
+                ID: {shortId}
+              </div>
+            </div>
+          </Link>
         );
       }
-    },
-    {
-      key: 'category',
-      label: 'Category',
-      render: (product) => {
-        if (typeof product.category === 'object' && product.category?.name) {
-          return <span className="text-gray-900">{product.category.name}</span>;
-        }
-        // If category is a string (ID), show a truncated version
-        const categoryStr = String(product.category || 'N/A');
-        const displayText = categoryStr.length > 12 ? `${categoryStr.substring(0, 12)}...` : categoryStr;
-        return (
-          <span className="text-gray-900" title={categoryStr}>
-            {displayText}
-          </span>
-        );
-      },
-      sortable: true
     },
     {
       key: 'price',
       label: 'Price',
       render: (product) => {
-        const price = typeof product.price === 'number' 
-          ? product.price 
+        const price = typeof product.price === 'number'
+          ? product.price
           : parseInt(String(product.price || '0')) || 0;
-        return `₦${price.toLocaleString()}`;
+        return formatPrice(price);
       },
       sortable: true
     },
@@ -294,46 +200,60 @@ export default function ProductsTable({
                   </div>
       )
     }
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
 
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    if (onPageChange) {
+      onPageChange(page);
+    } else {
+      setCurrentPage(page);
+    }
   };
 
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
-    setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1); // Reset to first page when changing items per page
-  };
-
-  const handleEditClick = (product: Product) => {
-    setSelectedProduct(product);
-    setShowEditModal(true);
-  };
-
-  const handleDeleteClick = (product: Product) => {
-    setSelectedProduct(product);
-    setShowDeleteModal(true);
-  };
-
-  const handleEditSuccess = (updatedProduct: Product) => {
-    console.log('ProductsTable: handleEditSuccess called with:', updatedProduct);
-    // Call the parent's onProductUpdated callback if available
-    if (onProductUpdated) {
-      console.log('ProductsTable: Calling parent onProductUpdated');
-      onProductUpdated(updatedProduct);
+    if (onItemsPerPageChange) {
+      onItemsPerPageChange(newItemsPerPage);
     } else {
-      console.log('ProductsTable: No onProductUpdated callback available, using local update');
-      // Only update local state if no parent callback is available
-      handleOptimisticUpdate(updatedProduct);
+      setItemsPerPage(newItemsPerPage);
+      setCurrentPage(1);
     }
-    setError(null); // Clear any previous errors
   };
 
-  const handleDeleteSuccess = (productId: string) => {
-    // Optimistically remove the product from the table with animation
-    handleOptimisticDelete(productId);
-    setError(null); // Clear any previous errors
+  const handleEditSuccess = async (updatedProduct: Product) => {
+    const productId = updatedProduct._id || updatedProduct.id;
+    if (!productId) {
+      console.error('Product ID not found');
+      return;
+    }
+
+    try {
+      await updateProductMutation.mutateAsync({
+        id: productId,
+        payload: updatedProduct as any,
+      });
+      setShowEditModal(false);
+      setSelectedProduct(null);
+    } catch (error) {
+      console.error('Error updating product:', error);
+    }
+  };
+
+  const handleDeleteSuccess = async (productId: string) => {
+    setDeletingProductId(productId);
+    try {
+      await deleteProductMutation.mutateAsync(productId);
+      setShowDeleteModal(false);
+      setSelectedProduct(null);
+      // Animation delay
+      setTimeout(() => {
+        setDeletingProductId(null);
+      }, 300);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      setDeletingProductId(null);
+    }
   };
 
   // Get row classes with animation support
@@ -347,7 +267,7 @@ export default function ProductsTable({
 
 
   // Error state
-  if (error) {
+  if (parentError) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
         <div className="text-center">
@@ -357,12 +277,9 @@ export default function ProductsTable({
             </svg>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Products</h3>
-          <p className="text-gray-500 mb-4">{error}</p>
+          <p className="text-gray-500 mb-4">{parentError.message || 'Failed to fetch products'}</p>
           <button
-            onClick={() => {
-              setError(null);
-              window.location.reload();
-            }}
+            onClick={() => window.location.reload()}
             className="bg-[#D4AF37] text-white px-4 py-2 rounded-lg hover:bg-[#D4AF37]/90 transition-colors"
           >
             Try Again
@@ -374,17 +291,26 @@ export default function ProductsTable({
 
   return (
     <>
-      {currentIsLoading ? (
+      {isLoading ? (
         <div className="bg-white rounded-lg shadow">
-          <TableSpinner />
+          <PageSpinner className="h-64" />
         </div>
       ) : (
         <DataTable
-          data={paginatedProducts}
+          data={pagination ? filteredProducts : paginatedProducts}
           columns={columns}
           emptyMessage="No products found"
           rowClassName={getRowClasses}
-          pagination={{
+          pagination={pagination ? {
+            currentPage: pagination.page,
+            totalPages: pagination.totalPages,
+            totalItems: pagination.total, // Server-side total (all products, not filtered)
+            itemsPerPage: pagination.limit,
+            onPageChange: handlePageChange,
+            onItemsPerPageChange: handleItemsPerPageChange,
+            showItemsPerPage: true,
+            itemsPerPageOptions: [10, 20, 50, 100]
+          } : {
             currentPage,
             totalPages,
             totalItems,

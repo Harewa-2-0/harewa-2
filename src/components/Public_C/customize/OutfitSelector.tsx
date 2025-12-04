@@ -5,6 +5,7 @@ interface OutfitSelectorProps {
   selectedOutfit: string;
   selectedOutfitOption: string;
   onOutfitSelect: (outfit: string, option: string) => void;
+  gender?: string;
 }
 
 interface OutfitOption {
@@ -46,15 +47,15 @@ const outfitOptions: OutfitOption[] = [
   },
   {
     value: 'blouse',
-    label: 'Blouse',
+    label: 'Top',
     image: '/sleve.png',
     subOptions: [
-      { value: 'fitted-blouse', label: 'Fitted Blouse' },
-      { value: 'loose-blouse', label: 'Loose Blouse' },
-      { value: 'crop-blouse', label: 'Crop Blouse' },
-      { value: 'wrap-blouse', label: 'Wrap Blouse' },
-      { value: 'peplum-blouse', label: 'Peplum Blouse' },
-      { value: 'tunic-blouse', label: 'Tunic Blouse' },
+      { value: 'fitted-blouse', label: 'Fitted Top' },
+      { value: 'loose-blouse', label: 'Loose Top' },
+      { value: 'crop-blouse', label: 'Crop Top' },
+      { value: 'wrap-blouse', label: 'Wrap Top' },
+      { value: 'peplum-blouse', label: 'Peplum Top' },
+      { value: 'tunic-blouse', label: 'Tunic Top' },
     ]
   },
   {
@@ -85,17 +86,26 @@ const outfitOptions: OutfitOption[] = [
   },
 ];
 
-const OutfitSelector: React.FC<OutfitSelectorProps> = ({ 
-  selectedOutfit, 
-  selectedOutfitOption, 
-  onOutfitSelect 
+const OutfitSelector: React.FC<OutfitSelectorProps> = ({
+  selectedOutfit,
+  selectedOutfitOption,
+  onOutfitSelect,
+  gender
 }) => {
   const [selectedOutfitType, setSelectedOutfitType] = useState(selectedOutfit);
+
+  // Filter options based on gender
+  const filteredOptions = outfitOptions.filter(option => {
+    if (gender === 'male') {
+      return !['gown', 'skirt'].includes(option.value);
+    }
+    return true;
+  });
 
   const handleOutfitTypeSelect = (outfitType: string) => {
     setSelectedOutfitType(outfitType);
     // Reset outfit option when changing outfit type
-    const outfit = outfitOptions.find(o => o.value === outfitType);
+    const outfit = filteredOptions.find(o => o.value === outfitType);
     if (outfit && outfit.subOptions.length > 0) {
       onOutfitSelect(outfitType, outfit.subOptions[0].value);
     }
@@ -105,7 +115,7 @@ const OutfitSelector: React.FC<OutfitSelectorProps> = ({
     onOutfitSelect(selectedOutfitType, option);
   };
 
-  const getSelectedOutfit = () => outfitOptions.find(o => o.value === selectedOutfit);
+  const getSelectedOutfit = () => filteredOptions.find(o => o.value === selectedOutfit);
   const getSelectedOutfitOption = () => {
     const outfit = getSelectedOutfit();
     return outfit?.subOptions.find(so => so.value === selectedOutfitOption);
@@ -116,31 +126,29 @@ const OutfitSelector: React.FC<OutfitSelectorProps> = ({
       <h3 className="text-sm font-medium text-gray-900 mb-3">
         Only select parts of this outfit that you're customizing.
       </h3>
-      
+
       {/* Outfit Type Selection - Single Row with Perfect Fit */}
       <div className="mb-4">
         <h4 className="text-xs font-medium text-gray-700 mb-3">Outfit Type</h4>
-        
+
         {/* Perfect fit container - distribute evenly on desktop, scroll on mobile */}
         <div className="relative">
           <div className="grid grid-cols-5 gap-2 md:gap-3">
-            {outfitOptions.map((outfit) => (
+            {filteredOptions.map((outfit) => (
               <button
                 key={outfit.value}
                 onClick={() => handleOutfitTypeSelect(outfit.value)}
-                className={`relative p-2 rounded-lg border-2 transition-all duration-200 hover:scale-105 ${
-                  selectedOutfitType === outfit.value
-                    ? 'border-[#D4AF37] bg-[#D4AF37]/5 shadow-md'
-                    : 'border-gray-300 bg-white hover:border-gray-400'
-                }`}
+                className={`relative p-2 rounded-lg border-2 transition-all duration-200 hover:scale-105 ${selectedOutfitType === outfit.value
+                  ? 'border-[#D4AF37] bg-[#D4AF37]/5 shadow-md'
+                  : 'border-gray-300 bg-white hover:border-gray-400'
+                  }`}
               >
                 {/* Outfit Image */}
                 <div className="flex flex-col items-center space-y-1.5">
-                  <div className={`w-10 h-10 rounded-full overflow-hidden transition-all duration-200 mx-auto ${
-                    selectedOutfitType === outfit.value
-                      ? 'ring-2 ring-[#D4AF37] ring-offset-1'
-                      : ''
-                  }`}>
+                  <div className={`w-10 h-10 rounded-full overflow-hidden transition-all duration-200 mx-auto ${selectedOutfitType === outfit.value
+                    ? 'ring-2 ring-[#D4AF37] ring-offset-1'
+                    : ''
+                    }`}>
                     <Image
                       src={outfit.image}
                       alt={outfit.label}
@@ -149,13 +157,12 @@ const OutfitSelector: React.FC<OutfitSelectorProps> = ({
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  
+
                   {/* Label */}
-                  <span className={`text-[10px] font-medium transition-colors whitespace-nowrap block truncate w-full text-center ${
-                    selectedOutfitType === outfit.value
-                      ? 'text-[#D4AF37]'
-                      : 'text-gray-700'
-                  }`}>
+                  <span className={`text-[10px] font-medium transition-colors whitespace-nowrap block truncate w-full text-center ${selectedOutfitType === outfit.value
+                    ? 'text-[#D4AF37]'
+                    : 'text-gray-700'
+                    }`}>
                     {outfit.label}
                   </span>
                 </div>
@@ -183,11 +190,10 @@ const OutfitSelector: React.FC<OutfitSelectorProps> = ({
               <button
                 key={option.value}
                 onClick={() => handleOutfitOptionSelect(option.value)}
-                className={`w-full px-4 py-3 text-left text-sm rounded-lg border-2 transition-colors ${
-                  selectedOutfitOption === option.value
-                    ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                }`}
+                className={`w-full px-4 py-3 text-left text-sm rounded-lg border-2 transition-colors ${selectedOutfitOption === option.value
+                  ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]'
+                  : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                  }`}
               >
                 {option.label}
               </button>

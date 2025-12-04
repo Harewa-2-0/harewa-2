@@ -72,17 +72,8 @@ export const useAuthStore = create<AuthState>()(
         
         // Trigger cart merge after login
         if (typeof window !== 'undefined') {
-          setTimeout(async () => {
-            try {
-              const { useCartStore } = await import('@/store/cartStore');
-              const guestCart = useCartStore.getState().getGuestCart();
-              if (guestCart.length > 0) {
-                await useCartStore.getState().mergeCart(guestCart);
-              }
-            } catch (error) {
-              console.error('Failed to merge cart after login:', error);
-            }
-          }, 100);
+          // Cart merge is now handled by CartHydration component with React Query
+          // No manual merge needed here
         }
       },
 
@@ -97,8 +88,8 @@ export const useAuthStore = create<AuthState>()(
             const { useCartStore } = await import('@/store/cartStore');
             useCartStore.getState().clearCart();
             
-            const { useProfileStore } = await import('@/store/profile-store');
-            useProfileStore.getState().clearCache();
+            // Note: React Query cache clearing is handled by components
+            // using useQueryClient hook before calling logout()
           } catch (error) {
             console.warn('Failed to clear stores:', error);
           }
@@ -117,7 +108,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.removeItem("user");
           localStorage.removeItem("auth-snapshot");
           sessionStorage.removeItem("user");
-          window.location.href = "/";
+          // Removed window.location.href - components handle navigation
         }
       },
 
@@ -162,17 +153,8 @@ export const useAuthStore = create<AuthState>()(
           // Start proactive token refresh
           get().startRefreshTimer();
           
-          setTimeout(async () => {
-            try {
-              const { useCartStore } = await import('@/store/cartStore');
-              const guestCart = useCartStore.getState().getGuestCart();
-              if (guestCart.length > 0) {
-                await useCartStore.getState().mergeCart(guestCart);
-              }
-            } catch (error) {
-              console.error('Failed to merge cart after setUser:', error);
-            }
-          }, 100);
+          // Cart merge is now handled by CartHydration component with React Query
+          // No manual merge needed here
         }
       },
 
@@ -307,17 +289,8 @@ export const useAuthStore = create<AuthState>()(
           // Start proactive token refresh
           get().startRefreshTimer();
           
-          setTimeout(async () => {
-            try {
-              const { useCartStore } = await import('@/store/cartStore');
-              const guestCart = useCartStore.getState().getGuestCart();
-              if (guestCart.length > 0) {
-                await useCartStore.getState().mergeCart(guestCart);
-              }
-            } catch (error) {
-              console.error('Failed to merge cart after hydration:', error);
-            }
-          }, 100);
+          // Cart merge is now handled by CartHydration component with React Query
+          // No manual merge needed here
         } catch (error: any) {
           if (error?.status !== 401 && error?.status !== 403) {
             console.warn('[Auth] Hydration failed:', error.message);

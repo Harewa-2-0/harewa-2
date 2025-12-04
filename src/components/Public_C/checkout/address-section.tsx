@@ -2,8 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, MapPin, Check, X, Loader2 } from 'lucide-react';
-import { useProfileStore } from '@/store/profile-store';
-import type { ProfileAddress } from '@/store/profile-store';
+import { useProfileQuery, useUpdateProfileMutation } from '@/hooks/useProfile';
+import { useToast } from '@/contexts/toast-context';
+import type { Profile } from '@/services/profile';
+
+// Type for address (extracted from Profile type)
+type ProfileAddress = Profile['addresses'][number];
 
 interface AddressSectionProps {
   selectedAddress?: ProfileAddress;
@@ -16,7 +20,9 @@ export default function AddressSection({
   onAddressSelect, 
   onAddressChange 
 }: AddressSectionProps) {
-  const { profileData } = useProfileStore();
+  const { data: profileData } = useProfileQuery();
+  const updateProfileMutation = useUpdateProfileMutation();
+  const { addToast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newAddress, setNewAddress] = useState({
@@ -42,7 +48,9 @@ export default function AddressSection({
     try {
       // Add the new address to the profile
       const updatedAddresses = [...(profileData?.addresses || []), newAddress];
-      await useProfileStore.getState().saveProfile({ addresses: updatedAddresses });
+      await updateProfileMutation.mutateAsync({ addresses: updatedAddresses });
+      
+      addToast('Address added successfully', 'success');
       
       // Select the newly created address
       onAddressSelect(newAddress);
@@ -74,9 +82,12 @@ export default function AddressSection({
         isDefault: addr._id === addressId
       }));
       
-      await useProfileStore.getState().saveProfile({ addresses: updatedAddresses });
+      // Use React Query mutation instead of old Zustand store
+      await updateProfileMutation.mutateAsync({ addresses: updatedAddresses });
+      addToast('Default address updated', 'success');
     } catch (error) {
       console.error('Failed to set default address:', error);
+      addToast('Failed to update default address', 'error');
     }
   };
 

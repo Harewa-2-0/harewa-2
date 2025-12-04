@@ -3,7 +3,7 @@
 import { Pencil, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import type { ProfileData } from '@/store/profile-store';
+import type { Profile } from '@/services/profile';
 
 export type ContactValues = {
   username: string;
@@ -18,7 +18,7 @@ export default function ContactInfoCard({
   saving,
   onSave,
 }: {
-  profileData?: ProfileData;
+  profileData?: Profile;
   saving?: boolean;
   onSave: (v: ContactValues) => Promise<void>;
 }) {
@@ -27,7 +27,7 @@ export default function ContactInfoCard({
 
   useEffect(() => {
     reset({
-      username: profileData?.user.username || '',
+      username: profileData?.user?.username || '',
       firstName: profileData?.firstName || '',
       lastName: profileData?.lastName || '',
       phone: profileData?.phone || '',
@@ -61,12 +61,12 @@ export default function ContactInfoCard({
           {editing ? (
             <input {...register('username')} className="w-full border rounded-lg px-3 py-2 text-black"/>
           ) : (
-            <p className="text-black font-medium">{profileData?.user.username || 'Not set'}</p>
+            <p className="text-black font-medium">{profileData?.user?.username || 'Not set'}</p>
           )}
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Email</label>
-          <p className="text-black font-medium">{profileData?.user.email}</p>
+          <p className="text-black font-medium">{profileData?.user?.email}</p>
           <p className="text-xs text-gray-500 mt-1">Email can't be changed.</p>
         </div>
         <div>
@@ -95,7 +95,7 @@ export default function ContactInfoCard({
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Role</label>
-          <p className="text-black font-medium capitalize">{profileData?.user.role}</p>
+          <p className="text-black font-medium capitalize">{profileData?.user?.role}</p>
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm text-gray-600 mb-1">Bio</label>

@@ -3,6 +3,8 @@ import { Heart, ShoppingCart, Star, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
+import { formatPrice } from '@/utils/currency';
+import { useToggleWishlistMutation, useIsInWishlist } from '@/hooks/useWishlist';
 
 export interface Product {
   _id: string;
@@ -38,8 +40,6 @@ interface ProductCardProps {
   isLoading?: boolean;
 }
 
-const formatPrice = (price: number) => `NGN ${price.toLocaleString()}`;
-
 const renderStars = (rating: number = 4) => (
   Array.from({ length: 5 }, (_, index) => (
     <Star
@@ -65,6 +65,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const { addToCart: addToCartAction } = useAuthAwareCartActions();
   const { addToast } = useToast();
+  const toggleWishlistMutation = useToggleWishlistMutation();
+  const isInWishlist = useIsInWishlist(product?._id || '');
 
   // Loading state (gold ring spinner)
   if (isLoading) {
@@ -106,6 +108,24 @@ const ProductCard: React.FC<ProductCardProps> = ({
     }
   };
 
+  const handleToggleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isLoggedIn) {
+      addToast('Please login to add to wishlist', 'error');
+      return;
+    }
+    
+    try {
+      const result = await toggleWishlistMutation.mutateAsync({ productId: product._id });
+      addToast(result.message, result.added ? 'success' : 'info');
+    } catch (error) {
+      addToast('Failed to update wishlist', 'error');
+      console.error('Failed to toggle wishlist:', error);
+    }
+  };
+
   return (
     <>
       <Link href={`/shop/${product._id}`} className="block w-full">
@@ -117,14 +137,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
               className="w-full h-36 sm:h-40 object-cover"  /* reduced height further */
             />
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                toggleLike(product._id);
-              }}
+              onClick={handleToggleWishlist}
               className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
             >
               <Heart
-                className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                className={`w-5 h-5 ${isInWishlist ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-gray-400'}`}
               />
             </button>
           </div>

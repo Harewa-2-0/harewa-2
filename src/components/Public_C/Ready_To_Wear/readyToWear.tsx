@@ -1,17 +1,16 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { Product } from "./ProductCard";
+import React, { useState, useMemo } from "react";
+//import { Product } from "./ProductCard";
 import Sidebar from "./Sidebar";
 import HeaderSection from "./HeaderSection";
 import FilterControls from "./FilterControls";
 import ProductGrid from "./ProductGrid";
 import MobileFilterOverlay from "./MobileFilterOverlay";
-import { useResponsivePagination } from "../../../hooks/useResponsivePagination";
-import { getProducts } from "@/services/products";
+import { useShopProducts } from "@/hooks/useProducts";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/contexts/toast-context";
-import Image from "next/image";
+//import Image from "next/image";
 
 interface FilterState {
   category: string;
@@ -38,18 +37,28 @@ const ReadyToWearPage: React.FC = () => {
   });
   const [sortBy, setSortBy] = useState<"feature" | "price-low" | "price-high" | "newest">("feature");
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
 
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
+  // Fetch products using React Query with server-side pagination
+  const { data: productsResponse, isLoading: loading, error: queryError } = useShopProducts({ 
+    page: currentPage, 
+    limit: 20 
+  });
 
-    getProducts()
-      .then((data) => {
+  // Extract products and pagination data from response
+  const fetchedProducts = productsResponse?.items || [];
+  const paginationData = productsResponse?.pagination || {
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+    hasMore: false
+  };
+
+  // Normalize product images
+  const products = useMemo(() => {
         // Basic validator: if images missing/empty/clearly placeholder -> use single fallback
         const isBadUrl = (u?: string) => {
           if (!u) return true;
@@ -63,7 +72,7 @@ const ReadyToWearPage: React.FC = () => {
           }
         };
 
-        const normalized: Product[] = (data || []).map((product: any) => {
+    return fetchedProducts.map((product: any) => {
           let images: string[] = Array.isArray(product?.images) ? product.images : [];
           images = images.filter(Boolean);
           if (images.length === 0 || images.every(isBadUrl)) {
@@ -71,20 +80,9 @@ const ReadyToWearPage: React.FC = () => {
           }
           return { ...product, images };
         });
+  }, [fetchedProducts]);
 
-        setProducts(normalized);
-        setLoading(false);
-      })
-      .catch((err) => {
-        const errorMessage = err?.message || "Failed to load products";
-        setError(errorMessage);
-        setLoading(false);
-        setProducts([]); // Set empty array instead of fallback data
-        
-        // Show toast notification for fetch failure
-        addToast("Product fetch failed. Check your network connection.", "error");
-      });
-  }, [addToast]);
+  const error = queryError ? queryError.message : null;
 
   const handleFilterChange = (filterType: keyof FilterState, value: any) => {
     setFilters((prev) => ({
@@ -101,14 +99,30 @@ const ReadyToWearPage: React.FC = () => {
     setSortBy(sort);
   };
 
+  const [likedProducts, setLikedProducts] = useState<Set<string>>(new Set());
+
   const toggleLike = (productId: string) => {
-    setProducts((prev) =>
-      prev.map((p) => (p._id === productId ? { ...p, isLiked: !p.isLiked } : p))
-    );
+    setLikedProducts((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(productId)) {
+        newSet.delete(productId);
+      } else {
+        newSet.add(productId);
+      }
+      return newSet;
+    });
   };
 
+  // Enhance products with like state
+  const productsWithLikes = useMemo(() => {
+    return products.map((p) => ({
+      ...p,
+      isLiked: likedProducts.has(p._id),
+    }));
+  }, [products, likedProducts]);
+
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    return productsWithLikes.filter((product) => {
       if (filters.category !== "All") {
         const categoryGenderMap: { [key: string]: string } = {
           Men: "male",
@@ -140,7 +154,7 @@ const ReadyToWearPage: React.FC = () => {
       }
       return true;
     });
-  }, [products, filters]);
+  }, [productsWithLikes, filters]);
 
   const sortedProducts = useMemo(() => {
     const arr = [...filteredProducts];
@@ -153,8 +167,17 @@ const ReadyToWearPage: React.FC = () => {
     return arr; // "feature" (default)
   }, [filteredProducts, sortBy]);
 
-  const { currentPage, setCurrentPage, totalPages, paginatedItems } =
-    useResponsivePagination(sortedProducts);
+  // Handle page change - reset to page 1 when filters change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Reset to page 1 when filters or sort changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, sortBy]);
 
   return (
     <div className="min-h-screen bg-white pt-20 md:pt-24">
@@ -207,15 +230,15 @@ const ReadyToWearPage: React.FC = () => {
           {/* Product Grid */}
           <div className="flex-1">
             <ProductGrid
-              products={paginatedItems}
+              products={sortedProducts}
               loading={loading}
               error={error}
               currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
+              totalPages={paginationData.totalPages}
+              onPageChange={handlePageChange}
               onToggleLike={toggleLike}
-                      isLoggedIn={isAuthenticated}
-                    />
+              isLoggedIn={isAuthenticated}
+            />
           </div>
         </div>
       </div>

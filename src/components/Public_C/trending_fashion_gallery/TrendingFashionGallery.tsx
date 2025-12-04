@@ -1,35 +1,145 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import CategorySidebar from './CategorySidebar';
 import ProductGrid from './ProductGrid';
-import { Category, TrendingFashionGalleryProps } from './types';
+import { TrendingFashionGalleryProps } from './types';
 import { useTrendingFashionStore } from '@/store/trendingFashionStore';
+import { useHomepageProducts } from '@/hooks/useProducts';
+import { useCategoriesQuery } from '@/hooks/useCategories';
+import { type Product } from '@/services/products';
+
+// Helper to get category name from product
+const getProductCategoryName = (product: Product): string => {
+  if (typeof product.category === 'string') {
+    return product.category;
+  }
+  if (product.category && typeof product.category === 'object') {
+    return product.category.name;
+  }
+  return '';
+};
 
 const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
   categories: propCategories,
-  onProductClick,
   onCategoryChange: propOnCategoryChange,
   initialCategory,
+  products: propProducts,
+  isLoading: propIsLoading,
 }) => {
-  // Use the store
+  // Zustand UI state (active category, filtered products)
   const {
-    allProducts,
-    filteredProducts,
-    categories: storeCategories,
     activeCategory,
-    isLoading,
-    isLoadingCategories,
-    error,
-    hasInitialized,
-    hasCategoriesLoaded,
+    filteredProducts,
     setActiveCategory,
-    initializeData,
-    clearError,
+    setFilteredProducts,
   } = useTrendingFashionStore();
 
-  // Use provided categories or store categories
-  const categories = propCategories || storeCategories;
+  // React Query: Fetch categories (cached 10min)
+  const { data: queryCategories = [], isLoading: isLoadingCategories } = useCategoriesQuery();
+
+  // React Query: Fetch products (cached 5min) - only if not provided as props
+  const { data: queryProducts = [], isLoading: isLoadingProducts } = useHomepageProducts();
+
+  // Use provided categories/products or fetched ones
+  const rawCategories = propCategories || queryCategories;
+  const allProducts = propProducts || queryProducts;
+  const isLoading = propProducts ? propIsLoading : isLoadingProducts;
+
+  // Detect mobile viewport
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    
+    checkMobile(); // Check on mount
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Sort categories by product count (descending) - category with most products first
+  const categories = useMemo(() => {
+    if (!Array.isArray(rawCategories) || rawCategories.length === 0) {
+      return [];
+    }
+
+    if (!Array.isArray(allProducts) || allProducts.length === 0) {
+      // If no products, return categories as-is
+      return rawCategories;
+    }
+
+    // Count products per category
+    const categoryCounts = new Map<string, number>();
+    
+    allProducts.forEach(product => {
+      const categoryName = getProductCategoryName(product);
+      if (categoryName) {
+        categoryCounts.set(categoryName, (categoryCounts.get(categoryName) || 0) + 1);
+      }
+    });
+
+    // Sort categories by product count (descending), then by name for ties
+    return [...rawCategories].sort((a, b) => {
+      const countA = categoryCounts.get(a.name) || a.productCount || 0;
+      const countB = categoryCounts.get(b.name) || b.productCount || 0;
+      
+      if (countB !== countA) {
+        return countB - countA; // Descending order
+      }
+      
+      // If counts are equal, sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+  }, [rawCategories, allProducts]);
+
+  // Filter products by active category (client-side filtering)
+  const filtered = useMemo(() => {
+    if (!Array.isArray(allProducts) || allProducts.length === 0) {
+      return [];
+    }
+
+    const matched = allProducts.filter(product => {
+      const productCategoryName = getProductCategoryName(product);
+      return productCategoryName === activeCategory;
+    });
+
+    // Limit products: 5 on mobile, 9 on desktop
+    const limit = isMobile ? 5 : 9;
+    return matched.slice(0, limit);
+  }, [allProducts, activeCategory, isMobile]);
+
+  // Track previous filtered products to prevent infinite loops
+  const prevFilteredRef = useRef<string>('');
+  
+  // Update Zustand store with filtered products (for child components)
+  // Only update if the product IDs actually changed (prevents infinite loop)
+  useEffect(() => {
+    const currentIds = filtered.map(p => p._id || p.id).join(',');
+    if (currentIds !== prevFilteredRef.current) {
+      prevFilteredRef.current = currentIds;
+      setFilteredProducts(filtered);
+    }
+  }, [filtered, setFilteredProducts]);
+
+  // Set initial category if provided, or use first category (most products) if none provided
+  useEffect(() => {
+    if (categories.length === 0) return; // Wait for categories to load
+    
+    if (initialCategory && initialCategory !== activeCategory) {
+      setActiveCategory(initialCategory);
+    } else if (!initialCategory) {
+      // Check if current activeCategory exists in sorted categories
+      const categoryExists = categories.some(cat => cat.name === activeCategory);
+      
+      // If activeCategory doesn't exist in categories, or if it's the default 'Iro and Buba',
+      // set it to the first category (most products)
+      if (!categoryExists || activeCategory === 'Iro and Buba') {
+        setActiveCategory(categories[0].name);
+      }
+    }
+  }, [initialCategory, activeCategory, setActiveCategory, categories]);
 
   // Handle category change
   const handleCategoryChange = (categoryName: string) => {
@@ -37,28 +147,12 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
     propOnCategoryChange?.(categoryName);
   };
 
-  // Handle product click
-  const handleProductClick = (product: any) => {
-    onProductClick?.(product);
-  };
+  // Products are not clickable - removed handleProductClick
 
+  // Show error state if React Query failed (categories would be fallback)
+  const hasError = categories.length === 0 && !isLoadingCategories;
 
-  // Initialize data on mount
-  useEffect(() => {
-    if (!hasInitialized || !hasCategoriesLoaded) {
-      initializeData();
-    }
-  }, [hasInitialized, hasCategoriesLoaded, initializeData]);
-
-  // Set initial category if provided
-  useEffect(() => {
-    if (initialCategory && initialCategory !== activeCategory) {
-      setActiveCategory(initialCategory);
-    }
-  }, [initialCategory, activeCategory, setActiveCategory]);
-
-  // Show network error state if there's an error
-  if (error) {
+  if (hasError) {
     return (
       <section className="w-full bg-gray-50 py-16">
         <div className="max-w-7xl mx-auto md:px-8 px-6">
@@ -89,17 +183,8 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
             </p>
             <div className="space-y-3">
               <button
-                onClick={() => {
-                  clearError();
-                  initializeData();
-                }}
-                className="inline-flex items-center px-6 py-3 bg-[#D4AF37] hover:bg-[#B8941F] text-white font-medium rounded-lg transition-colors"
-              >
-                Try Again
-              </button>
-              <button
                 onClick={() => window.location.reload()}
-                className="inline-flex items-center px-6 py-3 bg-white text-gray-700 font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center px-6 py-3 bg-[#D4AF37] hover:bg-[#B8941F] text-white font-medium rounded-lg transition-colors"
               >
                 Refresh Page
               </button>
@@ -122,11 +207,10 @@ const TrendingFashionGallery: React.FC<TrendingFashionGalleryProps> = ({
             isLoading={isLoadingCategories}
           />
 
-          {/* Right: Product Grid */}
+          {/* Right: Product Grid - Products are not clickable */}
           <ProductGrid
             products={filteredProducts}
             activeCategory={activeCategory}
-            onProductClick={handleProductClick}
             loading={isLoading}
           />
         </div>

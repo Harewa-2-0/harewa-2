@@ -7,4 +7,6 @@ export interface TrendingFashionGalleryProps {
   onProductClick?: (product: Product) => void;
   onCategoryChange?: (category: string) => void;
   initialCategory?: string;
+  products?: Product[];
+  isLoading?: boolean;
 }
