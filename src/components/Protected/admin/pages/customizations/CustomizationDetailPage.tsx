@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Calendar, User, Shirt, Palette, Ruler, FileText, Package, Trash2, ImageIcon, ArrowLeft } from 'lucide-react';
 import { useCustomizationByIdQuery, useUserCustomizationsQuery } from '@/hooks/useCustomizations';
+import { useFabricsQuery } from '@/hooks/useFabrics';
 import { PageSpinner } from '../../components/Spinner';
 import { useToast } from '@/contexts/toast-context';
 import { api } from '@/utils/api';
@@ -105,7 +106,15 @@ export default function CustomizationDetailPage({ customizationId, customerName,
   const [isDeleting, setIsDeleting] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(false);
-  const { data: customization, isLoading, error } = useCustomizationByIdQuery(customizationId);
+  const { data: customization, isLoading: isLoadingCustomization, error } = useCustomizationByIdQuery(customizationId);
+  
+  // Fetch fabrics for lookup
+  const { data: fabrics = [], isLoading: isLoadingFabrics } = useFabricsQuery();
+  
+  const isLoading = isLoadingCustomization || isLoadingFabrics;
+  
+  // Get fabric details
+  const fabric = fabrics.find(f => f._id === customization?.fabricType);
 
   // Extract user ID for customer history
   const userId = useMemo(() => {
@@ -365,8 +374,14 @@ export default function CustomizationDetailPage({ customizationId, customerName,
                 <p className="text-gray-900 mt-1">{customization.outfitOption || 'N/A'}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-500">Fabric Type</label>
-                <p className="text-gray-900 mt-1">{customization.fabricType || 'N/A'}</p>
+                <label className="text-sm font-medium text-gray-500">Fabric</label>
+                <p className="text-gray-900 mt-1 font-medium">{fabric?.name || customization.fabricType || 'N/A'}</p>
+                {fabric?.type && (
+                  <p className="text-xs text-gray-500 mt-1">Type: {fabric.type}</p>
+                )}
+                {fabric?.color && (
+                  <p className="text-xs text-gray-500">Color: {fabric.color}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Size</label>

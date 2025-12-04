@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import MobileNavigation from './mobile-navigation';
 import DesktopSidebar from './desktop-sidebar';
@@ -12,7 +13,9 @@ import CustomizationsSection from './customizations/CustomizationsSection';
 
 export default function ProfileLayout() {
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('info');
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'info');
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
