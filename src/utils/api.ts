@@ -119,7 +119,7 @@ async function doRefreshOnce(): Promise<void> {
   const timer = setTimeout(() => {
     controller.abort();
   }, 10000); // 10s timeout for refresh
-  
+
   try {
     const res = await fetch(buildUrl("/api/auth/refresh"), {
       method: "POST",
@@ -127,9 +127,9 @@ async function doRefreshOnce(): Promise<void> {
       cache: "no-store",
       signal: controller.signal,
     });
-    
+
     clearTimeout(timer);
-    
+
     if (!res.ok) {
       const body = await parseBody(res);
       console.error('[API] Refresh failed:', res.status, body);
@@ -139,7 +139,7 @@ async function doRefreshOnce(): Promise<void> {
         "Refresh failed";
       throw new ApiError(String(msg), res.status, body);
     }
-    
+
     //console.log('[API] Token refresh successful');
   } catch (err: any) {
     clearTimeout(timer);
@@ -155,7 +155,7 @@ async function ensureRefresh(): Promise<void> {
   if (refreshInProgress) {
     //console.log('[API] Waiting for existing refresh...');
   }
-  
+
   if (!refreshPromise) {
     refreshInProgress = true;
     refreshPromise = doRefreshOnce().finally(() => {
@@ -201,22 +201,22 @@ export async function api<T = any>(
       console.error(`[API] Request timeout after ${timeoutMs}ms: ${url}`);
       controller.abort();
     }, timeoutMs);
-    
+
     try {
       const startTime = Date.now();
-      
+
       // On retry, reconstruct the request with the saved body
       const fetchInit: RequestInit = {
         credentials: "include",
         signal: controller.signal,
         ...init,
       };
-      
+
       // If this is a retry and we have a body, use the cloned version
       if (isRetry && bodyForRetry !== null) {
         fetchInit.body = bodyForRetry;
       }
-      
+
       const res = await fetch(url, fetchInit);
       const elapsed = Date.now() - startTime;
       //console.log(`[API] Response received in ${elapsed}ms: ${res.status} ${url}`);
@@ -260,7 +260,7 @@ export async function api<T = any>(
         const message = err?.message || "Session expired";
         throw new ApiError(message, 401, err?.payload ?? body);
       }
-      
+
       //console.log('[API] Retrying original request after refresh...');
       // Pass true to indicate this is a retry
       ({ res, body } = await runOnce(true));
@@ -309,7 +309,13 @@ export const fetcher = <T = any>(url: string) => api<T>(url);
 /** Helper to normalize {success,data} or bare data */
 export function unwrap<T>(payload: MaybeWrapped<T>): T {
   if (payload && typeof payload === "object" && "data" in (payload as any)) {
-    return ((payload as any).data ?? null) as T;
+    const firstLevel = (payload as any).data;
+    // Handle double-nested structure: response.data.data
+    if (firstLevel && typeof firstLevel === "object" && "data" in firstLevel) {
+      return (firstLevel.data ?? null) as T;
+    }
+    // Handle single-nested structure: response.data
+    return (firstLevel ?? null) as T;
   }
   return payload as T;
 }

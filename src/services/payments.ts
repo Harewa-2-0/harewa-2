@@ -65,7 +65,7 @@ export async function purchase(payload: PurchaseRequest): Promise<PurchaseRespon
     if (error.message === 'Request timed out. Please try again.') {
       throw new Error('Payment initialization timed out. This might be due to server issues. Please try again.');
     }
-    
+
     // Handle network errors
     if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
       throw new Error('Network error. Please check your connection and try again.');
@@ -81,12 +81,17 @@ export async function purchase(payload: PurchaseRequest): Promise<PurchaseRespon
  */
 export function getRedirectUrl(resp: PurchaseResponse | null | undefined): string | null {
   if (!resp) return null;
+
   return (
+    // Direct URL on response (Stripe checkout session already unwrapped)
+    (resp as any).url ||
     resp.redirectUrl ||
     resp.authorization_url ||
     resp.data?.redirectUrl ||
     resp.data?.url ||
-    // Stripe response structure: data.data.url
+    // Triple-nested Stripe response: data.data.data.url
+    (resp.data as any)?.data?.data?.url ||
+    // Double-nested Stripe response: data.data.url
     (resp.data as any)?.data?.url ||
     (resp.data as any)?.authorization_url ||
     // Paystack response structure: data.data.authorization_url
