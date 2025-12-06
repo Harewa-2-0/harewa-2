@@ -46,7 +46,7 @@ export type AddToMyCartInput = {
   productId: string;
   quantity?: number;
   price?: number;
-  productNote?: string;  // size breakdown: "1 medium, 2 small"
+  productNote?: string | string[];  // size breakdown: "1 medium, 2 small" or ["1 medium", "2 small"]
 } & Record<string, unknown>;
 
 /** ---------- Paths (external cart API) ---------- */
@@ -66,17 +66,19 @@ const paths = {
 };
 
 /** ---------- Internals ---------- */
-function toBackendLine(i: { productId: string; quantity?: number; price?: number; productNote?: string }) {
-  // Backend schema expects productNote as array, despite doc showing string
-  // Convert "1 medium, 2 small" -> ["1 medium", "2 small"]
-  const productNoteArray = i.productNote 
-    ? i.productNote.split(', ').map(s => s.trim()).filter(s => s.length > 0)
-    : [];
-  
+function toBackendLine(i: { productId: string; quantity?: number; price?: number; productNote?: string | string[] }) {
+  // FIXED: Always send productNote as an array
+  const normalizedProductNote =
+    Array.isArray(i.productNote)
+      ? i.productNote
+      : i.productNote
+        ? [i.productNote]
+        : [];
+
   return {
     product: i.productId,
     quantity: Math.max(1, Math.floor(Number(i.quantity ?? 1))),
-    productNote: productNoteArray,
+    productNote: normalizedProductNote,
   };
 }
 
@@ -98,11 +100,11 @@ export function mapServerCartToStoreItems(server: Cart) {
   const lines = Array.isArray(server?.products) ? server.products : [];
 
   // Create a map to ensure no duplicates - keep the latest quantity for each product
-  const productMap = new Map<string, { 
-    id: string; 
-    quantity: number; 
-    price?: number; 
-    name?: string; 
+  const productMap = new Map<string, {
+    id: string;
+    quantity: number;
+    price?: number;
+    name?: string;
     image?: string;
     sizeBreakdown?: SizeBreakdown;
     productNote?: string;
@@ -124,8 +126,8 @@ export function mapServerCartToStoreItems(server: Cart) {
       // New format: product is a full object
       productId = String(l.product._id || l.product.id);
       productName = l.product.name;
-      productImage = Array.isArray(l.product.images) && l.product.images.length > 0 
-        ? l.product.images[0] 
+      productImage = Array.isArray(l.product.images) && l.product.images.length > 0
+        ? l.product.images[0]
         : undefined;
       productPrice = typeof l.product.price === 'number' ? l.product.price : undefined;
       availableSizes = Array.isArray(l.product.sizes) ? l.product.sizes : undefined;
@@ -136,15 +138,19 @@ export function mapServerCartToStoreItems(server: Cart) {
 
     const quantity = Number.isFinite(l.quantity as number) ? (l.quantity as number) : 1;
     const price = typeof l.price === "number" ? l.price : productPrice;
-    
+
     // Parse productNote to sizeBreakdown
-    const productNote = l.productNote || undefined;
+    const rawProductNote = l.productNote;
+    const productNote = Array.isArray(rawProductNote)
+      ? rawProductNote.join(", ")
+      : (rawProductNote ?? "");
+
     const sizeBreakdown = productNote ? parseProductNote(productNote) : undefined;
 
     // Always replace - no merging quantities (idempotent behavior)
-    productMap.set(productId, { 
-      id: productId, 
-      quantity, 
+    productMap.set(productId, {
+      id: productId,
+      quantity,
       price,
       name: productName,
       image: productImage,
@@ -261,7 +267,7 @@ export async function removeProductFromCartNew(cartId: string, productId: string
       credentials: "include",
       cache: "no-store",
     });
-    
+
     return unwrap<Cart>(raw);
   } catch (error) {
     console.error("Failed to remove product from cart:", error);
@@ -274,17 +280,17 @@ export async function removeProductFromMyCart(productId: string) {
   try {
     // Get current cart
     const cart = await getMyCart();
-    
+
     if (!cart) {
       throw new Error("No cart found");
     }
-    
+
     // Use _id if available, otherwise fall back to id
     const cartId = cart._id || cart.id;
     if (!cartId) {
       throw new Error("No cart ID found");
     }
-    
+
     // Remove product using proper endpoint
     return await removeProductFromCartNew(cartId, productId);
   } catch (error) {
@@ -309,29 +315,29 @@ export async function updateProductQuantityInMyCart(productId: string, quantity:
   try {
     // Get current cart
     const cart = await getMyCart();
-    
+
     if (!cart) {
       throw new Error("No cart found");
     }
-    
+
     // Use _id if available, otherwise fall back to id
     const cartId = cart._id || cart.id;
     if (!cartId) {
       throw new Error("No cart ID found");
     }
-    
+
     // If quantity is 0, remove the product
     if (quantity <= 0) {
       return await removeProductFromCartNew(cartId, productId);
     }
-    
+
     // Update quantity by replacing the entire products array
-    const updatedProducts = cart.products.map((p: any) => 
-      p.product === productId 
+    const updatedProducts = cart.products.map((p: any) =>
+      p.product === productId
         ? { ...p, quantity }
         : p
     );
-    
+
     return await replaceCartProducts(cartId, updatedProducts.map((p: any) => ({
       productId: p.product,
       quantity: p.quantity,
@@ -350,21 +356,21 @@ export async function updateProductQuantityInCartById(cartId: string, productId:
     if (quantity <= 0) {
       return await removeProductFromCartNew(cartId, productId);
     }
-    
+
     // For quantity updates, we need to get the current cart to build the updated products array
     // But we can optimize this by getting the cart from the store instead of making a new API call
     const cart = await getMyCart();
     if (!cart) {
       throw new Error("No cart found");
     }
-    
+
     // Update quantity by replacing the entire products array
-    const updatedProducts = cart.products.map((p: any) => 
-      p.product === productId 
+    const updatedProducts = cart.products.map((p: any) =>
+      p.product === productId
         ? { ...p, quantity }
         : p
     );
-    
+
     return await replaceCartProducts(cartId, updatedProducts.map((p: any) => ({
       productId: p.product,
       quantity: p.quantity,
@@ -383,7 +389,7 @@ export async function updateProductQuantityOptimistic(cartId: string, productId:
     if (quantity <= 0) {
       return await removeProductFromCartNew(cartId, productId);
     }
-    
+
     // Build updated products array from local state instead of fetching from server
     const updatedProducts = currentItems.map(item => ({
       productId: item.id,
@@ -391,7 +397,7 @@ export async function updateProductQuantityOptimistic(cartId: string, productId:
       price: item.price,
       productNote: item.productNote || undefined,  // include size breakdown
     }));
-    
+
     return await replaceCartProducts(cartId, updatedProducts);
   } catch (error) {
     console.error("Failed to update product quantity:", error);
