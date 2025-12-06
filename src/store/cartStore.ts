@@ -50,7 +50,7 @@ export const generateProductNote = (breakdown: SizeBreakdown): string => {
 export const parseProductNote = (note: string | string[] | undefined | null): SizeBreakdown => {
   // Guard: handle empty or invalid values
   if (!note) return {};
-  
+
   // If it's an array, join it into a string
   let noteStr: string;
   if (Array.isArray(note)) {
@@ -61,10 +61,10 @@ export const parseProductNote = (note: string | string[] | undefined | null): Si
   } else {
     return {};
   }
-  
+
   const breakdown: SizeBreakdown = {};
   const parts = noteStr.split(',').map(p => p.trim());
-  
+
   for (const part of parts) {
     const match = part.match(/^(\d+)\s+(.+)$/);
     if (match) {
@@ -75,7 +75,7 @@ export const parseProductNote = (note: string | string[] | undefined | null): Si
       }
     }
   }
-  
+
   return breakdown;
 };
 
@@ -89,7 +89,7 @@ type CartState = {
   items: CartLine[];
   cartId?: string | null;
   isGuestCart: boolean;
-  
+
   // UI state
   isLoading: boolean;
   error: string | null;
@@ -123,11 +123,11 @@ const GUEST_CART_KEY = 'guest_cart';
 
 function loadGuestCartFromStorage(): CartLine[] {
   if (typeof window === 'undefined') return [];
-  
+
   try {
     const data = localStorage.getItem(GUEST_CART_KEY);
     if (!data) return [];
-    
+
     const parsed = JSON.parse(data);
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
@@ -138,7 +138,7 @@ function loadGuestCartFromStorage(): CartLine[] {
 
 function saveGuestCartToStorage(items: CartLine[]): void {
   if (typeof window === 'undefined') return;
-  
+
   try {
     localStorage.setItem(GUEST_CART_KEY, JSON.stringify(items));
   } catch (error) {
@@ -161,7 +161,7 @@ function saveGuestCartToStorage(items: CartLine[]): void {
 
 function clearGuestCartFromStorage(): void {
   if (typeof window === 'undefined') return;
-  
+
   try {
     localStorage.removeItem(GUEST_CART_KEY);
   } catch (error) {
@@ -194,29 +194,73 @@ export const useCartStore = create<CartState>((set, get) => ({
         // Update existing item - merge size into breakdown
         updatedItems = [...state.items];
         const existingItem = updatedItems[idx];
-        
-        // Get or create size breakdown
-        const existingBreakdown = existingItem.sizeBreakdown || {};
-        const newBreakdown: SizeBreakdown = { ...existingBreakdown };
-        
-        if (size) {
-          // Add quantity to the specified size
-          newBreakdown[size] = (newBreakdown[size] || 0) + quantity;
+
+        let newBreakdown: SizeBreakdown;
+        let newProductNote: string;
+        let newTotal: number;
+
+        // If explicit breakdown provided (from race-condition-free hook), use it MERGED with existing? 
+        // No, if hook provides breakdown, it usually means "this is the increment" OR "this is the new state".
+        // BUT standard addItem usage is incremental.
+        // Let's assume the hook calculates the *incremental* breakdown and passes it.
+        // ACTUALLY, the request says: "Compute nextBreakdown... Use finalProductNote for local cart".
+        // This suggests the hook computes the *TARGET* state or at least the *complete* breakdown for that item.
+
+        // HOWEVER, `addItem` signature is `quantity` (increment).
+        // If we pass `sizeBreakdown` here, is it the *new total* breakdown or just the *added* breakdown?
+        // To be safe and consistent with `quantity`, let's assume inputs are INCREMENTAL/PARTIAL unless we handle it carefully.
+        // BUT the user wants to eliminate race conditions.
+        // The robust way: The HOOK calculates the *FINAL* state and we sets it.
+
+        // Let's support an explicit override if provided.
+        if (item.sizeBreakdown) {
+          // If 'sizeBreakdown' is passed, we treat it as "this is the calculated breakdown for the added quantity",
+          // so we should merge it into existing? Or is it the FINAL one?
+          // Given the user wants to avoid reading store in hook *then* writing back, 
+          // the hook will read OLD store state -> compute NEW state -> call this.
+          // So if hook provides breakdown, it is likely the *NEW COMPLETE* breakdown.
+          // BUT `addItem` adds a new item to list or updates existing.
+
+          // User said: "Compute the next breakdown... Use finalProductNote for local cart"
+
+          // Let's implement: If `sizeBreakdown` is passed, use it as the NEW breakdown for the item (merging with existing if meant to be incremental is complex if passing full object).
+          // EASIEST PATH: The hook passes the *incremental* breakdown (just the new item), and we merge it here? 
+          // NO, that still relies on `addItem` doing the math.
+          // The User said: "Compute nextBreakdown BEFORE calling addItemLocal... Use finalProductNote for local cart".
+          // This implies `addItemLocal` should accept the *RESULT*.
+
+          // Let's make `addItem` accept `productNote` and `sizeBreakdown` and if present, USE THEM as the *result* keys.
+          // But valid `addItem` behavior accumulates.
+          // If I add 1 S, then 1 M.
+          // Call 1: addItem({size: S, qty: 1}) -> breakdown: {S:1}
+          // Call 2: hook reads {S:1}, adds M -> breakdown {S:1, M:1}. Calls addItem({ ..., sizeBreakdown: {S:1, M:1} }).
+          // If `addItem` merges again, we get double?
+          // We need to replace the breakdown if provided.
+
+          newBreakdown = item.sizeBreakdown as SizeBreakdown;
+          newProductNote = (item.productNote as string) || generateProductNote(newBreakdown);
+          newTotal = getTotalFromBreakdown(newBreakdown);
         } else {
-          // No size specified, add to 'default' or existing behavior
-          newBreakdown['default'] = (newBreakdown['default'] || 0) + quantity;
+          // Standard logic (fallback)
+          const existingBreakdown = existingItem.sizeBreakdown || {};
+          newBreakdown = { ...existingBreakdown };
+
+          if (size) {
+            newBreakdown[size] = (newBreakdown[size] || 0) + quantity;
+          } else {
+            newBreakdown['default'] = (newBreakdown['default'] || 0) + quantity;
+          }
+
+          newTotal = getTotalFromBreakdown(newBreakdown);
+          newProductNote = generateProductNote(newBreakdown);
         }
-        
-        // Calculate new total and generate product note
-        const newTotal = getTotalFromBreakdown(newBreakdown);
-        const newProductNote = generateProductNote(newBreakdown);
-        
+
         // Merge available sizes (keep existing + add new ones)
         const mergedAvailableSizes = Array.from(new Set([
           ...(existingItem.availableSizes || []),
           ...(availableSizes || [])
         ]));
-        
+
         updatedItems[idx] = {
           ...existingItem,
           quantity: newTotal,
@@ -229,21 +273,29 @@ export const useCartStore = create<CartState>((set, get) => ({
         };
       } else {
         // Add new item with size breakdown
-        const sizeBreakdown: SizeBreakdown = {};
-        if (size) {
-          sizeBreakdown[size] = quantity;
+        let sizeBreakdown: SizeBreakdown;
+        if (item.sizeBreakdown) {
+          sizeBreakdown = item.sizeBreakdown as SizeBreakdown;
         } else {
-          sizeBreakdown['default'] = quantity;
+          sizeBreakdown = {};
+          if (size) {
+            sizeBreakdown[size] = quantity;
+          } else {
+            sizeBreakdown['default'] = quantity;
+          }
         }
-        
+
+        const newProductNote = (item.productNote as string) || generateProductNote(sizeBreakdown);
+        const newTotal = item.sizeBreakdown ? getTotalFromBreakdown(sizeBreakdown) : quantity;
+
         const newItem: CartLine = {
           id,
-          quantity,
+          quantity: newTotal,
           price: item.price,
           name: item.name as string,
           image: item.image as string,
           sizeBreakdown,
-          productNote: generateProductNote(sizeBreakdown),
+          productNote: newProductNote,
           availableSizes: availableSizes || [],
         };
         updatedItems = [...state.items, newItem];
@@ -262,23 +314,23 @@ export const useCartStore = create<CartState>((set, get) => ({
     set((state) => {
       const quantity = Math.max(0, Math.floor(qty));
       let updatedItems: CartLine[];
-      
+
       if (quantity <= 0) {
         updatedItems = state.items.filter((i) => i.id !== productId);
       } else {
         updatedItems = state.items.map((i) => {
           if (i.id !== productId) return i;
-          
+
           // If there's a size breakdown, scale all sizes proportionally
           if (i.sizeBreakdown && Object.keys(i.sizeBreakdown).length > 0) {
             const currentTotal = i.quantity;
             const ratio = quantity / currentTotal;
             const newBreakdown: SizeBreakdown = {};
-            
+
             // Scale each size, ensuring at least 1 for sizes that had quantity
             let allocatedQty = 0;
             const sizes = Object.entries(i.sizeBreakdown).filter(([, q]) => q > 0);
-            
+
             sizes.forEach(([size, oldQty], index) => {
               if (index === sizes.length - 1) {
                 // Last size gets the remainder to ensure total matches
@@ -289,7 +341,7 @@ export const useCartStore = create<CartState>((set, get) => ({
                 allocatedQty += scaledQty;
               }
             });
-            
+
             return {
               ...i,
               quantity,
@@ -297,7 +349,7 @@ export const useCartStore = create<CartState>((set, get) => ({
               productNote: generateProductNote(newBreakdown),
             };
           }
-          
+
           return { ...i, quantity };
         });
       }
@@ -315,27 +367,27 @@ export const useCartStore = create<CartState>((set, get) => ({
   updateSizeQuantity: (productId, size, qty) => {
     set((state) => {
       const quantity = Math.max(0, Math.floor(qty));
-      
+
       const updatedItems = state.items.map((item) => {
         if (item.id !== productId) return item;
-        
+
         const breakdown = { ...(item.sizeBreakdown || {}) };
-        
+
         if (quantity <= 0) {
           // Remove this size from breakdown
           delete breakdown[size];
         } else {
           breakdown[size] = quantity;
         }
-        
+
         // Calculate new total
         const newTotal = getTotalFromBreakdown(breakdown);
-        
+
         // If no sizes left, item will be filtered out
         if (newTotal <= 0) {
           return { ...item, quantity: 0, sizeBreakdown: {}, productNote: '' };
         }
-        
+
         return {
           ...item,
           quantity: newTotal,
@@ -356,23 +408,23 @@ export const useCartStore = create<CartState>((set, get) => ({
   removeItem: (productId) => {
     set((state) => {
       const updatedItems = state.items.filter((i) => i.id !== productId);
-      
+
       // Save to localStorage if guest
       if (state.isGuestCart) {
         saveGuestCartToStorage(updatedItems);
       }
-      
+
       return { items: updatedItems };
     });
   },
 
   clearCart: () => {
     const { isGuestCart } = get();
-    
+
     if (isGuestCart) {
       clearGuestCartFromStorage();
     }
-    
+
     set({ items: [], cartId: null });
   },
 

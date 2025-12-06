@@ -8,9 +8,6 @@ export interface ICustomization extends Document {
     size: string;
     preferredColor: string;
     additionalNotes?: string;
-    referenceImage?: string[];
-    fabricImage?: string;
-    image?: string;
     createdAt: Date;
 }
 
@@ -27,9 +24,6 @@ const CustomizationSchema = new Schema<ICustomization>(
         size: { type: String, required: true },
         preferredColor: { type: String, required: true },
         additionalNotes: { type: String },
-        image: { type: String },
-        referenceImage: [{ type: String }],
-        fabricImage: { type: String },
     },
     { timestamps: { createdAt: true, updatedAt: false } }
 );

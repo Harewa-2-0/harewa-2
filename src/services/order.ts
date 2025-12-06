@@ -30,8 +30,17 @@ export type Cart = {
 };
 
 export type CartProduct = {
-  product: string | null;      // Product ID or null
+  product: string | null | {  // Product ID, null, or populated product object
+    _id: string;
+    name: string;
+    description?: string;
+    price: number;
+    images?: string[];
+    sizes?: string[];
+    [key: string]: any;
+  };
   quantity: number;            // Quantity of the product
+  productNote?: string[];      // Size breakdown notes (e.g., ["1 extra-large", "4 large"])
   _id: string;                 // Cart product ID
 };
 
@@ -58,14 +67,14 @@ export interface OrderPlacementResult {
   orderId?: string;
   error?: string;
   errorCode?:
-    | 'NO_ADDRESS'
-    | 'DUPLICATE_ORDER'
-    | 'NOT_AUTHENTICATED'
-    | 'NETWORK_ERROR'
-    | 'INVALID_CART'
-    | 'EMPTY_CART'
-    | 'INVALID_AMOUNT'
-    | 'UNKNOWN';
+  | 'NO_ADDRESS'
+  | 'DUPLICATE_ORDER'
+  | 'NOT_AUTHENTICATED'
+  | 'NETWORK_ERROR'
+  | 'INVALID_CART'
+  | 'EMPTY_CART'
+  | 'INVALID_AMOUNT'
+  | 'UNKNOWN';
   order?: Order;
 }
 
@@ -85,11 +94,11 @@ const paths = {
 const toQS = (params?: Record<string, string | number | boolean | undefined>) =>
   params
     ? `?${new URLSearchParams(
-        Object.entries(params).reduce<Record<string, string>>((acc, [k, v]) => {
-          if (v !== undefined && v !== null) acc[k] = String(v);
-          return acc;
-        }, {})
-      )}`
+      Object.entries(params).reduce<Record<string, string>>((acc, [k, v]) => {
+        if (v !== undefined && v !== null) acc[k] = String(v);
+        return acc;
+      }, {})
+    )}`
     : "";
 
 // remove undefined keys so we only send what's present
@@ -135,7 +144,7 @@ export async function updateOrder(orderId: string, payload: UpdateOrderInput) {
   if (!orderId || !orderId.trim()) {
     throw new Error("updateOrder: `orderId` is required in the URL path.");
   }
-  
+
   const body = compact({
     carts: payload.carts?.trim(),
     amount: payload.amount,
@@ -216,34 +225,34 @@ export async function createOrderFromCart(): Promise<OrderPlacementResult> {
   try {
     const cartStore = useCartStore.getState();
     const authStore = useAuthStore.getState();
-    
+
     const { items, cartId } = cartStore;
     const { isAuthenticated } = authStore;
-    
+
     // Validate authentication
     if (!isAuthenticated) {
       throw new Error('NOT_AUTHENTICATED: User must be authenticated to create an order');
     }
-    
+
     // Validate cart
     if (!cartId) {
       throw new Error('INVALID_CART: No cart found');
     }
-    
+
     if (items.length === 0) {
       throw new Error('EMPTY_CART: Cart is empty');
     }
-    
+
     // Calculate total amount
     const totalAmount = items.reduce((total, item) => {
       const itemPrice = typeof item.price === 'number' ? item.price : 0;
       return total + (itemPrice * item.quantity);
     }, 0);
-    
+
     if (totalAmount <= 0) {
       throw new Error('INVALID_AMOUNT: Invalid order amount');
     }
-    
+
     // Fetch profile data directly from API
     let profileData: any = null;
     try {
@@ -256,13 +265,13 @@ export async function createOrderFromCart(): Promise<OrderPlacementResult> {
     // Get default address
     const defaultAddress = profileData?.addresses?.find((addr: any) => addr.isDefault)
       || profileData?.addresses?.[0];
-    
+
     if (!defaultAddress) {
       throw new Error('NO_ADDRESS: No delivery address found. Please add an address to your profile.');
     }
-    
+
     const addressString = `${defaultAddress.line1}, ${defaultAddress.city}, ${defaultAddress.state}, ${defaultAddress.zip}`;
-    
+
     // Create the order
     const orderPayload: CreateOrderInput = {
       carts: cartId,
@@ -271,17 +280,17 @@ export async function createOrderFromCart(): Promise<OrderPlacementResult> {
     };
 
     console.log('Creating order with payload:', orderPayload);
-    
+
     const order = await createOrder(orderPayload);
-    
+
     console.log('Order created successfully:', order);
-    
+
     return {
       success: true,
       orderId: order._id,
       order: order,
     };
-    
+
   } catch (error) {
     console.error('Failed to create order:', error);
     const message = error instanceof Error ? error.message : String(error ?? '');
@@ -320,16 +329,16 @@ export async function createOrderFromCart(): Promise<OrderPlacementResult> {
 export function getCartDataForOrder() {
   const cartStore = useCartStore.getState();
   const authStore = useAuthStore.getState();
-  
+
   const { items, cartId } = cartStore;
   const { isAuthenticated } = authStore;
-  
+
   // Calculate total amount
   const totalAmount = items.reduce((total, item) => {
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
     return total + (itemPrice * item.quantity);
   }, 0);
-  
+
   return {
     cartId: cartId || '',
     totalAmount,

@@ -19,25 +19,25 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const router = useRouter();
   const { addToast } = useToast();
   const { setCurrentOrder } = useOrderStore();
-  
+
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchOrder = async () => {
       if (!orderId || !isOpen) return;
-      
+
       try {
         setLoading(true);
         const response = await getOrderById(orderId) as any; // Type assertion to handle nested response
         console.log('Order response:', response);
-        
+
         // Handle nested response structure
         const orderData = response?.data?.data || response?.data || response;
         console.log('Extracted order data:', orderData);
         console.log('Cart data:', orderData?.carts);
         console.log('Products:', orderData?.carts?.products);
-        
+
         setOrder(orderData);
       } catch (error) {
         console.error('Failed to fetch order:', error);
@@ -72,17 +72,17 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   // Helper to safely get products from order
   const getOrderProducts = () => {
     if (!order) return [];
-    
+
     // Check if carts exists and has products
     if (order.carts && Array.isArray(order.carts.products)) {
       return order.carts.products;
     }
-    
+
     // Fallback: check if products is directly on order
     if (Array.isArray((order as any).products)) {
       return (order as any).products;
     }
-    
+
     return [];
   };
 
@@ -90,6 +90,18 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
 
   const products = getOrderProducts();
   console.log('Rendered products:', products);
+
+  // Calculate actual subtotal from product prices
+  const calculatedSubtotal = products.reduce((total: number, cartProduct: any) => {
+    const product = typeof cartProduct.product === 'object' && cartProduct.product !== null
+      ? cartProduct.product
+      : null;
+
+    if (product?.price) {
+      return total + (product.price * (cartProduct?.quantity || 1));
+    }
+    return total;
+  }, 0);
 
   return (
     <AnimatePresence>
@@ -168,7 +180,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                               {getOrderStatusInfo(order.status || 'pending').label}
                             </span>
                           </div>
-                          
+
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                             <div className="flex flex-col gap-1">
                               <span className="text-gray-600 font-medium flex items-center gap-2">
@@ -205,17 +217,17 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                                 const product = typeof cartProduct.product === 'object' && cartProduct.product !== null
                                   ? cartProduct.product
                                   : null;
-                                
-                                const productId = typeof cartProduct.product === 'string' 
-                                  ? cartProduct.product 
+
+                                const productId = typeof cartProduct.product === 'string'
+                                  ? cartProduct.product
                                   : product?._id;
-                                
+
                                 return (
                                   <div key={productId || index} className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
                                     <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
                                       {product?.images?.[0] ? (
-                                        <img 
-                                          src={product.images[0]} 
+                                        <img
+                                          src={product.images[0]}
                                           alt={product.name || 'Product'}
                                           className="w-full h-full object-cover"
                                           onError={(e) => {
@@ -240,6 +252,21 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                                           </p>
                                         )}
                                       </div>
+
+                                      {/* Size Breakdown from productNote */}
+                                      {cartProduct?.productNote && Array.isArray(cartProduct.productNote) && cartProduct.productNote.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                          {cartProduct.productNote.map((note: string, noteIndex: number) => (
+                                            <span
+                                              key={noteIndex}
+                                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#D4AF37]/10 text-[#B8941F] border border-[#D4AF37]/30"
+                                            >
+                                              {note}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+
                                       {product?.description && (
                                         <p className="text-xs text-gray-500 mt-1 line-clamp-2">
                                           {product.description}
@@ -275,7 +302,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                           <div className="space-y-3">
                             <div className="flex justify-between">
                               <span className="text-gray-600 font-medium">Subtotal:</span>
-                              <span className="text-gray-900 font-semibold">{formatPrice(order.amount || 0)}</span>
+                              <span className="text-gray-900 font-semibold">{formatPrice(calculatedSubtotal || order.amount || 0)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600 font-medium">Shipping:</span>
@@ -284,7 +311,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                             <div className="border-t border-gray-300 pt-3">
                               <div className="flex justify-between font-bold text-lg">
                                 <span className="text-gray-900">Total:</span>
-                                <span className="text-gray-900">{formatPrice(order.amount || 0)}</span>
+                                <span className="text-gray-900">{formatPrice(calculatedSubtotal || order.amount || 0)}</span>
                               </div>
                             </div>
                           </div>

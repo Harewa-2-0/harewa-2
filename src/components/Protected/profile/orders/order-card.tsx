@@ -14,13 +14,13 @@ export const OrderCard = ({ order, onOrderDeleted }: { order: Order; onOrderDele
   const { addToast } = useToast();
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const { setCurrentOrder } = useOrderStore();
-  
+
   // React Query mutation for deleting orders
   const deleteOrderMutation = useDeleteOrderMutation();
 
   const handleDelete = async () => {
     if (deleteOrderMutation.isPending) return;
-    
+
     try {
       await deleteOrderMutation.mutateAsync(order._id);
       addToast('Order deleted successfully', 'success');
@@ -33,7 +33,7 @@ export const OrderCard = ({ order, onOrderDeleted }: { order: Order; onOrderDele
 
   const handleCancelPending = async () => {
     if (deleteOrderMutation.isPending) return;
-    
+
     try {
       await deleteOrderMutation.mutateAsync(order._id);
       addToast('Pending order cancelled successfully', 'success');
@@ -58,7 +58,7 @@ export const OrderCard = ({ order, onOrderDeleted }: { order: Order; onOrderDele
   const cartId = typeof (order as any).carts === 'string'
     ? (order as any).carts
     : (order as any).carts?._id || '';
-  
+
   const isPendingOrder = order.status === 'pending' || order.status === 'initiated';
 
   return (
@@ -70,17 +70,15 @@ export const OrderCard = ({ order, onOrderDeleted }: { order: Order; onOrderDele
       <button
         onClick={isPendingOrder ? handleCancelPending : handleDelete}
         disabled={deleteOrderMutation.isPending}
-        className={`absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors ${
-          isPendingOrder 
-            ? 'bg-[#D4AF37] text-black hover:bg-[#B8941F]' 
+        className={`absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors ${isPendingOrder
+            ? 'bg-[#D4AF37] text-black hover:bg-[#B8941F]'
             : 'bg-gray-200 text-gray-600 hover:bg-red-100 hover:text-red-600'
-        }`}
+          }`}
         aria-label={isPendingOrder ? "Cancel pending order" : "Delete order"}
       >
         {deleteOrderMutation.isPending ? (
-          <div className={`w-4 h-4 border-2 border-gray-300 rounded-full animate-spin ${
-            isPendingOrder ? 'border-t-black' : 'border-t-red-500'
-          }`}></div>
+          <div className={`w-4 h-4 border-2 border-gray-300 rounded-full animate-spin ${isPendingOrder ? 'border-t-black' : 'border-t-red-500'
+            }`}></div>
         ) : (
           <X size={16} />
         )}
@@ -116,13 +114,16 @@ export const OrderCard = ({ order, onOrderDeleted }: { order: Order; onOrderDele
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
           <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center flex-shrink-0">
-            <img 
-              src="/cartt.png" 
+            <img
+              src="/cartt.png"
               alt="Cart items"
               className="w-full h-full object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
-                e.currentTarget.nextElementSibling.style.display = 'flex';
+                const nextElement = e.currentTarget.nextElementSibling as HTMLElement | null;
+                if (nextElement) {
+                  nextElement.style.display = 'flex';
+                }
               }}
             />
             <Package size={24} className="text-gray-400 hidden" />

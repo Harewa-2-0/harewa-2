@@ -124,13 +124,13 @@ export async function POST(request: NextRequest) {
             const paymentInit = await createCheckoutSession({
                 amount: order.amount,
                 email: user.email,
-                successUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-                cancelUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/payment/cancel`,
+                successUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+                cancelUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/cancel`,
                 metadata: {
                     items: order.items || [], // optional, can stringify later
                     type: "order",
                     amount: order.amount,
-                    uuid: uuid, // Use the actual uuid (from userDetails.uuid), not user.sub
+                    uuid: user.sub,
                     orderId: order.id,
                 },
             });

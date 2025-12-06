@@ -5,6 +5,7 @@ import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
 import { formatPrice } from '@/utils/currency';
 import { useToggleWishlistMutation, useIsInWishlist } from '@/hooks/useWishlist';
+import { SizeSelectorPopover } from '../shop/SizeSelectorPopover';
 
 export interface Product {
   _id: string;
@@ -63,6 +64,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
   isLoading = false,
 }) => {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [showSizePopover, setShowSizePopover] = useState(false);
+  const addToCartBtnRef = React.useRef<HTMLButtonElement>(null);
+
   const { addToCart: addToCartAction } = useAuthAwareCartActions();
   const { addToast } = useToast();
   const toggleWishlistMutation = useToggleWishlistMutation();
@@ -84,20 +88,27 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const displayRating = product.rating ?? 4; // keep star UI consistent
   const isLiked = product.isLiked || false;
   const remainingInStock = product.remainingInStock ?? product.quantity ?? 0;
+  const availableSizes = product.sizes || [];
 
-  const handleAddToCart = async (e: React.MouseEvent) => {
+  const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (isAddingToCart) return;
+    setShowSizePopover(true);
+  };
+
+  const onSizeConfirm = async (size: string, qty: number) => {
+    if (qty <= 0) return;
 
     setIsAddingToCart(true);
     try {
       await addToCartAction({
         id: product._id,
-        quantity: 1,
+        quantity: qty,
         price: product.price,
         name: product.name,
         image: imageUrl,
+        size: size
       });
       addToast('Item added to cart successfully', 'success');
     } catch (error) {
@@ -111,12 +122,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!isLoggedIn) {
       addToast('Please login to add to wishlist', 'error');
       return;
     }
-    
+
     try {
       const result = await toggleWishlistMutation.mutateAsync({ productId: product._id });
       addToast(result.message, result.added ? 'success' : 'info');
@@ -151,22 +162,24 @@ const ProductCard: React.FC<ProductCardProps> = ({
               <span className="text-sm font-semibold text-gray-900">
                 {formatPrice(displayPrice)}
               </span>
-              <button
-                onClick={handleAddToCart}
-                disabled={isAddingToCart}
-                className={`p-2 transition-all duration-200 rounded-full ${
-                  isAddingToCart
+              <div ref={addToCartBtnRef}>
+                <button
+                  onClick={handleAddToCart}
+                  disabled={isAddingToCart}
+                  type="button"
+                  className={`p-2 transition-all duration-200 rounded-full ${isAddingToCart || showSizePopover
                     ? 'bg-gray-100 cursor-not-allowed opacity-60'
                     : 'text-gray-600 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 cursor-pointer'
-                }`}
-                aria-label={isAddingToCart ? 'Adding to cart...' : 'Add to cart'}
-              >
-                {isAddingToCart ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-                ) : (
-                  <ShoppingCart className="w-5 h-5" />
-                )}
-              </button>
+                    }`}
+                  aria-label={isAddingToCart ? 'Adding to cart...' : 'Add to cart'}
+                >
+                  {isAddingToCart ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                  ) : (
+                    <ShoppingCart className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-1">
@@ -177,6 +190,20 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         </div>
       </Link>
+
+      {showSizePopover && (
+        <React.Suspense fallback={null}>
+          <SizeSelectorPopover
+            isOpen={showSizePopover}
+            onClose={() => setShowSizePopover(false)}
+            sizeBreakdown={{}} // Empty to start fresh
+            availableSizes={availableSizes}
+            onSizeQuantityChange={onSizeConfirm}
+            anchorRef={addToCartBtnRef}
+            mode="increase"
+          />
+        </React.Suspense>
+      )}
     </>
   );
 };

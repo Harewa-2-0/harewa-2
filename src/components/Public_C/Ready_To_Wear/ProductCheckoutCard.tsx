@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/contexts/toast-context';
 import { api } from '@/utils/api';
 import { formatPrice } from '@/utils/currency';
 import SizeGuide from './SizeGuide';
 import { useToggleWishlistMutation, useIsInWishlist } from '@/hooks/useWishlist';
+import { useAuthAwareCartActions } from '@/hooks/use-cart';
 
 interface ProductCheckoutCardProps {
   product: {
@@ -43,12 +42,12 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
   const [isVerifyingAuth, setIsVerifyingAuth] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const { addItem } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
   const router = useRouter();
   const toggleWishlistMutation = useToggleWishlistMutation();
   const isInWishlist = useIsInWishlist(product._id);
+  const { addToCart: addToCartAction } = useAuthAwareCartActions();
 
   // Map size names to single letters (same as new arrivals)
   const getSizeLetter = (size: string): string => {
@@ -103,7 +102,8 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
     }
 
     try {
-      addItem({
+      // Use the centralized cart hook - handles optimistic update, server sync, and error handling
+      await addToCartAction({
         id: productId,
         quantity: 1,
         price: productPrice,
@@ -113,21 +113,6 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
       });
 
       addToast("Item added to cart successfully", "success");
-
-      if (isAuthenticated) {
-        try {
-          const { addToMyCart } = await import('@/services/cart');
-          await addToMyCart({
-            productId: productId,
-            quantity: 1,
-            price: productPrice,
-          });
-        } catch (serverError) {
-          console.error('Failed to add item to server:', serverError);
-          addToast("Item added to cart, but sync to server failed", "info");
-        }
-      }
-
       onAddToCart();
     } catch (error) {
       addToast("Failed to add item to cart", "error");
@@ -140,17 +125,17 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!product._id) {
       console.error('Product ID is missing');
       return;
     }
-    
+
     if (!isAuthenticated) {
       addToast('Please login to add to wishlist', 'error');
       return;
     }
-    
+
     try {
       const result = await toggleWishlistMutation.mutateAsync({ productId: product._id });
       addToast(result.message, result.added ? 'success' : 'info');
@@ -175,18 +160,18 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
     setIsVerifyingAuth(true);
     try {
       console.log('[Customize] Verifying auth before navigation...');
-      
+
       // Quick ping to verify session (this will auto-refresh if needed)
       await api('/api/auth/me');
-      
+
       console.log('[Customize] ✅ Auth verified, navigating...');
-      
+
       // Auth is valid, navigate to customize page
       router.push(`/shop/${product._id}/customize`);
-      
+
     } catch (error: any) {
       console.error('[Customize] Auth verification failed:', error);
-      
+
       // Token expired or invalid
       if (error?.status === 401 || error?.message?.includes('Token expired')) {
         addToast('Your session has expired. Please sign in again.', 'error');
@@ -218,14 +203,14 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
           </div>
 
           {/* Size Guide */}
-          <div 
+          <div
             className="flex items-center gap-2 mb-4 cursor-pointer text-blue-600 hover:underline"
             onClick={() => setIsSizeGuideOpen(true)}
           >
-            <Image 
-              src="/style_guide.png" 
-              alt="Size guide" 
-              width={24} 
+            <Image
+              src="/style_guide.png"
+              alt="Size guide"
+              width={24}
               height={24}
               className="w-6 h-6"
             />
@@ -243,11 +228,10 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
                     <button
                       key={size}
                       onClick={() => onSizeSelect(size)}
-                      className={`px-4 py-2 border-2 rounded-lg text-sm font-medium transition-colors ${
-                        isSelected
+                      className={`px-4 py-2 border-2 rounded-lg text-sm font-medium transition-colors ${isSelected
                           ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]'
                           : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                      }`}
+                        }`}
                     >
                       {sizeLetter}
                     </button>
@@ -262,11 +246,10 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
             <button
               onClick={handleCustomizeClick}
               disabled={isVerifyingAuth}
-              className={`flex-1 py-3 bg-black text-white rounded-lg font-medium transition-colors text-sm text-center ${
-                isVerifyingAuth
+              className={`flex-1 py-3 bg-black text-white rounded-lg font-medium transition-colors text-sm text-center ${isVerifyingAuth
                   ? 'opacity-50 cursor-not-allowed'
                   : 'hover:bg-gray-800'
-              }`}
+                }`}
             >
               {isVerifyingAuth ? (
                 <div className="flex justify-center items-center">
@@ -282,11 +265,10 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
             <button
               onClick={handleAddToCart}
               disabled={isAddingToCartLocal}
-              className={`flex-1 py-3 bg-[#D4AF37] text-white rounded-lg font-medium transition-colors text-sm ${
-                isAddingToCartLocal
+              className={`flex-1 py-3 bg-[#D4AF37] text-white rounded-lg font-medium transition-colors text-sm ${isAddingToCartLocal
                   ? 'opacity-50 cursor-not-allowed'
                   : 'hover:bg-[#B8941F]'
-              }`}
+                }`}
             >
               {isAddingToCartLocal ? (
                 <div className="flex justify-center items-center">
@@ -328,9 +310,9 @@ const ProductCheckoutCard: React.FC<ProductCheckoutCardProps> = ({
       </div>
 
       {/* Size Guide Modal */}
-      <SizeGuide 
-        isOpen={isSizeGuideOpen} 
-        onClose={() => setIsSizeGuideOpen(false)} 
+      <SizeGuide
+        isOpen={isSizeGuideOpen}
+        onClose={() => setIsSizeGuideOpen(false)}
       />
     </>
   );

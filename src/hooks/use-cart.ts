@@ -1,5 +1,5 @@
 import { useShallow } from "zustand/react/shallow";
-import { useCartStore } from "@/store/cartStore";
+import { useCartStore, generateProductNote } from "@/store/cartStore";
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useAuthStore } from "@/store/authStore";
 import { useAddToCartMutation } from "@/hooks/useCart";
@@ -42,28 +42,45 @@ export const useAuthAwareCartActions = () => {
   const addToCart = async (
     item: { id: string; quantity?: number; price?: number; name?: string; image?: string; size?: string; availableSizes?: string[] }
   ) => {
-    // Always update local state immediately (optimistic update)
-    addItemLocal(item);
-    
-    // Sync to server if authenticated
+    // 1. Get CURRENT state synchronously to compute next state
+    const currentItems = useCartStore.getState().items;
+    const currentItem = currentItems.find(i => i.id === item.id);
+
+    // 2. Compute the NEXT breakdown and note based on current state + new item
+    let nextBreakdown: Record<string, number> = {};
+    if (currentItem?.sizeBreakdown) {
+      nextBreakdown = { ...currentItem.sizeBreakdown };
+    }
+
+    const sizeToAdd = item.size || 'default';
+    const qtyToAdd = item.quantity ?? 1;
+    nextBreakdown[sizeToAdd] = (nextBreakdown[sizeToAdd] || 0) + qtyToAdd;
+
+    const finalProductNote = generateProductNote(nextBreakdown);
+
+    // 3. Update local state with the COMPUTED outcome (preventing race conditions in the store logic too)
+    // We pass the new breakdown so the store doesn't have to guess/merge blindly if we called it twice fast
+    addItemLocal({
+      ...item,
+      sizeBreakdown: nextBreakdown,
+      productNote: finalProductNote
+    });
+
+    // 4. Update server with the SAME computed note
     if (isAuthenticated) {
       try {
-        // Get the updated item from store to get productNote (contains size breakdown)
-        const storeItems = useCartStore.getState().items;
-        const updatedStoreItem = storeItems.find(i => i.id === item.id);
-        
         const updatedCart = await addToCartMutation.mutateAsync({
           productId: item.id,
-          quantity: updatedStoreItem?.quantity ?? item.quantity ?? 1,
+          quantity: (currentItem?.quantity ?? 0) + qtyToAdd,
           price: item.price,
-          productNote: updatedStoreItem?.productNote || undefined,
+          productNote: finalProductNote,
         });
-        
+
         // Just update cartId - useCartSync hook handles the rest
         if (updatedCart) {
           const cartId = (updatedCart as any)._id || (updatedCart as any).id;
           if (cartId) {
-            useCartStore.setState({ 
+            useCartStore.setState({
               cartId,
               isGuestCart: false,
             });
@@ -85,7 +102,7 @@ export const useAuthAwareCartActions = () => {
   const updateCartQuantity = async (productId: string, quantity: number) => {
     // Update local state immediately
     updateQuantityLocal(productId, quantity);
-    
+
     // For logged-in users, mutation is handled by the cart drawer component
     // using useUpdateCartQuantityMutation for better optimistic updates
   };
@@ -98,7 +115,7 @@ export const useAuthAwareCartActions = () => {
   const removeFromCart = async (productId: string) => {
     // Update local state immediately
     removeItemLocal(productId);
-    
+
     // For logged-in users, mutation is handled by the cart drawer component
     // using useRemoveFromCartMutation for better optimistic updates
   };

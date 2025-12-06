@@ -5,6 +5,7 @@ import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
 import { formatPrice } from '@/utils/currency';
 import { useToggleWishlistMutation, useIsInWishlist } from '@/hooks/useWishlist';
+import { SizeSelectorPopover } from '../shop/SizeSelectorPopover';
 
 interface RecommendedProduct {
   _id?: string;
@@ -14,6 +15,7 @@ interface RecommendedProduct {
   rating?: number;
   reviews?: number;
   isLiked?: boolean;
+  sizes?: string[];
 }
 
 interface RecommendedProductsProps {
@@ -37,23 +39,25 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
 
   const RecommendedProductCard: React.FC<{ product: RecommendedProduct }> = ({ product }) => {
     const [isAddingToCart, setIsAddingToCart] = useState(false);
+    const [showSizePopover, setShowSizePopover] = useState(false);
+    const addToCartBtnRef = React.useRef<HTMLDivElement>(null);
     const toggleWishlistMutation = useToggleWishlistMutation();
     const isInWishlist = useIsInWishlist(product._id);
 
     const handleToggleWishlist = async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      
+
       if (!product._id) {
         console.error('Product ID is missing');
         return;
       }
-      
+
       if (!isAuthenticated) {
         addToast('Please login to add to wishlist', 'error');
         return;
       }
-      
+
       try {
         const result = await toggleWishlistMutation.mutateAsync({ productId: product._id });
         addToast(result.message, result.added ? 'success' : 'info');
@@ -63,33 +67,32 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
       }
     };
 
-    const handleAddToCart = async (e: React.MouseEvent) => {
+    const handleAddToCart = (e: React.MouseEvent) => {
       e.preventDefault();
-      e.stopPropagation(); // don't trigger Link/navigation
-      
-      // Prevent double-submit
+      e.stopPropagation();
       if (isAddingToCart) return;
+      setShowSizePopover(true);
+    };
+
+    const onSizeConfirm = async (size: string, qty: number) => {
+      if (qty <= 0) return;
 
       setIsAddingToCart(true);
-      
-      // Get the first image or use a placeholder
+
       const imageUrl = product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png';
-      
+
       try {
-        // Use the centralized cart hook - handles optimistic update, server sync, and error handling
         await addToCartAction({
-          id: product._id,
-          quantity: 1,
-          price: product.price,
+          id: product._id!,
+          quantity: qty,
+          price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
           name: product.name,
           image: imageUrl,
+          size: size
         });
-        
-        // Show success toast
-        addToast("Item added to cart successfully", "success");
+        addToast('Item added to cart successfully', 'success');
       } catch (error) {
-        // Show error toast - the hook already handled rollback
-        addToast("Failed to add item to cart", "error");
+        addToast('Failed to add item to cart', 'error');
         console.error('Failed to add item to cart:', error);
       } finally {
         setIsAddingToCart(false);
@@ -97,49 +100,66 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
     };
 
     return (
-      <Link href={`/shop/${product._id}`} className="block">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden group hover:shadow-md transition-shadow">
-          <div className="relative">
-            <img
-              src={product.images?.[0] || '/placeholder.png'}
-              alt={product.name}
-              className="w-full h-36 sm:h-40 object-cover"
-            />
-            <button 
-              onClick={handleToggleWishlist}
-              className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
-            >
-              <Heart className={`w-5 h-5 ${isInWishlist ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-gray-400'}`} />
-            </button>
-          </div>
-          <div className="p-2.5">
-            <h4 className="text-sm text-gray-800 mb-1 line-clamp-2">{product.name}</h4>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-sm font-semibold text-gray-900">{formatPrice(product.price)}</span>
+      <>
+        <Link href={`/shop/${product._id}`} className="block">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden group hover:shadow-md transition-shadow">
+            <div className="relative">
+              <img
+                src={product.images?.[0] || '/placeholder.png'}
+                alt={product.name}
+                className="w-full h-36 sm:h-40 object-cover"
+              />
               <button
-                onClick={handleAddToCart}
-                disabled={isAddingToCart}
-                className={`p-2 transition-all duration-200 rounded-full ${
-                  isAddingToCart
-                    ? 'bg-gray-100 cursor-not-allowed opacity-60'
-                    : 'text-gray-600 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 cursor-pointer'
-                }`}
-                aria-label={isAddingToCart ? 'Adding to cart...' : 'Add to cart'}
+                onClick={handleToggleWishlist}
+                className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
               >
-                {isAddingToCart ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-                ) : (
-                  <ShoppingCart className="w-5 h-5" />
-                )}
+                <Heart className={`w-5 h-5 ${isInWishlist ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-gray-400'}`} />
               </button>
             </div>
-            <div className="flex items-center justify-between">
-              {renderStars(product.rating)}
-              <span className="text-xs text-gray-500">({product.reviews || 0})</span>
+            <div className="p-2.5">
+              <h4 className="text-sm text-gray-800 mb-1 line-clamp-2">{product.name}</h4>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-semibold text-gray-900">{formatPrice(product.price)}</span>
+                <div ref={addToCartBtnRef}>
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={isAddingToCart}
+                    type="button"
+                    className={`p-2 transition-all duration-200 rounded-full ${isAddingToCart || showSizePopover
+                      ? 'bg-gray-100 cursor-not-allowed opacity-60'
+                      : 'text-gray-600 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 cursor-pointer'
+                      }`}
+                    aria-label={isAddingToCart ? 'Adding to cart...' : 'Add to cart'}
+                  >
+                    {isAddingToCart ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                    ) : (
+                      <ShoppingCart className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                {renderStars(product.rating)}
+                <span className="text-xs text-gray-500">({product.reviews || 0})</span>
+              </div>
             </div>
           </div>
-        </div>
-      </Link>
+        </Link>
+        {showSizePopover && (
+          <React.Suspense fallback={null}>
+            <SizeSelectorPopover
+              isOpen={showSizePopover}
+              onClose={() => setShowSizePopover(false)}
+              sizeBreakdown={{}}
+              availableSizes={product.sizes || []}
+              onSizeQuantityChange={onSizeConfirm}
+              anchorRef={addToCartBtnRef}
+              mode="increase"
+            />
+          </React.Suspense>
+        )}
+      </>
     );
   };
 
@@ -157,10 +177,8 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
           ))}
         </div>
       </div>
-
-      {/* Toast notifications are now handled globally by ToastContainer */}
     </>
   );
 };
 
-export default RecommendedProducts; 
+export default RecommendedProducts;
