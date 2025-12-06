@@ -29,12 +29,8 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
 
       try {
         setLoading(true);
-        const response = await getOrderById(orderId) as any; // Type assertion to handle nested response
-        console.log('Order response:', response);
-
-        // Handle nested response structure
-        const orderData = response?.data?.data || response?.data || response;
-        console.log('Extracted order data:', orderData);
+        const orderData = await getOrderById(orderId);
+        console.log('Order data:', orderData);
         console.log('Cart data:', orderData?.carts);
         console.log('Products:', orderData?.carts?.products);
 

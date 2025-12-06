@@ -210,6 +210,23 @@ export async function getMyOrders(params?: Record<string, string | number | bool
   return orders ?? [];
 }
 
+// Get a specific order from current user's orders
+export async function getMyOrderById(orderId: string) {
+  if (!orderId || !orderId.trim()) {
+    throw new Error("getMyOrderById: `orderId` is required.");
+  }
+
+  // Fetch all user's orders and find the specific one
+  const orders = await getMyOrders();
+  const order = orders.find(o => o._id === orderId);
+
+  if (!order) {
+    throw new Error(`Order with ID ${orderId} not found in your orders.`);
+  }
+
+  return order;
+}
+
 // Update order status (convenience function)
 export async function updateOrderStatus(orderId: string, status: Order['status']) {
   return updateOrder(orderId, { status });

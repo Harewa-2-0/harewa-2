@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, Package, Calendar, User, MapPin, Printer } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -10,12 +10,13 @@ import { useToast } from '@/contexts/toast-context';
 import { OrderPrint } from '@/components/Protected/admin/pages/orders/print';
 
 interface PageProps {
-    params: {
+    params: Promise<{
         orderId: string;
-    };
+    }>;
 }
 
 export default function OrderDetailsPage({ params }: PageProps) {
+    const { orderId } = use(params);
     const router = useRouter();
     const { addToast } = useToast();
     const [order, setOrder] = useState<Order | null>(null);
@@ -26,8 +27,8 @@ export default function OrderDetailsPage({ params }: PageProps) {
         const fetchOrder = async () => {
             try {
                 setLoading(true);
-                const response = await getOrderById(params.orderId) as any;
-                const orderData = response?.data?.data || response?.data || response;
+                const orderData = await getOrderById(orderId);
+                console.log('Order data:', orderData);
                 setOrder(orderData);
             } catch (error) {
                 console.error('Failed to fetch order:', error);
@@ -37,10 +38,10 @@ export default function OrderDetailsPage({ params }: PageProps) {
             }
         };
 
-        if (params.orderId) {
+        if (orderId) {
             fetchOrder();
         }
-    }, [params.orderId, addToast]);
+    }, [orderId, addToast]);
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
