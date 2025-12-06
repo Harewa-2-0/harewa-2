@@ -1,8 +1,8 @@
 // React Query hooks for cart operations
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  getMyCart, 
-  addToMyCart, 
+import {
+  getMyCart,
+  addToMyCart,
   removeProductFromCartById,
   updateProductQuantityOptimistic,
   replaceCartProducts,
@@ -31,7 +31,7 @@ export function useCartQuery(enabled: boolean = true) {
     queryFn: async () => {
       const cart = await getMyCart();
       if (!cart) return [];
-      
+
       const items = mapServerCartToStoreItems(cart);
       return items;
     },
@@ -45,8 +45,9 @@ export function useCartQuery(enabled: boolean = true) {
 
 /**
  * Hook to get the raw cart object (with cartId)
+ * Accepts custom query options for fine-grained control
  */
-export function useCartRawQuery(enabled: boolean = true) {
+export function useCartRawQuery(enabled: boolean = true, options?: Partial<Parameters<typeof useQuery<Cart | null, Error>>[0]>) {
   return useQuery<Cart | null, Error>({
     queryKey: [...cartKeys.mine(), 'raw'],
     queryFn: async () => {
@@ -57,6 +58,7 @@ export function useCartRawQuery(enabled: boolean = true) {
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: 1,
+    ...options, // Allow custom options to override defaults
   });
 }
 
@@ -115,11 +117,11 @@ export function useUpdateCartQuantityMutation() {
       // Optimistically update
       queryClient.setQueryData<CartLine[]>(cartKeys.mine(), (old) => {
         if (!old) return [];
-        
+
         if (quantity <= 0) {
           return old.filter(item => item.id !== productId);
         }
-        
+
         return old.map(item =>
           item.id === productId ? { ...item, quantity } : item
         );
@@ -212,7 +214,7 @@ export function useCreateEmptyCartMutation() {
     onSuccess: (newCart) => {
       const cartId = newCart?._id || newCart?.id;
       console.log('[useCreateEmptyCartMutation] New empty cart created:', cartId);
-      
+
       // Invalidate cart queries to refetch and get the new cart
       queryClient.invalidateQueries({ queryKey: cartKeys.all });
     },

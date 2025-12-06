@@ -6,6 +6,7 @@ import { type Order } from '@/services/order';
 import { OrderPrint } from './print';
 import { PageSpinner } from '../../components/Spinner';
 import { formatPrice } from '@/utils/currency';
+import { useRouter } from 'next/navigation';
 
 interface OrderItem {
   id: string;
@@ -28,6 +29,7 @@ interface OrdersTableProps {
 }
 
 export default function OrdersTable({ filters, activeTab, loading = false, orders }: OrdersTableProps) {
+  const router = useRouter();
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [animatingRows, setAnimatingRows] = useState<Set<string>>(new Set());
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
@@ -50,7 +52,7 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
       shipped: 'bg-blue-100 text-blue-800',
       delivered: 'bg-green-100 text-green-800'
     };
-    
+
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusClasses[status as keyof typeof statusClasses] || 'bg-gray-100 text-gray-800'}`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -59,7 +61,7 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
   };
 
   const getProfitBadge = (percentage: number) => {
-  return (
+    return (
       <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
         {percentage}%
       </span>
@@ -68,11 +70,11 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
 
   const toggleExpanded = (orderId: string) => {
     const isCurrentlyExpanded = expandedRows.has(orderId);
-    
+
     if (isCurrentlyExpanded) {
       // Closing: Start slide up animation
       setAnimatingRows(prev => new Set(prev).add(orderId));
-      
+
       // After animation duration, remove from expanded and animating
       setTimeout(() => {
         setExpandedRows(new Set<string>());
@@ -86,12 +88,12 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
       // Opening: Close all others first, then open this one
       setExpandedRows(new Set<string>());
       setAnimatingRows(new Set<string>());
-      
+
       // Small delay to ensure smooth transition
       setTimeout(() => {
         setExpandedRows(new Set([orderId]));
         setAnimatingRows(prev => new Set(prev).add(orderId));
-        
+
         // Remove from animating after animation completes
         setTimeout(() => {
           setAnimatingRows(prev => {
@@ -132,28 +134,28 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
   };
 
   // Helper to get product information safely
-  const getProductInfo = (cartProduct: { product: string | null | { _id?: string; name?: string; price?: number; images?: string[]; [key: string]: any } }) => {
+  const getProductInfo = (cartProduct: { product: string | null | { _id?: string; name?: string; price?: number; images?: string[];[key: string]: any } }) => {
     if (!cartProduct.product) {
       return { id: null, name: 'Product not found', price: undefined, image: undefined };
     }
-    
+
     if (typeof cartProduct.product === 'string') {
       // Product is just an ID string
-      return { 
-        id: cartProduct.product, 
-        name: `Product ${cartProduct.product.substring(0, 8)}`, 
-        price: undefined, 
-        image: undefined 
+      return {
+        id: cartProduct.product,
+        name: `Product ${cartProduct.product.substring(0, 8)}`,
+        price: undefined,
+        image: undefined
       };
     }
-    
+
     // Product is a populated object
     return {
       id: cartProduct.product._id || null,
       name: cartProduct.product.name || 'Product not found',
       price: typeof cartProduct.product.price === 'number' ? cartProduct.product.price : undefined,
-      image: Array.isArray(cartProduct.product.images) && cartProduct.product.images.length > 0 
-        ? cartProduct.product.images[0] 
+      image: Array.isArray(cartProduct.product.images) && cartProduct.product.images.length > 0
+        ? cartProduct.product.images[0]
         : undefined,
     };
   };
@@ -166,8 +168,8 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
       const searchTerm = filters.search.toLowerCase().trim();
       const userName = getUserName(order).toLowerCase();
       matchesSearch = order._id.toLowerCase().includes(searchTerm) ||
-                     userName.includes(searchTerm) ||
-                     order.address.toLowerCase().includes(searchTerm);
+        userName.includes(searchTerm) ||
+        order.address.toLowerCase().includes(searchTerm);
     }
 
     // Filter by date range
@@ -175,7 +177,7 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
     if (filters.dateRange) {
       const orderDate = new Date(order.createdAt);
       const now = new Date();
-      
+
       switch (filters.dateRange) {
         case 'today':
           matchesDateRange = orderDate.toDateString() === now.toDateString();
@@ -204,12 +206,17 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
     return matchesSearch && matchesDateRange;
   });
 
+  // Sort orders by createdAt descending (latest first)
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
 
   // Expandable content component
   const expandableContent = (order: Order) => {
     const profit = calculateProfit(order.amount);
     const profitPercentage = calculateProfitPercentage(order.amount, profit);
-    
+
     return (
       <div className="space-y-4">
         {/* Order Items Table with PRINT Button in Header */}
@@ -222,10 +229,11 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NAME</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PRICE</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QTY</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SIZE</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DISC.</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TOTAL</th>
                 <th className="px-4 py-2 text-right">
-                  <button 
+                  <button
                     onClick={() => setPrintOrder(order)}
                     className="bg-[#D4AF37] text-white px-4 py-2 rounded-lg hover:bg-[#D4AF37]/90 transition-colors text-sm font-medium cursor-pointer"
                   >
@@ -237,10 +245,10 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
             <tbody className="bg-white divide-y divide-gray-200">
               {order.carts?.products?.map((cartProduct, index) => {
                 const productInfo = getProductInfo(cartProduct);
-                const itemTotal = productInfo.price && cartProduct.quantity 
-                  ? productInfo.price * cartProduct.quantity 
+                const itemTotal = productInfo.price && cartProduct.quantity
+                  ? productInfo.price * cartProduct.quantity
                   : undefined;
-                
+
                 return (
                   <tr key={cartProduct._id || index}>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
@@ -254,6 +262,22 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
                       {productInfo.price ? formatPrice(productInfo.price) : '-'}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">x{cartProduct.quantity}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900">
+                      {cartProduct.productNote && Array.isArray(cartProduct.productNote) && cartProduct.productNote.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {cartProduct.productNote.map((note: string, noteIndex: number) => (
+                            <span
+                              key={noteIndex}
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#D4AF37]/10 text-[#B8941F] border border-[#D4AF37]/30"
+                            >
+                              {note}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">0%</td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
                       {itemTotal ? formatPrice(itemTotal) : '-'}
@@ -268,12 +292,12 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
                   </tr>
                 );
               }) || (
-                <tr>
-                  <td colSpan={8} className="px-4 py-2 text-center text-sm text-gray-500">
-                    No cart items available
-                  </td>
-                </tr>
-              )}
+                  <tr>
+                    <td colSpan={8} className="px-4 py-2 text-center text-sm text-gray-500">
+                      No cart items available
+                    </td>
+                  </tr>
+                )}
             </tbody>
           </table>
         </div>
@@ -339,19 +363,13 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Order id
+                Order ID
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Created
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Customer
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Total
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Profit
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
@@ -362,30 +380,24 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredOrders.map((order) => {
+            {sortedOrders.map((order) => {
               const profit = calculateProfit(order.amount);
               const profitPercentage = calculateProfitPercentage(order.amount, profit);
-              
+
               return (
                 <React.Fragment key={order._id}>
-                  <tr className="hover:bg-gray-50">
+                  <tr
+                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => router.push(`/admin/orders/${order._id}`)}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {order._id}
+                      ...{order._id.slice(-8)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatRelativeTime(order.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {getUserName(order)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatPrice(order.amount)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-900">{formatPrice(profit)}</span>
-                        {getProfitBadge(profitPercentage)}
-                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">
@@ -421,16 +433,15 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
                       </div>
                     </td>
                   </tr>
-                  
+
                   {/* Expanded Order Details */}
                   {(expandedRows.has(order._id) || animatingRows.has(order._id)) && (
                     <tr>
-                      <td colSpan={7} className="px-6 py-4 bg-gray-50">
-                        <div className={`transition-all duration-300 ease-out ${
-                          expandedRows.has(order._id) 
-                            ? 'animate-in slide-in-from-top-2 opacity-100' 
-                            : 'animate-out slide-out-to-top-2 opacity-0'
-                        }`}>
+                      <td colSpan={5} className="px-6 py-4 bg-gray-50">
+                        <div className={`transition-all duration-300 ease-out ${expandedRows.has(order._id)
+                          ? 'animate-in slide-in-from-top-2 opacity-100'
+                          : 'animate-out slide-out-to-top-2 opacity-0'
+                          }`}>
                           {expandableContent(order)}
                         </div>
                       </td>
@@ -468,10 +479,10 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
       {/* Print Modal */}
       {printOrder && (
         <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        onClick={() => setPrintOrder(null)}
-      >
-          <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setPrintOrder(null)}
+        >
+          <div
             className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
@@ -487,9 +498,9 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
                   ×
                 </button>
               </div>
-              <OrderPrint 
-                order={printOrder} 
-                onClose={() => setPrintOrder(null)} 
+              <OrderPrint
+                order={printOrder}
+                onClose={() => setPrintOrder(null)}
               />
             </div>
           </div>

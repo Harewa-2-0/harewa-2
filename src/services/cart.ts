@@ -68,12 +68,14 @@ const paths = {
 /** ---------- Internals ---------- */
 function toBackendLine(i: { productId: string; quantity?: number; price?: number; productNote?: string | string[] }) {
   // FIXED: Always send productNote as an array
-  const normalizedProductNote =
-    Array.isArray(i.productNote)
-      ? i.productNote
-      : i.productNote
-        ? [i.productNote]
-        : [];
+  let normalizedProductNote: string[] = [];
+
+  if (Array.isArray(i.productNote)) {
+    normalizedProductNote = i.productNote;
+  } else if (typeof i.productNote === 'string' && i.productNote) {
+    // Split comma-separated string into array: "2 small, 3 large" -> ["2 small", "3 large"]
+    normalizedProductNote = i.productNote.split(',').map(s => s.trim()).filter(Boolean);
+  }
 
   return {
     product: i.productId,
@@ -138,6 +140,12 @@ export function mapServerCartToStoreItems(server: Cart) {
 
     const quantity = Number.isFinite(l.quantity as number) ? (l.quantity as number) : 1;
     const price = typeof l.price === "number" ? l.price : productPrice;
+
+    // Filter out invalid products
+    if (!productId || productId === 'null' || productId === 'undefined') {
+      console.warn('Found invalid product in cart, skipping:', l);
+      return;
+    }
 
     // Parse productNote to sizeBreakdown
     const rawProductNote = l.productNote;
@@ -391,12 +399,14 @@ export async function updateProductQuantityOptimistic(cartId: string, productId:
     }
 
     // Build updated products array from local state instead of fetching from server
-    const updatedProducts = currentItems.map(item => ({
-      productId: item.id,
-      quantity: item.id === productId ? quantity : item.quantity,
-      price: item.price,
-      productNote: item.productNote || undefined,  // include size breakdown
-    }));
+    const updatedProducts = currentItems
+      .filter(item => item.id && item.id !== 'null' && item.id !== 'undefined')
+      .map(item => ({
+        productId: item.id,
+        quantity: item.id === productId ? quantity : item.quantity,
+        price: item.price,
+        productNote: item.productNote || undefined,  // include size breakdown
+      }));
 
     return await replaceCartProducts(cartId, updatedProducts);
   } catch (error) {
