@@ -7,7 +7,6 @@ import { ok, notFound, badRequest } from "@/lib/response";
 import { Customization } from "@/lib/models/Customization";
 
 // GET a single customization request by ID
-// GET a single customization request by ID
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     await connectDB();
@@ -21,8 +20,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return ok(customization);
 }
 
-// PUT /api/customization/[id]
-// Update a customization request by ID
 // PUT /api/customization/[id]
 // Update a customization request by ID
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -47,8 +44,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 }
 
-// DELETE /api/customization/[id]
-// Delete a customization request
 // DELETE /api/customization/[id]
 // Delete a customization request
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
