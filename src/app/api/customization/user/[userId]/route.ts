@@ -8,10 +8,13 @@ import { Customization } from "@/lib/models/Customization";
 
 // GET /api/customization/user/[userId]
 // Returns ALL customization requests belonging to a specific user
-export async function GET(request: NextRequest, { params }: { params: { userId: string } }) {
+// GET /api/customization/user/[userId]
+// Returns ALL customization requests belonging to a specific user
+export async function GET(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
+    const { userId } = await params;
     await connectDB();
 
-    const customizations = await Customization.find({ user: params.userId }).lean();
+    const customizations = await Customization.find({ user: userId }).lean();
 
     if (!customizations || customizations.length === 0) {
         return notFound("No customization requests found for this user");

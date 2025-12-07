@@ -9,7 +9,8 @@ import { Wishlist } from "@/lib/models/Wishlist";
 import { requireAuth } from "@/lib/middleware/requireAuth";
 // File: app/api/product/[id]/route.ts
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
 
     let userId: string | null = null;
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         console.warn("User not authenticated, skipping wishlist logic", err);
     }
 
-    const product = await Product.findById(params.id).lean();
+    const product = await Product.findById(id).lean();
     if (!product) {
         return notFound("Product not found");
     }
@@ -42,11 +43,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT /api/product/[id]
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+// PUT /api/product/[id]
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     const body = await request.json();
     try {
-        const updated = await Product.findByIdAndUpdate(params.id, body, { new: true }).lean();
+        const updated = await Product.findByIdAndUpdate(id, body, { new: true }).lean();
         if (!updated) {
             return notFound("Product not found");
         }
@@ -57,10 +60,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE /api/product/[id]
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+// DELETE /api/product/[id]
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     try {
-        const deleted = await Product.findByIdAndDelete(params.id).lean();
+        const deleted = await Product.findByIdAndDelete(id).lean();
         if (!deleted) {
             return notFound("Product not found");
         }

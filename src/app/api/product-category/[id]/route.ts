@@ -8,9 +8,12 @@ import { ok, notFound, badRequest } from "@/lib/response";
 
 // GET /api/product-category/[id]
 // Get a product category by id
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// GET /api/product-category/[id]
+// Get a product category by id
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
-    const categoryData = await ProductCategory.findById(params.id).lean();
+    const categoryData = await ProductCategory.findById(id).lean();
     if (!categoryData) {
         return notFound("Product category not found");
     }
@@ -19,14 +22,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 // PUT /api/product-category/[id]
 // Update a product category by id  
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+// PUT /api/product-category/[id]
+// Update a product category by id  
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     const body = await request.json();
     if (!body.name) {
         return badRequest("Name is required");
     }
     try {
-        const updatedCategory = await ProductCategory.findByIdAndUpdate(params.id, body, { new: true }).lean();
+        const updatedCategory = await ProductCategory.findByIdAndUpdate(id, body, { new: true }).lean();
         if (!updatedCategory) {
             return notFound("Product category not found");
         }
@@ -39,10 +45,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 // DELETE /api/product-category/[id]
 // Delete a product category by id        
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+// DELETE /api/product-category/[id]
+// Delete a product category by id        
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     connectDB();
     try {
-        const deletedCategory = await ProductCategory.findByIdAndDelete(params.id).lean();
+        const deletedCategory = await ProductCategory.findByIdAndDelete(id).lean();
 
         if (!deletedCategory) {
             return notFound("Product category not found");

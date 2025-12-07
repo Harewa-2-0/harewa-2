@@ -8,21 +8,32 @@ import { ok, notFound, badRequest } from "@/lib/response";
 
 // GET /api/shop/[id]
 // Get all shops by id
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-    await connectDB();
-    const shopData = await Shop.findById(params.id).lean();
-    if (!shopData) {
-        return notFound("Shop not found");
-    }
-    return ok(shopData);
-}
 // PUT /api/shop/[id]
 // Update a shop by id  
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     const body = await request.json();
     try {
-        const updatedShop = await Shop.findByIdAndUpdate(params.id, body, { new: true }).lean();
+        const updatedShop = await Shop.findByIdAndUpdate(id, body, { new: true }).lean();
+        if (!updatedShop) {
+            return notFound("Shop not found");
+        }
+        return ok(updatedShop);
+    } catch (error) {
+        return badRequest("Invalid shop data: " + error);
+    }
+}
+// PUT /api/shop/[id]
+// Update a shop by id  
+// PUT /api/shop/[id]
+// Update a shop by id  
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    await connectDB();
+    const body = await request.json();
+    try {
+        const updatedShop = await Shop.findByIdAndUpdate(id, body, { new: true }).lean();
         if (!updatedShop) {
             return notFound("Shop not found");
         }
@@ -33,10 +44,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 // DELETE /api/shop/[id]
 // Delete a shop by id          
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+// DELETE /api/shop/[id]
+// Delete a shop by id          
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     try {
-        const deletedShop = await Shop.findByIdAndDelete(params.id).lean();
+        const deletedShop = await Shop.findByIdAndDelete(id).lean();
         if (!deletedShop) {
             return notFound("Shop not found");
         }

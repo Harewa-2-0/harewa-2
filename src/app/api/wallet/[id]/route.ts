@@ -7,11 +7,13 @@ import connectDB from "@/lib/db";
 import { ok, notFound, badRequest } from "@/lib/response";
 
 // GET wallet by ID
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// GET wallet by ID
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
 
     try {
-        const wallet = await Wallet.findById(params.id).lean();
+        const wallet = await Wallet.findById(id).lean();
         if (!wallet) {
             return notFound("Wallet not found");
         }
@@ -28,12 +30,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // UPDATE wallet by ID
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+// UPDATE wallet by ID
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     const body = await request.json();
 
     try {
-        const updatedWallet = await Wallet.findByIdAndUpdate(params.id, body, { new: true }).lean();
+        const updatedWallet = await Wallet.findByIdAndUpdate(id, body, { new: true }).lean();
         if (!updatedWallet) {
             return notFound("Wallet not found");
         }
@@ -49,11 +53,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE wallet by ID
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+// DELETE wallet by ID
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
 
     try {
-        const deletedWallet = await Wallet.findByIdAndDelete(params.id).lean();
+        const deletedWallet = await Wallet.findByIdAndDelete(id).lean();
         if (!deletedWallet) {
             return notFound("Wallet not found");
         }

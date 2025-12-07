@@ -10,11 +10,12 @@ import { ok, notFound, badRequest } from "@/lib/response";
 // Remove all products from the cart (clear cart)
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     await connectDB();
     try {
-        const cart = await Cart.findById(params.id);
+        const cart = await Cart.findById(id);
         if (!cart) {
             return notFound("Cart not found");
         }
