@@ -11,21 +11,22 @@ import { ok, notFound, badRequest } from "@/lib/response";
 // Add a product to a cart
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string; productId: string } }
+    { params }: { params: Promise<{ id: string; productId: string }> }
 ) {
+    const { id, productId } = await params;
     await connectDB();
     try {
         const body = await request.json().catch(() => ({})); // in case quantity is sent
         const quantity = body?.quantity || 1;
 
-        const cart = await Cart.findById(params.id);
+        const cart = await Cart.findById(id);
         if (!cart) {
             return notFound("Cart not found");
         }
 
         // Check if product already exists in cart
         const existingProduct = cart.products.find(
-            (item: any) => item.product.toString() === params.productId
+            (item: any) => item.product.toString() === productId
         );
 
         if (existingProduct) {
@@ -33,7 +34,7 @@ export async function POST(
             existingProduct.quantity += quantity;
         } else {
             // Otherwise push new product
-            cart.products.push({ product: params.productId, quantity });
+            cart.products.push({ product: productId, quantity });
         }
 
         await cart.save();
@@ -48,17 +49,18 @@ export async function POST(
 // Remove a product from a cart
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string; productId: string } }
+    { params }: { params: Promise<{ id: string; productId: string }> }
 ) {
+    const { id, productId } = await params;
     await connectDB();
     try {
-        const cart = await Cart.findById(params.id);
+        const cart = await Cart.findById(id);
         if (!cart) {
             return notFound("Cart not found");
         }
 
         cart.products = cart.products.filter(
-            (item: any) => item.product.toString() !== params.productId
+            (item: any) => item.product.toString() !== productId
         );
 
         await cart.save();

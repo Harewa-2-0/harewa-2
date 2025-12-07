@@ -58,7 +58,7 @@ export default function CancelPage() {
                     {/* Action Buttons */}
                     <div className="space-y-3">
                         <button
-                            onClick={() => router.push('/profile/orders')}
+                            onClick={() => router.push('/profile')}
                             className="w-full bg-[#D4AF37] text-black font-semibold py-3 px-6 rounded-lg hover:bg-[#B8941F] transition-colors shadow-sm flex items-center justify-center gap-2"
                         >
                             <ShoppingBag className="w-5 h-5" />

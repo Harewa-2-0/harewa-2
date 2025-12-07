@@ -7,10 +7,12 @@ import { ok, notFound, badRequest } from "@/lib/response";
 import { Customization } from "@/lib/models/Customization";
 
 // GET a single customization request by ID
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// GET a single customization request by ID
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
 
-    const customization = await Customization.findById(params.id).lean();
+    const customization = await Customization.findById(id).lean();
 
     if (!customization) {
         return notFound("Customization request not found");
@@ -21,13 +23,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 // PUT /api/customization/[id]
 // Update a customization request by ID
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+// PUT /api/customization/[id]
+// Update a customization request by ID
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     const body = await request.json();
 
     try {
         const updated = await Customization.findByIdAndUpdate(
-            params.id,
+            id,
             body,
             { new: true }
         ).lean();
@@ -44,11 +49,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 // DELETE /api/customization/[id]
 // Delete a customization request
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+// DELETE /api/customization/[id]
+// Delete a customization request
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
 
     try {
-        const deleted = await Customization.findByIdAndDelete(params.id).lean();
+        const deleted = await Customization.findByIdAndDelete(id).lean();
 
         if (!deleted) {
             return notFound("Customization request not found");

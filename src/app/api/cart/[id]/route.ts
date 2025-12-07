@@ -8,9 +8,12 @@ import { ok, notFound, badRequest } from "@/lib/response";
 
 // GET /api/cart/[id]
 // Get cart by id
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// GET /api/cart/[id]
+// Get cart by id
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
-    const cartData = await Cart.findById(params.id).lean();
+    const cartData = await Cart.findById(id).lean();
     if (!cartData) {
         return notFound("Cart not found");
     }
@@ -20,12 +23,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 // PUT /api/cart/[id]
 // Update a cart by id  
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     const body = await request.json();
     try {
 
-        const cart = await Cart.findById(params.id);
+        const cart = await Cart.findById(id);
 
         if (cart) {
             cart.products = [...body];
@@ -48,10 +52,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 // DELETE /api/cart/[id]
 // Delete a cart by id
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+// DELETE /api/cart/[id]
+// Delete a cart by id
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     try {
-        const deletedCart = await Cart.findByIdAndDelete(params.id).lean();
+        const deletedCart = await Cart.findByIdAndDelete(id).lean();
         if (!deletedCart) {
             return notFound("Cart not found");
         }

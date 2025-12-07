@@ -8,9 +8,12 @@ import { ok, notFound, badRequest } from "@/lib/response";
 
 // GET /api/fabric/[id]
 // Get fabric by id
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// GET /api/fabric/[id]
+// Get fabric by id
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
-    const fabricData = await Fabric.findById(params.id).lean();
+    const fabricData = await Fabric.findById(id).lean();
     if (!fabricData) {
         return notFound("Fabric not found");
     }
@@ -18,14 +21,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 // PUT /api/fabric/[id]
 // Update a fabric by id  
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+// PUT /api/fabric/[id]
+// Update a fabric by id  
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     const body = await request.json();
     if (!body.name) {
         return badRequest("Name is required");
     }
     try {
-        const updatedFabric = await Fabric.findByIdAndUpdate(params.id, body, { new: true }).lean();
+        const updatedFabric = await Fabric.findByIdAndUpdate(id, body, { new: true }).lean();
         if (!updatedFabric) {
             return notFound("Fabric not found");
         }
@@ -36,10 +42,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 // DELETE /api/fabric/[id]
 // Delete a fabric by id          
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+// DELETE /api/fabric/[id]
+// Delete a fabric by id          
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     try {
-        const deletedFabric = await Fabric.findByIdAndDelete(params.id).lean();
+        const deletedFabric = await Fabric.findByIdAndDelete(id).lean();
         if (!deletedFabric) {
             return notFound("Fabric not found");
         }

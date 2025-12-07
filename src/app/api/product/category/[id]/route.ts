@@ -10,9 +10,12 @@ import { ok, notFound } from "@/lib/response";
 
 // GET /api/product/category/[id]
 // get all product for a specific category
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+// GET /api/product/category/[id]
+// get all product for a specific category
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
-    const products = await Product.find({ category: params.id })
+    const products = await Product.find({ category: id })
         .populate({
             path: "category",
             model: ProductCategory,

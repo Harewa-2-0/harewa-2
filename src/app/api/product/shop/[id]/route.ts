@@ -8,9 +8,12 @@ import { ok, notFound } from "@/lib/response";
 
 // GET /api/product/shop/[id]
 // Get all products where shop matches id
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// GET /api/product/shop/[id]
+// Get all products where shop matches id
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
-    const products = await Product.find({ shop: params.id }).lean();
+    const products = await Product.find({ shop: id }).lean();
     if (!products || products.length === 0) {
         return notFound("No products found for this shop");
     }
@@ -19,23 +22,29 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 // PUT /api/product/shop/[id]
 // Update all products where shop matches id
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+// PUT /api/product/shop/[id]
+// Update all products where shop matches id
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
     const body = await request.json();
-    const result = await Product.updateMany({ shop: params.id }, body, { lean: true });
+    const result = await Product.updateMany({ shop: id }, body, { lean: true });
     if (result.matchedCount === 0) {
         return notFound("No products found for this shop");
     }
     // Optionally, return updated products
-    const updatedProducts = await Product.find({ shop: params.id }).lean();
+    const updatedProducts = await Product.find({ shop: id }).lean();
     return ok(updatedProducts);
 }
 
 // DELETE /api/product/shop/[id]
 // Delete all products where shop matches id
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+// DELETE /api/product/shop/[id]
+// Delete all products where shop matches id
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
-    const result = await Product.deleteMany({ shop: params.id });
+    const result = await Product.deleteMany({ shop: id });
     if (result.deletedCount === 0) {
         return notFound("No products found for this shop");
     }
