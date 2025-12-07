@@ -8,8 +8,6 @@ import { ok, notFound, badRequest } from "@/lib/response";
 
 // GET /api/cart/[id]
 // Get cart by id
-// GET /api/cart/[id]
-// Get cart by id
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     await connectDB();
@@ -50,8 +48,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 }
 
-// DELETE /api/cart/[id]
-// Delete a cart by id
 // DELETE /api/cart/[id]
 // Delete a cart by id
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
