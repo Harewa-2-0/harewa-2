@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://harewa-2.vercel.app",
+    url: "https://http://harewa.com/",
     title: "HAREWA – Where Innovation Meets Fashion",
     description:
       "Your premier destination where cutting-edge technology meets the vibrant world of fashion. Discover trends, shop ready-to-wear, explore fabrics, and get AI-powered style recommendations.",
@@ -112,12 +112,12 @@ export default function RootLayout({
     >
       <body data-gramm="false" className="antialiased font-sans ">
         <QueryProvider>
-        <ToastProvider>
-          <AuthBootstrap />
-          <CartHydrationWithErrorBoundary />
-          {children}
-          <ToastContainer />
-        </ToastProvider>
+          <ToastProvider>
+            <AuthBootstrap />
+            <CartHydrationWithErrorBoundary />
+            {children}
+            <ToastContainer />
+          </ToastProvider>
         </QueryProvider>
       </body>
     </html>
