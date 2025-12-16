@@ -60,9 +60,9 @@ const HeroSection = () => {
               className="text-5xl xl:text-6xl font-bold text-gray-900 mb-4 leading-[1]"
               variants={textVariants}
             >
-              Howww Where Innovation
+              Where Innovation
               <br />
-              eets Fashion
+              Meets Fashion
             </motion.h1>
 
             <motion.p
