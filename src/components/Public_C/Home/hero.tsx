@@ -62,7 +62,7 @@ const HeroSection = () => {
             >
               Howww Where Innovation
               <br />
-              Meets Fashion
+              eets Fashion
             </motion.h1>
 
             <motion.p
