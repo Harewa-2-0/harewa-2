@@ -52,24 +52,27 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL("https://harewa-2.vercel.app"),
+  metadataBase: new URL("https://harewa.com"),
   alternates: {
     canonical: "/",
+  },
+  icons: {
+    icon: "/favicon.png",
   },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://http://harewa.com/",
+    url: "https://harewa.com/",
     title: "HAREWA – Where Innovation Meets Fashion",
     description:
       "Your premier destination where cutting-edge technology meets the vibrant world of fashion. Discover trends, shop ready-to-wear, explore fabrics, and get AI-powered style recommendations.",
     siteName: "HAREWA",
     images: [
       {
-        url: "/logo.webp",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "HAREWA Fashion-Tech Platform Logo",
+        alt: "HAREWA Fashion-Tech Platform",
       },
     ],
   },
@@ -78,7 +81,7 @@ export const metadata: Metadata = {
     title: "HAREWA – Where Innovation Meets Fashion",
     description:
       "Your premier destination where cutting-edge technology meets the vibrant world of fashion. Discover trends, shop ready-to-wear, explore fabrics, and get AI-powered style recommendations.",
-    images: ["/logo.webp"],
+    images: ["/og-image.png"],
     creator: "@harewa",
     site: "@harewa",
   },
