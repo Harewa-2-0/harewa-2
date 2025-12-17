@@ -111,5 +111,4 @@ export async function deleteCurrentUser() {
 }
 
 /** OAuth entry (opened in popup by the UI) */
-export const GOOGLE_OAUTH_URL = `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/google`;
-
+export const GOOGLE_OAUTH_URL = "/api/auth/google";
