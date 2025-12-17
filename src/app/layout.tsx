@@ -56,20 +56,17 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
-  icons: {
-    icon: "/favicon.png",
-  },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://harewa.com/",
+    url: "https://harewa.com",
     title: "HAREWA – Where Innovation Meets Fashion",
     description:
       "Your premier destination where cutting-edge technology meets the vibrant world of fashion. Discover trends, shop ready-to-wear, explore fabrics, and get AI-powered style recommendations.",
     siteName: "HAREWA",
     images: [
       {
-        url: "/og-image.png",
+        url: "https://harewa.com/opengraph-image.png",
         width: 1200,
         height: 630,
         alt: "HAREWA Fashion-Tech Platform",
@@ -81,7 +78,6 @@ export const metadata: Metadata = {
     title: "HAREWA – Where Innovation Meets Fashion",
     description:
       "Your premier destination where cutting-edge technology meets the vibrant world of fashion. Discover trends, shop ready-to-wear, explore fabrics, and get AI-powered style recommendations.",
-    images: ["/og-image.png"],
     creator: "@harewa",
     site: "@harewa",
   },
