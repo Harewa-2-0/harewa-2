@@ -6,14 +6,14 @@ import { signAccessToken, signRefreshToken } from "@/lib/jwt";
 import { User } from "@/lib/models/User";
 import dbConnect from "@/lib/db";
 
-const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID!;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
-const GOOGLE_CALLBACK_URL  = process.env.GOOGLE_CALLBACK_URL!;
+const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL!;
 
 export async function GET(req: NextRequest) {
   await dbConnect();
 
-  const url  = new URL(req.url);
+  const url = new URL(req.url);
   const code = url.searchParams.get("code");
   if (!code) {
     return NextResponse.redirect(new URL("/login?error=NoCode", req.url));
@@ -25,10 +25,10 @@ export async function GET(req: NextRequest) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code,
-      client_id:     GOOGLE_CLIENT_ID,
+      client_id: GOOGLE_CLIENT_ID,
       client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri:  GOOGLE_CALLBACK_URL,
-      grant_type:    "authorization_code",
+      redirect_uri: GOOGLE_CALLBACK_URL,
+      grant_type: "authorization_code",
     }),
   });
   const tokenData = await tokenRes.json();
@@ -47,33 +47,33 @@ export async function GET(req: NextRequest) {
 
   // 3) Upsert user
   const existingUser = await User.findOne({
-    email:    profile.email,
+    email: profile.email,
     googleId: { $exists: false },
   });
   if (existingUser) {
-    existingUser.googleId   = profile.id;
-    existingUser.username   = profile.name || profile.email.split("@")[0];
+    existingUser.googleId = profile.id;
+    existingUser.username = profile.name || profile.email.split("@")[0];
     existingUser.isVerified = true;
     await existingUser.save();
   }
   let user = await User.findOne({
     googleId: profile.id,
-    email:    profile.email,
+    email: profile.email,
   });
   if (!user) {
     user = await User.create({
-      googleId:   profile.id,
-      email:      profile.email,
-      username:   profile.name || profile.email.split("@")[0],
+      googleId: profile.id,
+      email: profile.email,
+      username: profile.name || profile.email.split("@")[0],
       isVerified: true,
     });
   }
 
   // 4) Sign tokens & set cookies
   const accessToken = signAccessToken({
-    id:    user._id.toString(),
+    id: user._id.toString(),
     email: user.email,
-    role:  user.role || "admin",
+    role: user.role || "admin",
   });
   const { token: refreshToken, jti: newJTI } = signRefreshToken(user._id.toString());
   user.refreshTokenJTI = newJTI;
