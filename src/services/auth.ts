@@ -59,8 +59,8 @@ function toUserProfile(payload: any): UserProfile {
       typeof userNode?.isVerified === "boolean"
         ? userNode.isVerified
         : typeof profile?.isVerified === "boolean"
-        ? profile.isVerified
-        : undefined,
+          ? profile.isVerified
+          : undefined,
   };
 }
 
@@ -105,10 +105,11 @@ export async function deleteCurrentUser() {
   const data = await api("/api/auth/me", {
     method: "DELETE",
   });
-  
+
   // Return the response data (e.g., {"message": "User deleted successfully"})
   return data;
 }
 
 /** OAuth entry (opened in popup by the UI) */
-export const GOOGLE_OAUTH_URL = "/api/auth/google";
+export const GOOGLE_OAUTH_URL = `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/google`;
+
