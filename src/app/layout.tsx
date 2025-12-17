@@ -64,14 +64,6 @@ export const metadata: Metadata = {
     description:
       "Your premier destination where cutting-edge technology meets the vibrant world of fashion. Discover trends, shop ready-to-wear, explore fabrics, and get AI-powered style recommendations.",
     siteName: "HAREWA",
-    images: [
-      {
-        url: "https://harewa.com/opengraph-image.png",
-        width: 1200,
-        height: 630,
-        alt: "HAREWA Fashion-Tech Platform",
-      },
-    ],
   },
   twitter: {
     card: "summary_large_image",
