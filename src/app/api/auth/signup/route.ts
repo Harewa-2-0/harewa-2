@@ -60,7 +60,8 @@ export async function POST(req: Request) {
     });
 
     await newUser.save();
-    console.log("✅ New user created:", newUser.email, "as", newUser.role, process.env.ADMIN_EMAI);
+    console.log("✅ New user created:", newUser.email, "as", newUser.role, process.env.ADMIN_EMAIL);
+
     if (newUser.role == "admin" && `${process.env.ADMIN_EMAIL}`) {
       await sendAdminVerificationEmail(`${process.env.ADMIN_EMAIL}`, newUser.email, verificationCode);
     } else {
