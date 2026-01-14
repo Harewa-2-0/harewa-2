@@ -41,22 +41,8 @@ const What_we_Offer = () => {
       id: 4,
       title: "Fabric & Accessories Hub",
       description: "Explore our comprehensive collection of premium fabrics and accessories. All you need to create stunning outfits that match what you need.",
-      mainImage: "w1.webp",
-      galleryImages: ["w1.webp", "w3.webp", "w2.webp", "w1.webp"]
-    },
-    {
-      id: 5,
-      title: "Custom Design Studio",
-      description: "Create unique fashion pieces with our state-of-the-art design tools. From concept to creation, bring your fashion vision to life.",
-      mainImage: "w2.webp",
-      galleryImages: ["w2.webp", "w3.webp", "w1.webp", "w2.webp"]
-    },
-    {
-      id: 6,
-      title: "Fashion Trend Analytics",
-      description: "Discover emerging trends and market insights with our advanced analytics platform. Stay ahead of the fashion curve with data-driven insights.",
-      mainImage: "w3.webp",
-      galleryImages: ["w3.webp", "w1.webp", "w2.webp", "w3.webp"]
+      mainImage: "w4.webp",
+      galleryImages: ["w4.webp", "w1.webp", "w3.webp", "w4.webp"]
     }
   ];
 
@@ -85,19 +71,19 @@ const What_we_Offer = () => {
             animate={
               isPaused
                 ? {}
-                : { x: [0, -2304] } // Adjusted for 6 cards (6 * 384px card width)
+                : { x: [0, -1536] } // Adjusted for 4 cards (4 * 384px card width)
             }
             transition={
               isPaused
                 ? undefined
                 : {
-                    x: {
-                      repeat: Infinity,
-                      repeatType: "loop",
-                      duration: 35,
-                      ease: "linear"
-                    }
+                  x: {
+                    repeat: Infinity,
+                    repeatType: "loop",
+                    duration: 35,
+                    ease: "linear"
                   }
+                }
             }
             style={{ width: 'fit-content' }}
           >
