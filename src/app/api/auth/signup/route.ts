@@ -43,10 +43,11 @@ export async function POST(req: Request) {
 
     const joinedAt = new Date();
     const hashedPassword = await bcrypt.hash(password, 12);
-    const username = await generateUsername(joinedAt);
+    const username = await generateUsername(joinedAt, fullName);
     const verificationCode = generateVerificationCode();
     const nameParts = await splitFullName(fullName);
     const { firstName, lastName } = nameParts;
+
     const newUser = new User({
       firstName,
       lastName,

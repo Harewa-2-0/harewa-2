@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
         const decoded = requireAuth(request);
 
         const cart = await Cart.findOne({ user: decoded.sub })
+            .sort({ createdAt: -1 })
             .populate({
                 path: "products.product",
                 model: Product,
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json(); // expect [{ product, quantity }]
         const decoded = requireAuth(request);
 
-        let cart = await Cart.findOne({ user: decoded.sub });
+        let cart = await Cart.findOne({ user: decoded.sub }).sort({ createdAt: -1 });
 
         if (cart) {
             body.forEach((newItem: { product: string; quantity: number; productNote?: string[] }) => {

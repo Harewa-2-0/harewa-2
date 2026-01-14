@@ -65,15 +65,13 @@ export default function OrderDetailsPage({ params }: PageProps) {
     };
 
     const getProducts = () => {
-        if (!order?.carts) return [];
-        return order.carts.products || [];
+        if (order?.carts) return order.carts.products || [];
+        return [];
     };
 
     // Calculate actual subtotal from product prices
     const calculatedSubtotal = getProducts().reduce((total, cartProduct: any) => {
-        const product = typeof cartProduct.product === 'object' && cartProduct.product !== null
-            ? cartProduct.product
-            : null;
+        const product = cartProduct.product;
 
         if (product?.price) {
             return total + (product.price * (cartProduct?.quantity || 1));
@@ -179,9 +177,7 @@ export default function OrderDetailsPage({ params }: PageProps) {
                         <div className="space-y-4">
                             {products.length > 0 ? (
                                 products.map((cartProduct: any, index: number) => {
-                                    const product = typeof cartProduct.product === 'object' && cartProduct.product !== null
-                                        ? cartProduct.product
-                                        : null;
+                                    const product = cartProduct.product;
 
                                     return (
                                         <div key={cartProduct._id || index} className="flex gap-4 p-4 border border-gray-200 rounded-lg">

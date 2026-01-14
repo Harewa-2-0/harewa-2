@@ -28,15 +28,19 @@ export async function splitFullName(fullName: string): Promise<{ firstName: stri
   };
 };
 
-export async function generateUsername(joinedAt: Date): Promise<string> {
-  // Use the last 6 digits of the timestamp
-  const timestamp = joinedAt.getTime().toString(); // e.g. 1716289639000
-  const suffix = timestamp.slice(-6); // e.g. "639000"
-  const baseUsername = `user${suffix}`;
+export async function generateUsername(joinedAt: Date, baseName?: string): Promise<string> {
+  const timestamp = joinedAt.getTime().toString();
+  // Using last 4 digits for a shorter, cleaner suffix
+  const suffix = timestamp.slice(-4);
+
+  // Extract first word of the name and normalize it, or fallback to 'user'
+  const prefix = baseName ? baseName.trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '') : "user";
+  const baseUsername = `${prefix}${suffix}`;
+
   let username = baseUsername;
   let count = 1;
 
-  // Ensure the username is unique
+  // Ensure the username is unique in the database
   while (await User.findOne({ username })) {
     username = `${baseUsername}${count}`;
     count += 1;

@@ -31,7 +31,7 @@ export const notificationTransporter = nodemailer.createTransport({
 /*                           EMAIL WRAPPER TEMPLATE                           */
 /* -------------------------------------------------------------------------- */
 
-const wrapEmailHtml = (content: string, title?: string) => {
+export const wrapEmailHtml = (content: string, title?: string) => {
   // IMPORTANT: For emails to display the logo correctly, NEXT_PUBLIC_BASE_URL must be set to your production domain
   // Example: NEXT_PUBLIC_BASE_URL=https://harewa.com
   // The logo must be publicly accessible at: https://yourdomain.com/logoblackBG.png
@@ -188,11 +188,14 @@ export async function sendAdminVerificationEmail(
   });
 }
 
-export async function sendWelcomeEmail(to: string) {
+export async function sendWelcomeEmail(to: string, name?: string) {
   const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
+  // Extract first name if full name is provided
+  const firstName = name ? name.trim().split(/\s+/)[0] : 'Friend';
+
   const content = `
-    <h1>Welcome to Harewa! 🎉</h1>
+    <h1>Welcome to Harewa, ${firstName}! 🎉</h1>
     <p>We're absolutely thrilled to have you join our vibrant fashion community!</p>
     
     <p>Harewa is your ultimate destination for discovering the latest fashion trends, exploring unique styles, and creating custom outfits that express your personality.</p>

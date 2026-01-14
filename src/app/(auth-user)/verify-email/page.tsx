@@ -16,20 +16,20 @@ function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addToast } = useToast();
-  
+
   // Try multiple sources for email: auth store, URL param, or prop
   const emailFromStore = useAuthStore((state) => state.emailForVerification);
   const emailFromUrl = searchParams.get('email');
   const email = emailFromStore || emailFromUrl || emailProp || '';
-  
+
   // Check if user signed up as admin
   const [signupRole, setSignupRole] = useState<string | null>(null);
-  
+
   useEffect(() => {
     const role = localStorage.getItem('signupRole');
     setSignupRole(role);
   }, []);
-  
+
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [verifying, setVerifying] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
@@ -87,14 +87,14 @@ function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
       const response = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           otp: otp.join(''),
           email: email
         }),
       });
       const data = await response.json();
       console.log('📧 Verify API response:', data);
-      
+
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Invalid or expired OTP');
       }
@@ -106,11 +106,11 @@ function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
       // Check if we have user data in the response
       if (data.data && data.data.profile && data.data.profile.user) {
         console.log('📊 Using user data from verify response:', data.data.profile.user);
-        
+
         // Map backend role to frontend role
         const backendRole = data.data.profile.user.role || 'client';
         const frontendRole = backendRole === 'client' ? 'user' : backendRole;
-        
+
         const userData = {
           id: data.data.profile._id || 'local',
           email: email,
@@ -119,14 +119,14 @@ function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
           role: frontendRole,
           avatar: undefined,
         };
-        
+
         console.log('👤 User data to be set:', userData);
         setUser(userData, "localStorage");
-        
+
         // Clear verification email and signup role
         setEmailForVerification('');
         localStorage.removeItem('signupRole');
-        
+
         // Set redirecting state and redirect after short delay (like signin flow)
         setTimeout(() => {
           setIsRedirecting(true);
@@ -157,11 +157,11 @@ function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
                 };
                 console.log('👤 User data to be set from getMe:', userData);
                 setUser(userData, "localStorage");
-                
+
                 // Clear verification email and signup role
                 setEmailForVerification('');
                 localStorage.removeItem('signupRole');
-                
+
                 // Redirect based on role
                 setTimeout(() => {
                   setIsRedirecting(true);
@@ -186,7 +186,7 @@ function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
             });
         }, 1000); // Wait 1 second for cookies to be set
       }
-      
+
     } catch (err) {
       const error = err as Error;
       addToast(error.message || 'Failed to verify OTP', 'error');
@@ -205,7 +205,7 @@ function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
     setResending(true);
     try {
       console.log('🔄 Resending OTP to:', email);
-      
+
       const response = await fetch('/api/auth/resend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -234,15 +234,24 @@ function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 sm:px-6 lg:px-8 relative pt-16">
       {/* Logo in upper left */}
       <div className="absolute top-6 left-6">
-        <img 
-          src="/logo.webp" 
-          alt="Logo" 
+        <img
+          src="/logo.webp"
+          alt="Logo"
           className="h-8 w-auto cursor-pointer"
           onClick={() => router.push('/')}
         />
       </div>
 
       {/* Toast notifications are now handled globally by ToastContainer */}
+      {/* Large logo watermark in lower left */}
+      <div className="absolute bottom-4 left-4 w-48 h-48 opacity-10 pointer-events-none select-none">
+        <img
+          src="/logoNobg.webp"
+          alt="Harewa Logo Watermark"
+          className="w-full h-full object-contain"
+        />
+      </div>
+
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="mx-auto w-16 h-16 rounded-lg flex items-center justify-center mb-8" style={{ backgroundColor: '#D4AF37' }}>
@@ -260,7 +269,7 @@ function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
                   </span> Contact them for the OTP.
                 </p>
                 <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
-                  <strong>Admin Account:</strong> The verification code was sent to the admin email. 
+                  <strong>Admin Account:</strong> The verification code was sent to the admin email.
                   Please contact the admin to get your verification code.
                 </p>
               </>
@@ -289,7 +298,7 @@ function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
                   onChange={e => handleOtpChange(idx, e.target.value)}
                   onKeyDown={e => handleKeyDown(e, idx)}
                   className="w-12 h-14 text-2xl text-center border border-gray-300 rounded-lg transition-all shadow-sm text-black"
-                  style={{ 
+                  style={{
                     backgroundColor: '#F2F2F2',
                     outline: 'none',
                     boxShadow: 'none'
@@ -312,7 +321,7 @@ function VerifyEmailContent({ email: emailProp }: VerifyEmailPageProps) {
               onClick={handleVerify}
               disabled={verifying || otp.some(d => d === '') || verificationSuccess}
               className="w-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-pointer"
-              style={{ 
+              style={{
                 backgroundColor: '#D4AF37',
                 cursor: verifying || otp.some(d => d === '') || verificationSuccess ? 'not-allowed' : 'pointer'
               }}

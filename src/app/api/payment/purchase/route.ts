@@ -125,13 +125,12 @@ export async function POST(request: NextRequest) {
                 amount: order.amount,
                 email: user.email,
                 successUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-                cancelUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/cancel`,
+                cancelUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/checkout`,
                 metadata: {
-                    items: order.items || [], // optional, can stringify later
-                    type: "order",
-                    amount: order.amount,
-                    uuid: user.sub,
                     orderId: order.id,
+                    uuid: uuid,
+                    amount: order.amount,
+                    type: "order",
                 },
             });
 

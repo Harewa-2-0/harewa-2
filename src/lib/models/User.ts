@@ -8,6 +8,8 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String },
   username: { type: String, unique: true },
+  firstName: { type: String },
+  lastName: { type: String },
   phoneNumber: { type: String, },
   isVerified: { type: Boolean, default: false },
   accountDeleted: { type: Boolean, default: false },
