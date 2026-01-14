@@ -28,7 +28,7 @@ export default function SignupScreen() {
 
       {/* Left Image */}
       <div className="hidden lg:flex lg:flex-1 relative">
-        <Image src="/auth.webp" alt="Authentication" fill className="object-cover" priority />
+        <Image src="/w4.webp" alt="Authentication" fill className="object-cover" priority />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
         <div className="absolute bottom-8 left-8 text-white">
           <p className="text-sm">HAREWA - All rights reserved</p>
@@ -114,15 +114,14 @@ export default function SignupScreen() {
                       />
                     </div>
                     <span
-                      className={`ml-3 text-sm font-medium ${
-                        strength === "weak"
+                      className={`ml-3 text-sm font-medium ${strength === "weak"
                           ? "text-red-500"
                           : strength === "medium"
-                          ? "text-yellow-500"
-                          : strength === "strong"
-                          ? "text-green-500"
-                          : ""
-                      }`}
+                            ? "text-yellow-500"
+                            : strength === "strong"
+                              ? "text-green-500"
+                              : ""
+                        }`}
                     >
                       {getStrengthText(strength)}
                     </span>
@@ -132,14 +131,12 @@ export default function SignupScreen() {
                       {requirements.map((req) => (
                         <div
                           key={req.id}
-                          className={`flex items-center text-xs transition-all duration-300 ${
-                            req.met ? "text-green-600" : "text-gray-500"
-                          }`}
+                          className={`flex items-center text-xs transition-all duration-300 ${req.met ? "text-green-600" : "text-gray-500"
+                            }`}
                         >
                           <div
-                            className={`w-3 h-3 rounded-full mr-2 flex items-center justify-center text-white text-xs font-bold transition-colors duration-300 ${
-                              req.met ? "bg-green-500" : "bg-gray-300"
-                            }`}
+                            className={`w-3 h-3 rounded-full mr-2 flex items-center justify-center text-white text-xs font-bold transition-colors duration-300 ${req.met ? "bg-green-500" : "bg-gray-300"
+                              }`}
                           >
                             {req.met ? "✓" : "×"}
                           </div>
@@ -161,8 +158,8 @@ export default function SignupScreen() {
                     {formData.role === "user" ? "User Account" : "Admin Account"}
                   </span>
                   <span className="text-xs text-gray-500">
-                    {formData.role === "user" 
-                      ? "Access to shopping and user features" 
+                    {formData.role === "user"
+                      ? "Access to shopping and user features"
                       : "Access to admin dashboard and management"}
                   </span>
                 </div>
@@ -170,14 +167,12 @@ export default function SignupScreen() {
                   type="button"
                   onClick={handleRoleToggle}
                   disabled={isLoading}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    formData.role === "admin" ? "bg-[#D4AF37]" : "bg-gray-200"
-                  }`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${formData.role === "admin" ? "bg-[#D4AF37]" : "bg-gray-200"
+                    }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      formData.role === "admin" ? "translate-x-6" : "translate-x-1"
-                    }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.role === "admin" ? "translate-x-6" : "translate-x-1"
+                      }`}
                   />
                 </button>
               </div>
