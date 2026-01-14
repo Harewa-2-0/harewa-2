@@ -36,7 +36,7 @@ export const wrapEmailHtml = (content: string, title?: string) => {
   // Example: NEXT_PUBLIC_BASE_URL=https://harewa.com
   // The logo must be publicly accessible at: https://yourdomain.com/logoblackBG.png
   const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  const logoUrl = `${siteUrl}/logoblackBG.png`;
+  const logoUrl = `${siteUrl}/logoNobg.webp`;
 
   return `
     <!DOCTYPE html>
@@ -330,13 +330,15 @@ export const sendCustomRequestMail = async ({
   subject,
   type,
   data,
+  customerEmail,
 }: {
   to: string;
   subject: string;
   type: "user" | "admin";
   data: ICustomization;
+  customerEmail?: string;
 }) => {
-  const html = generateCustomRequestHtml(to, type, data);
+  const html = generateCustomRequestHtml(customerEmail || to, type, data);
   await notificationTransporter.sendMail({
     from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
     to,
@@ -350,7 +352,7 @@ export const sendCustomRequestMail = async ({
 /* -------------------------------------------------------------------------- */
 
 const generateCustomRequestHtml = (
-  to: string,
+  customerEmail: string,
   type: "user" | "admin",
   data: ICustomization
 ) => {
@@ -405,7 +407,7 @@ const generateCustomRequestHtml = (
       
       <div class="info-box">
         <p style="margin: 0 0 8px 0;"><strong>Customer Email:</strong></p>
-        <p style="margin: 0; font-size: 16px; color: #D4AF37; font-weight: 600;">${to}</p>
+        <p style="margin: 0; font-size: 16px; color: #D4AF37; font-weight: 600;">${customerEmail}</p>
       </div>
       
       <div class="success-box">

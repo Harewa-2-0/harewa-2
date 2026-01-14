@@ -93,7 +93,7 @@ export const generateReceiptHtml = (data: {
     date: string;
 }) => {
     const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const logoUrl = `${siteUrl}/logoblackBG.png`;
+    const logoUrl = `${siteUrl}/logoNobg.webp`;
 
     return `
     <!DOCTYPE html>

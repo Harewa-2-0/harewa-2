@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
             subject: "Harewa - Customization Request",
             type: "admin",
             data: customization,
+            customerEmail: users.email,
         });
         return created(customization);
     } catch (error) {
