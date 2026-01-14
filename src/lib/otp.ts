@@ -40,6 +40,8 @@ export async function verifyOtpAndGenerateToken(otp: string, email: string) {
       phoneNumber: user.phoneNumber,
       joinedAt: user.joinedAt,
       username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
     },
   };
 }

@@ -4,19 +4,19 @@ import { useAuthStore } from '@/store/authStore';
 
 /** ---------- Types ---------- */
 export type Order = {
-  _id: string;                 // Mongo ObjectId (use this in URL path)
-  user: string | {             // User ID (string) or populated user object
-    _id: string;               // User ID
-    name: string;              // User's name
+  _id: string;
+  user: string | {
+    _id: string;
+    name: string;
   };
-  carts: Cart | null;          // Cart object or null
-  amount: number;              // Order total amount
-  status: 'pending' | 'initiated' | 'paid' | 'shipped' | 'delivered';
-  walletId: string;            // Wallet ID for payment
-  address: string;             // Delivery address
-  createdAt: string;           // ISO date string
-  updatedAt: string;           // ISO date string
-  __v: number;                 // Version key
+  carts?: Cart | null;
+  amount: number;
+  status: 'pending' | 'initiated' | 'paid' | 'shipped' | 'shipping' | 'delivered' | 'cancelled';
+  walletId: string;
+  address: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
   [k: string]: Json | undefined;
 };
 
@@ -51,8 +51,7 @@ export type CreateOrderInput = {
 };
 
 export type UpdateOrderInput = Partial<CreateOrderInput> & {
-  status?: 'pending' | 'initiated' | 'paid' | 'shipped' | 'delivered';
-  // Include only the fields you want to change
+  status?: 'pending' | 'initiated' | 'paid' | 'shipped' | 'shipping' | 'delivered' | 'cancelled';
 };
 
 // Order placement types
@@ -374,11 +373,13 @@ export function mapOrderStatusToCategory(status: Order['status']): 'active' | 'c
   switch (status) {
     case 'initiated':
     case 'paid':
+    case 'shipping':
     case 'shipped':
       return 'active';
     case 'delivered':
       return 'completed';
     case 'pending':
+    case 'cancelled':
     default:
       return 'cancelled';
   }
@@ -390,15 +391,18 @@ export function mapOrderStatusToCategory(status: Order['status']): 'active' | 'c
 export function getOrderStatusInfo(status: Order['status']) {
   switch (status) {
     case 'pending':
-      return { label: 'Payment Failed', color: 'bg-red-100 text-red-800' };
+      return { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' };
     case 'initiated':
-      return { label: 'Payment Initiated', color: 'bg-blue-100 text-blue-800' };
+      return { label: 'Initiated', color: 'bg-blue-100 text-blue-800' };
     case 'paid':
       return { label: 'Paid', color: 'bg-green-100 text-green-800' };
+    case 'shipping':
     case 'shipped':
-      return { label: 'Shipped', color: 'bg-purple-100 text-purple-800' };
+      return { label: 'Shipping', color: 'bg-blue-100 text-blue-800' };
     case 'delivered':
       return { label: 'Delivered', color: 'bg-green-100 text-green-800' };
+    case 'cancelled':
+      return { label: 'Cancelled', color: 'bg-red-100 text-red-800' };
     default:
       return { label: 'Unknown', color: 'bg-gray-100 text-gray-800' };
   }

@@ -24,11 +24,11 @@ export default function SigninScreen() {
       {/* Left side */}
       <div className="hidden lg:flex lg:flex-1 relative">
         <img
-          src="/auth.webp"
+          src="/w4.webp"
           alt="Authentication"
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/30 to-black/30" />
         <div className="absolute bottom-8 left-8 text-white">
           <p className="text-sm">HAREWA - All rights reserved</p>
         </div>

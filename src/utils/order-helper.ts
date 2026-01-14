@@ -23,39 +23,30 @@ export const prepareCheckoutFromOrder = async (order: Order, router: any) => {
       throw new Error('No products found in this order');
     }
 
-    console.log('📦 Found products in order:', products);
-
     // Transform order products back to cart items
     const cartItems = products
       .map((cartProduct: any) => {
-        console.log('Processing cart product:', cartProduct);
-        
-        // Handle both populated and unpopulated product references
-        const product = typeof cartProduct.product === 'object' && cartProduct.product !== null
-          ? cartProduct.product 
-          : null;
+        const product = cartProduct.product;
 
-        if (!product) {
-          console.warn('Product not populated in cart product:', cartProduct);
+        if (!product || !product._id) {
+          console.warn('Invalid product data:', cartProduct);
           return null;
         }
 
         return {
           _id: product._id,
-          id: product._id, // Add both _id and id for compatibility
+          id: product._id,
           name: product.name,
           price: product.price,
           images: product.images || [],
-          image: product.images?.[0] || '/placeholder.png', // Add single image field
+          image: product.images?.[0] || '/placeholder.png',
           description: product.description || '',
           quantity: cartProduct.quantity || 1,
           category: product.category || '',
           stock: product.stock || 0,
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt,
         };
       })
-      .filter(Boolean); // Remove null entries
+      .filter((item): item is Exclude<typeof item, null> => item !== null);
 
     if (cartItems.length === 0) {
       throw new Error('Product details are not available for this order. Please contact support.');

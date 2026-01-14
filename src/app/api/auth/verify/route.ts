@@ -14,17 +14,14 @@ export async function POST(req: Request) {
   const { otp, email } = await req.json();
 
   try {
-    const { accessToken, refreshToken, user }: VerifiedAdmin =
-      await verifyOtpAndGenerateToken(otp, email);
+    const { user, accessToken, refreshToken } = await verifyOtpAndGenerateToken(otp, email);
 
     await connectDB();
 
     const newProfile = new Profile({
       user: user.id,
-      email: user.email,
-      username: user.username,
-      firstName: "",
-      lastName: "",
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
     });
 
     await newProfile.save();
@@ -72,7 +69,8 @@ export async function POST(req: Request) {
     response.headers.append("Set-Cookie", accessCookie);
     response.headers.append("Set-Cookie", refreshCookie);
 
-    await sendWelcomeEmail(user.email);
+    const welcomeName = user.firstName ? (user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName) : (user.username || '');
+    await sendWelcomeEmail(user.email, welcomeName);
 
     return response;
   } catch (err: unknown) {

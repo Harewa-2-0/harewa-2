@@ -91,11 +91,11 @@ export const addFunds = async (req: AddFundsRequest) => {
       return badRequest('Wallet not found');
     }
 
-    const amountInNaira = Math.floor(amount / 1);
-    wallet.balance += amountInNaira;
+    const amountInDollars = Math.floor(amount / 1);
+    wallet.balance += amountInDollars;
     wallet.transactions.push({
       type: 'credit',
-      amount: amountInNaira,
+      amount: amountInDollars,
       description,
       reference
     });
@@ -109,9 +109,9 @@ export const addFunds = async (req: AddFundsRequest) => {
       to: user.email,
       subject: 'Funds Added to Your Wallet',
       data: {
-        customerName: user.username || 'Customer',
+        customerName: (user.firstName ? (user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName) : (user.username || 'Customer')),
         receiptId: reference || `add-${Date.now()}`,
-        amountPaid: amountInNaira,
+        amountPaid: amountInDollars,
         paymentMethod: 'Wallet Credit',
         date: new Date().toISOString()
       }
@@ -197,7 +197,7 @@ export const deductFunds = async (req: DeductFundsRequest) => {
       to: user.email,
       subject: 'Funds Deducted from Your Wallet',
       data: {
-        customerName: user.username || 'Customer',
+        customerName: (user.firstName ? (user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName) : (user.username || 'Customer')),
         receiptId: reference || `deduct-${Date.now()}`,
         amountPaid: amount,
         paymentMethod: 'Wallet Deduction',

@@ -57,34 +57,52 @@ export async function POST(request: NextRequest) {
         await connectDB();
         const body = await request.json();
         const user = requireAuth(request);
-        const wallet = await Wallet.findOne({
-            user: user.sub,
-        });
+
+        const wallet = await Wallet.findOne({ user: user.sub });
         if (!wallet) {
             return badRequest("Wallet not found for user");
         }
-        //prevent duplicate orders
-        const existingOrder = await Order.findOne({
-            carts: body.carts,
-            user: user.sub,
-        }).lean();
-        if (existingOrder) {
-            return badRequest("Order already exists for this cart");
+
+        // Get cart with populated products
+        const cart: any = await Cart.findById(body.carts)
+            .populate('products.product')
+            .lean();
+
+        if (!cart) {
+            return badRequest("Cart not found");
         }
-        const newOrder = new Order({ user: user.sub, walletId: wallet._id, ...body });
+
+        if (!cart.products || cart.products.length === 0) {
+            return badRequest("Cart is empty");
+        }
+
+        // Calculate total amount from cart products
+        const amount = cart.products.reduce((sum: number, item: any) =>
+            sum + ((item.product.price || 0) * (item.quantity || 0)), 0
+        );
+
+        // Create order linked to cart
+        const newOrder = new Order({
+            user: user.sub,
+            walletId: wallet._id,
+            carts: body.carts,
+            amount: amount,
+            address: body.address,
+        });
+
         await newOrder.save();
+
         await ActivityLog.create({
             user: user.sub,
             action: "Placed Order",
             entityType: "Order",
             entityId: newOrder._id,
-            description: `User placed order #${newOrder._id} worth $${newOrder.totalAmount}`,
-            metadata: { totalAmount: newOrder.totalAmount, itemCount: newOrder.carts.length },
+            description: `User placed order #${newOrder._id} worth $${amount}`,
+            metadata: { totalAmount: amount, itemCount: cart.products.length },
         });
 
         return created(newOrder);
     } catch (error) {
-        return serverError(
-            "Failed to fetch cart: " + error);
+        return serverError("Failed to create order: " + error);
     }
 }

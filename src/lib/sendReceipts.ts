@@ -2,7 +2,7 @@ import puppeteer from "puppeteer";
 import { writeFile } from "fs/promises";
 import { v4 as uuid } from "uuid";
 import path from "path";
-import { notificationTransporter } from "./mailer";
+import { notificationTransporter, wrapEmailHtml } from "./mailer";
 
 export const sendReceiptMail = async ({
     to,
@@ -29,6 +29,7 @@ export const sendReceiptMail = async ({
     });
 
     try {
+        const firstName = data.customerName ? data.customerName.trim().split(/\s+/)[0] : 'Customer';
         const page = await browser.newPage();
         await page.setContent(html, { waitUntil: 'networkidle0' });
 
@@ -49,7 +50,26 @@ export const sendReceiptMail = async ({
             from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
             to,
             subject,
-            html: `<p>Hi ${data.customerName},<br/> Please find your receipt attached.</p>`,
+            html: wrapEmailHtml(`
+                <h1>Payment Receipt</h1>
+                <p>Hi ${firstName},</p>
+                <p>Thank you for your recent payment. We've attached your official receipt (PDF) to this email for your records.</p>
+                
+                <div class="success-box">
+                    <p style="margin: 0;"><strong>Receipt ID:</strong> #${data.receiptId}</p>
+                    <p style="margin: 0;"><strong>Amount Paid:</strong> $${data.amountPaid.toLocaleString()}</p>
+                    <p style="margin: 0;"><strong>Payment Method:</strong> ${data.paymentMethod}</p>
+                </div>
+                
+                <p>If you have any questions regarding this transaction, please don't hesitate to reach out to our support team.</p>
+                
+                <div class="divider"></div>
+                
+                <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                    Best regards,<br>
+                    <strong style="color: #1f2937;">The Harewa Team</strong>
+                </p>
+            `, subject),
             attachments: [
                 {
                     filename: "receipt.pdf",
@@ -96,13 +116,15 @@ export const generateReceiptHtml = (data: {
             .header {
                 text-align: center;
                 margin-bottom: 30px;
-                border-bottom: 2px solid #007bff;
+                border-bottom: 2px solid #D4AF37;
                 padding-bottom: 20px;
             }
             .header h1 {
-                color: #007bff;
+                color: #D4AF37;
                 margin: 0;
                 font-size: 28px;
+                text-transform: uppercase;
+                letter-spacing: 2px;
             }
             .receipt-id {
                 color: #666;
@@ -129,28 +151,29 @@ export const generateReceiptHtml = (data: {
                 color: #666;
             }
             .amount {
-                font-size: 24px;
+                font-size: 28px;
                 font-weight: bold;
-                color: ${data.paymentMethod.toLowerCase() === 'debit' ? '#fd7e14' : '#28a745'};
+                color: #1a1a1a;
                 text-align: center;
-                padding: 20px;
-                background-color: #f8f9fa;
-                border-radius: 5px;
-                margin: 20px 0;
+                padding: 30px;
+                background: linear-gradient(135deg, #fffbf0 0%, #fef8e6 100%);
+                border: 1px solid #D4AF37;
+                border-radius: 12px;
+                margin: 30px 0;
             }
             .footer {
                 text-align: center;
-                margin-top: 30px;
-                padding-top: 20px;
+                margin-top: 40px;
+                padding-top: 30px;
                 border-top: 1px solid #eee;
-                color: #666;
+                color: #6b7280;
                 font-size: 14px;
             }
             .thank-you {
-                color: #007bff;
+                color: #D4AF37;
                 font-weight: bold;
-                font-size: 18px;
-                margin-bottom: 10px;
+                font-size: 20px;
+                margin-bottom: 12px;
             }
         </style>
     </head>
@@ -177,7 +200,7 @@ export const generateReceiptHtml = (data: {
             </div>
 
             <div class="amount">
-                Amount Paid: ₦${data.amountPaid.toLocaleString()}
+                Amount Paid: $${data.amountPaid.toLocaleString()}
             </div>
 
             <div class="footer">

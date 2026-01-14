@@ -9,6 +9,7 @@ import { ok, serverError, badRequest } from "@/lib/response";
 import { requireAuth } from "@/lib/middleware/requireAuth";
 import { getTransactionByReference } from "@/lib/wallet";
 import { sendReceiptMail } from "@/lib/sendReceipts";
+import { getUserFromUserid } from "@/lib/utils";
 // import { ITransaction } from "@/lib/types/wallet";
 
 export async function POST(request: NextRequest) {
@@ -33,12 +34,14 @@ export async function POST(request: NextRequest) {
             return badRequest("Transaction not found");
         }
         console.log("Transaction found:", transactionData);
+        const userRecord = await getUserFromUserid(user.sub);
+
         // Send receipt email
         await sendReceiptMail({
             to: user.email,
             subject: "Payment Receipt",
             data: {
-                customerName: user.email || "Customer",
+                customerName: userRecord ? (userRecord.firstName ? (userRecord.lastName ? `${userRecord.firstName} ${userRecord.lastName}` : userRecord.firstName) : (userRecord.username || 'Customer')) : "Customer",
                 receiptId: transaction.data.reference,
                 amountPaid: transaction.data.amount || 0,
                 paymentMethod: transaction.data.type || "Wallet",

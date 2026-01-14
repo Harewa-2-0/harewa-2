@@ -11,6 +11,8 @@ export interface VerifiedAdmin {
     phoneNumber: string;
     joinedAt: Date;
     username: string;
+    firstName?: string;
+    lastName?: string;
   };
 }
 

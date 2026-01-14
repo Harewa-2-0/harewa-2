@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     }
     const profile = await Profile.findOne({ user: user._id }).populate({
       path: "user",
-      select: "-_id email username phoneNumber isVerified role",
+      select: "-_id email username phoneNumber isVerified role firstName lastName",
     });
 
     return NextResponse.json({ profile });

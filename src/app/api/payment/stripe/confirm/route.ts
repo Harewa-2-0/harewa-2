@@ -1,6 +1,7 @@
 import { ok, badRequest, serverError, notFound } from "@/lib/response";
-import { Order, } from "@/lib/models/Order";
+import { Order } from "@/lib/models/Order";
 import { Wallet } from "@/lib/models/Wallet";
+import { Cart } from "@/lib/models/Cart";
 import { addFunds, deductFunds } from "@/lib/wallet";
 import { getUserFromUuid } from "@/lib/utils";
 import Stripe from "stripe";
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
         const payment = {
             status: session.payment_status === "paid" ? "success" : (session.payment_status || "unknown"),
             metadata,
-            amount: session.amount_total || 0,
+            amount: (session.amount_total || 0) / 100, // Convert cents to dollars
             id: session.id,
         };
 
@@ -78,6 +79,16 @@ export async function GET(req: Request) {
 
             order.status = "paid";
             await order.save();
+
+            // 10. CREATE A NEW CART (Cart Swap)
+            // Instead of clearing the cart, we create a new one. 
+            // The old cart remains linked to the order to preserve history.
+            const newCart = new Cart({
+                user: user._id,
+                products: []
+            });
+            await newCart.save();
+            console.log(`New empty cart ${newCart._id} created for user ${user._id} (Cart Swap)`);
 
             return ok(order, "Order processed successfully");
         }
