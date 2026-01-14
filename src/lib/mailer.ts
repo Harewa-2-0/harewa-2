@@ -49,7 +49,7 @@ export const wrapEmailHtml = (content: string, title?: string) => {
       <style>
         body { margin: 0; padding: 0; background-color: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
         .email-container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
-        .header { background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%); padding: 32px 24px; text-align: center; }
+        .header { background-color: #000000; padding: 32px 24px; text-align: center; }
         .header img { height: 60px; width: auto; display: block; margin: 0 auto; }
         .content { padding: 40px 32px; color: #1f2937; line-height: 1.7; }
         .footer { background-color: #f9fafb; padding: 24px 32px; text-align: center; color: #6b7280; font-size: 13px; border-top: 1px solid #e5e7eb; }
