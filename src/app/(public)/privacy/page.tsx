@@ -265,18 +265,6 @@ export default function PrivacyPolicy() {
                 </div>
             </main>
 
-            {/* Footer */}
-            <footer className="border-t border-gray-200 mt-16">
-                <div className="max-w-4xl mx-auto px-6 py-8">
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-gray-600">
-                        <p>&copy; {new Date().getFullYear()} HAREWA. All rights reserved.</p>
-                        <div className="flex gap-6">
-                            <Link href="/privacy" className="hover:text-[#D4AF37] transition-colors">Privacy Policy</Link>
-                            <Link href="/terms" className="hover:text-[#D4AF37] transition-colors">Terms of Service</Link>
-                        </div>
-                    </div>
-                </div>
-            </footer>
         </div>
     )
 }

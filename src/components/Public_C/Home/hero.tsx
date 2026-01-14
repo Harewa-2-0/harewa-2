@@ -77,7 +77,7 @@ const HeroSection = () => {
 
             {/* ✅ Updated CTA Button */}
             <motion.button
-              onClick={() => router.push("/shop")}
+              onClick={() => router.push("/customize")}
               className="inline-flex cursor-pointer items-center gap-2 px-6 py-3 rounded-full font-medium transition-all duration-200"
               style={{
                 backgroundColor: "#FFE181",
@@ -158,7 +158,7 @@ const HeroSection = () => {
 
             {/* ✅ Updated CTA Button (Mobile) */}
             <motion.button
-              onClick={() => router.push("/shop")}
+              onClick={() => router.push("/customize")}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-medium mb-8 transition-all duration-200"
               style={{
                 backgroundColor: "#FFE181",

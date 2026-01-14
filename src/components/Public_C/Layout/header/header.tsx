@@ -17,7 +17,7 @@ import { AboutMenu } from '../../header_expandable_menu/about_menu';
 
 const navItems = [
   { label: 'Ready to Wear', href: '/shop' },
-  { label: 'Customization', href: '/shop' },
+  { label: 'Customization', href: '/customize' },
   { label: 'Trending Styles', href: '/trending-fashion' },
 ];
 
@@ -38,7 +38,7 @@ export default function Header() {
       if (headerRef.current) {
         const height = headerRef.current.offsetHeight;
         document.documentElement.style.setProperty('--header-height', `${height}px`);
-        
+
         // Calculate total offset (announcement + header)
         const announcementHeight = parseFloat(
           getComputedStyle(document.documentElement).getPropertyValue('--announcement-height') || '0'
@@ -95,13 +95,12 @@ export default function Header() {
               const isActive = pathname === href;
               return (
                 <motion.div key={label} whileHover={{ scale: 1.05 }}>
-                  <Link 
-                    href={href} 
-                    className={`transition-colors ${
-                      isActive 
-                        ? 'text-[#FFE181]' 
-                        : 'hover:text-[#FFE181]'
-                    }`}
+                  <Link
+                    href={href}
+                    className={`transition-colors ${isActive
+                      ? 'text-[#FFE181]'
+                      : 'hover:text-[#FFE181]'
+                      }`}
                   >
                     {label}
                   </Link>
@@ -172,7 +171,7 @@ export default function Header() {
                 transition={{ duration: 0.25 }}
                 onClick={closeMobileNav}
               />
-              
+
               {/* Mobile menu - starts from top of screen */}
               <motion.div
                 className="md:hidden fixed top-0 left-0 right-0 w-full bg-black px-5 pb-6 text-white text-base font-medium flex flex-col z-[101]"
@@ -266,7 +265,7 @@ export default function Header() {
                     </div>
                   )}
                   <Link
-                    href="/shop"
+                    href="/customize"
                     onClick={closeMobileNav}
                     className="bg-[#F4D35E] text-black text-center text-sm py-3 rounded-full hover:bg-[#F4D35E]/90 transition-colors font-medium"
                   >
