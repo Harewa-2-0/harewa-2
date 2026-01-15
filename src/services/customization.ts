@@ -3,7 +3,7 @@ import { api, unwrap, type MaybeWrapped, ApiError } from "@/utils/api";
 
 /** ---------- Types ---------- */
 export type CustomizationInput = {
-  outfit: "gown" | "skirt" | "blouse" | "pants" | "sleeve";  // Must match backend enum
+  outfit: string;
   outfitOption: string;        // e.g., "Long sleeve with slit"
   fabricType: string;          // e.g., "Ankara"
   size: string;                // e.g., "M"
@@ -12,12 +12,16 @@ export type CustomizationInput = {
   productId?: string;          // optional: link to product
   referenceImage?: string[];   // product images being customized
   fabricImage?: string;        // selected fabric's image URL
+  selections?: {
+    outfit: string;
+    option: string;
+  }[];
 };
 
 export type CustomizationResponse = {
   _id?: string;
   id?: string;
-  outfit: "gown" | "skirt" | "blouse" | "pants" | "sleeve";  // Must match backend enum
+  outfit: string;
   outfitOption: string;
   fabricType: string;
   size: string;
@@ -26,6 +30,10 @@ export type CustomizationResponse = {
   productId?: string;
   referenceImage?: string[];   // product images being customized
   fabricImage?: string;        // selected fabric's image URL
+  selections?: {
+    outfit: string;
+    option: string;
+  }[];
   user?: string | {
     _id: string;
     username?: string;
@@ -50,7 +58,7 @@ export async function createCustomization(input: CustomizationInput): Promise<Cu
 
     // Handle both wrapped and unwrapped responses
     const data = unwrap(response);
-    
+
     if (!data) {
       throw new Error("Invalid response format");
     }
@@ -69,7 +77,7 @@ export async function getCustomization(id: string): Promise<CustomizationRespons
   try {
     const response = await api<MaybeWrapped<CustomizationResponse>>(`/api/customization/${id}`);
     const data = unwrap(response);
-    
+
     if (!data) {
       throw new Error("Customization not found");
     }
@@ -88,14 +96,14 @@ export async function getCurrentUserCustomizations(): Promise<CustomizationRespo
   try {
     const response = await api<MaybeWrapped<CustomizationResponse[]>>("/api/customization/me");
     const data = unwrap(response);
-    
+
     return Array.isArray(data) ? data : [];
   } catch (error) {
     // Handle 404 as empty result (no customizations found)
     if (error instanceof ApiError && error.status === 404) {
       return [];
     }
-    
+
     console.error("Failed to get user customizations:", error);
     throw error;
   }
@@ -109,7 +117,7 @@ export async function getAllCustomizations(): Promise<CustomizationResponse[]> {
   try {
     const response = await api<MaybeWrapped<CustomizationResponse[]>>("/api/customization");
     const data = unwrap(response);
-    
+
     return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Failed to get all customizations:", error);
@@ -125,7 +133,7 @@ export async function getUserCustomizationsById(userId: string): Promise<Customi
   try {
     const response = await api<MaybeWrapped<CustomizationResponse[]>>(`/api/customization/user/${userId}`);
     const data = unwrap(response);
-    
+
     return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Failed to get user customizations by ID:", error);
@@ -146,7 +154,7 @@ export async function updateCustomization(id: string, input: Partial<Customizati
 
     // Handle both wrapped and unwrapped responses
     const data = unwrap(response);
-    
+
     if (!data) {
       throw new Error("Invalid response format");
     }

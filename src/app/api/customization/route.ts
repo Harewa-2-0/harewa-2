@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
         await connectDB();
         const users = requireAuth(req);
         const body = await req.json();
+        console.log("POST /api/customization body:", JSON.stringify(body, null, 2));
 
         const customization = await Customization.create({ user: users.sub, ...body });
         console.log("Created customization:", customization);
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
             subject: "Harewa - Customization Request",
             type: "admin",
             data: customization,
+            customerEmail: users.email,
         });
         return created(customization);
     } catch (error) {

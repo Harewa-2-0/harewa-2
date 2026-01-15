@@ -23,8 +23,7 @@ interface CustomizationPanelProps {
 
 const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
   // Form state
-  const [selectedOutfit, setSelectedOutfit] = useState('');
-  const [selectedOutfitOption, setSelectedOutfitOption] = useState('');
+  const [selections, setSelections] = useState<{ outfit: string; option: string }[]>([]);
   const [selectedFabric, setSelectedFabric] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
@@ -36,7 +35,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
   const { isAuthenticated } = useAuthStore();
   const router = useRouter();
   const queryClient = useQueryClient();
-  
+
   // Fetch fabrics to get the selected fabric's image URL
   const { data: fabrics = [] } = useFabricsQuery();
 
@@ -51,9 +50,8 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
     </div>
   );
 
-  const handleOutfitSelect = (outfit: string, option: string) => {
-    setSelectedOutfit(outfit);
-    setSelectedOutfitOption(option);
+  const handleSelectionsChange = (newSelections: { outfit: string; option: string }[]) => {
+    setSelections(newSelections);
   };
 
   const handleSizeSelect = (size: string) => {
@@ -62,8 +60,8 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
 
   const handleSubmit = async () => {
     // Validation
-    if (!selectedOutfit || !selectedOutfitOption) {
-      addToast('Please select an outfit type and style', 'error');
+    if (selections.length === 0) {
+      addToast('Please select at least one outfit part to customize', 'error');
       return;
     }
 
@@ -87,10 +85,13 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
     try {
       // Get the selected fabric object to retrieve its image URL
       const selectedFabricObj = fabrics.find(f => f._id === selectedFabric);
-      
-      const customizationData: CustomizationInput = {
-        outfit: selectedOutfit as "gown" | "skirt" | "blouse" | "pants" | "sleeve",
-        outfitOption: selectedOutfitOption,
+
+      const customizationData: CustomizationInput & { selections: any[] } = {
+        // Fallbacks for base schema fields (use the first selection)
+        outfit: selections[0].outfit,
+        outfitOption: selections[0].option,
+        // The new full selections array
+        selections: selections,
         fabricType: selectedFabric,
         size: selectedSize,
         preferredColor: selectedColors.join(' and '),
@@ -108,8 +109,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
       addToast('Customization request submitted successfully! We\'ll contact you soon.', 'success');
 
       // Reset form
-      setSelectedOutfit('');
-      setSelectedOutfitOption('');
+      setSelections([]);
       setSelectedFabric('');
       setSelectedSize('');
       setSelectedColors([]);
@@ -133,7 +133,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
     }
   };
 
-  const isFormValid = selectedOutfit && selectedOutfitOption && selectedFabric && selectedSize && selectedColors.length > 0;
+  const isFormValid = selections.length > 0 && selectedFabric && selectedSize && selectedColors.length > 0;
 
   return (
     <>
@@ -156,10 +156,9 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ product }) => {
 
           {/* Outfit Selector */}
           <OutfitSelector
-            selectedOutfit={selectedOutfit}
-            selectedOutfitOption={selectedOutfitOption}
-            onOutfitSelect={handleOutfitSelect}
+            onSelectionsChange={handleSelectionsChange}
             gender={product.gender}
+            initialSelections={selections}
           />
 
           {/* Fabric Type Dropdown */}

@@ -87,14 +87,12 @@ export default function Footer() {
       <div className="my-8 border-t border-white/40" />
 
       {/* Footer Bottom */}
-      <div className="max-w-7xl mx-auto text-sm flex flex-col md:flex-row justify-center items-center gap-8 px-2">
-        <span>© 2025 HAREWA</span>
+      <div className="max-w-7xl mx-auto text-sm flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8 px-2">
+        <span className="text-gray-400">© 2026 HAREWA. All rights reserved.</span>
         <div className="flex items-center gap-4">
-          <span>All Rights Reserved</span>
-          <span className="hidden md:inline">|</span>
-          <a href="#" className="text-blue-400 hover:text-blue-300 transition">Terms and Conditions</a>
-          <span className="hidden md:inline">|</span>
-          <a href="#" className="text-blue-400 hover:text-blue-300 transition">Privacy Policy</a>
+          <Link href="/terms" className="hover:text-[#FFE181] transition text-gray-300">Terms and Conditions</Link>
+          <span className="text-gray-600">|</span>
+          <Link href="/privacy" className="hover:text-[#FFE181] transition text-gray-300">Privacy Policy</Link>
         </div>
       </div>
     </footer>

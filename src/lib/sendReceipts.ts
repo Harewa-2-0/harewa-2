@@ -92,6 +92,9 @@ export const generateReceiptHtml = (data: {
     paymentMethod: string;
     date: string;
 }) => {
+    const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const logoUrl = `${siteUrl}/logoNobg.webp`;
+
     return `
     <!DOCTYPE html>
     <html>
@@ -100,113 +103,162 @@ export const generateReceiptHtml = (data: {
         <title>Receipt ${data.receiptId}</title>
         <style>
             body { 
-                font-family: Arial, sans-serif; 
+                font-family: 'Segoe UI', Arial, sans-serif; 
                 margin: 0; 
-                padding: 20px; 
-                background-color: #f9f9f9;
+                padding: 0; 
+                background-color: #ffffff;
             }
             .receipt-container {
-                background-color: white;
-                padding: 40px;
-                border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                max-width: 600px;
+                max-width: 800px;
                 margin: 0 auto;
             }
             .header {
+                background-color: #000000;
+                padding: 40px 20px;
                 text-align: center;
-                margin-bottom: 30px;
-                border-bottom: 2px solid #D4AF37;
-                padding-bottom: 20px;
+                border-bottom: 5px solid #D4AF37;
+            }
+            .header img {
+                height: 70px;
+                width: auto;
+                margin-bottom: 20px;
             }
             .header h1 {
-                color: #D4AF37;
+                color: #ffffff;
                 margin: 0;
-                font-size: 28px;
+                font-size: 24px;
                 text-transform: uppercase;
-                letter-spacing: 2px;
+                letter-spacing: 4px;
+                font-weight: 300;
+            }
+            .receipt-banner {
+                background-color: #f9fafb;
+                padding: 20px;
+                text-align: center;
+                border-bottom: 1px solid #e5e7eb;
             }
             .receipt-id {
-                color: #666;
+                color: #6b7280;
                 font-size: 14px;
-                margin-top: 5px;
+                font-weight: 600;
+            }
+            .content {
+                padding: 40px;
             }
             .receipt-details {
-                margin: 30px 0;
+                margin: 0 0 40px 0;
             }
             .detail-row {
                 display: flex;
                 justify-content: space-between;
-                padding: 12px 0;
-                border-bottom: 1px solid #eee;
-            }
-            .detail-row:last-child {
-                border-bottom: none;
+                padding: 16px 0;
+                border-bottom: 1px solid #f3f4f6;
             }
             .label {
-                font-weight: bold;
-                color: #333;
+                font-weight: 600;
+                color: #4b5563;
+                text-transform: uppercase;
+                font-size: 12px;
+                letter-spacing: 1px;
             }
             .value {
-                color: #666;
+                color: #111827;
+                font-weight: 500;
             }
-            .amount {
-                font-size: 28px;
-                font-weight: bold;
-                color: #1a1a1a;
+            .amount-box {
+                background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+                color: #ffffff;
+                padding: 40px;
+                border-radius: 16px;
                 text-align: center;
-                padding: 30px;
-                background: linear-gradient(135deg, #fffbf0 0%, #fef8e6 100%);
-                border: 1px solid #D4AF37;
-                border-radius: 12px;
-                margin: 30px 0;
+                margin: 40px 0;
+                position: relative;
+                overflow: hidden;
+            }
+            .amount-box::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 4px;
+                background: #D4AF37;
+            }
+            .amount-label {
+                font-size: 14px;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                color: #9ca3af;
+                margin-bottom: 8px;
+            }
+            .amount-paid {
+                font-size: 42px;
+                font-weight: 700;
+                color: #D4AF37;
             }
             .footer {
                 text-align: center;
-                margin-top: 40px;
-                padding-top: 30px;
-                border-top: 1px solid #eee;
+                padding: 40px;
+                background-color: #f9fafb;
                 color: #6b7280;
-                font-size: 14px;
+                font-size: 13px;
+                border-top: 1px solid #e5e7eb;
             }
             .thank-you {
+                color: #111827;
+                font-weight: 700;
+                font-size: 18px;
+                margin-bottom: 8px;
+            }
+            .contact-info {
+                margin-top: 16px;
+            }
+            .contact-info a {
                 color: #D4AF37;
-                font-weight: bold;
-                font-size: 20px;
-                margin-bottom: 12px;
+                text-decoration: none;
             }
         </style>
     </head>
     <body>
         <div class="receipt-container">
             <div class="header">
-                <h1>PAYMENT RECEIPT</h1>
-                <div class="receipt-id">Receipt #${data.receiptId}</div>
+                <img src="${logoUrl}" alt="Harewa Logo">
+                <h1>Official Receipt</h1>
             </div>
             
-            <div class="receipt-details">
-                <div class="detail-row">
-                    <span class="label">Date:</span>
-                    <span class="value">${data.date}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Received From:</span>
-                    <span class="value">${data.customerName}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Payment Method:</span>
-                    <span class="value">${data.paymentMethod}</span>
-                </div>
+            <div class="receipt-banner">
+                <div class="receipt-id">RECEIPT NO. #${data.receiptId}</div>
             </div>
 
-            <div class="amount">
-                Amount Paid: $${data.amountPaid.toLocaleString()}
-            </div>
+            <div class="content">
+                <div class="receipt-details">
+                    <div class="detail-row">
+                        <span class="label">Payment Date</span>
+                        <span class="value">${data.date}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Customer Name</span>
+                        <span class="value">${data.customerName}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Payment Method</span>
+                        <span class="value">${data.paymentMethod}</span>
+                    </div>
+                </div>
 
-            <div class="footer">
-                <div class="thank-you">Thank you for your payment!</div>
-                <p>This is an automatically generated receipt.</p>
-                <p>Harewa - Your trusted partner</p>
+                <div class="amount-box">
+                    <div class="amount-label">Total Amount Paid</div>
+                    <div class="amount-paid">$${data.amountPaid.toLocaleString()}</div>
+                </div>
+
+                <div class="footer">
+                    <div class="thank-you">Thank you for choosing Harewa!</div>
+                    <p>Your support helps us continue empowering skilled craftsmen.</p>
+                    <div class="contact-info">
+                        Questions? Email us at <a href="mailto:admin@harewa.com">admin@harewa.com</a>
+                    </div>
+                    <p style="margin-top: 24px;">© ${new Date().getFullYear()} Harewa. All rights reserved.</p>
+                </div>
             </div>
         </div>
     </body>

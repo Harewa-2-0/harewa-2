@@ -5,11 +5,24 @@ import CustomizationsTable from './CustomizationsTable';
 import { useAdminCustomizationsQuery } from '@/hooks/useCustomizations';
 import { PageSpinner } from '../../components/Spinner';
 
-// Helper to get user name safely
+// Helper to get user name safely (First Name -> Username -> Email)
 const getUserName = (customization: any): string => {
   if (!customization.user) return 'Unknown';
   if (typeof customization.user === 'string') return 'User ' + customization.user.substring(0, 8);
-  return customization.user.name || customization.user.email || 'Unknown';
+
+  // 1. Try first name from name field
+  if (customization.user.name) {
+    const firstName = customization.user.name.trim().split(/\s+/)[0];
+    if (firstName) return firstName;
+  }
+
+  // 2. Try username
+  if (customization.user.username) {
+    return customization.user.username;
+  }
+
+  // 3. Fallback to email
+  return customization.user.email || 'Unknown';
 };
 
 export default function CustomizationsPage() {
@@ -107,7 +120,7 @@ export default function CustomizationsPage() {
 
       {/* Customizations Table */}
       {!isLoading && (
-        <CustomizationsTable 
+        <CustomizationsTable
           search={search}
           loading={isLoading}
           customizations={paginatedCustomizations}
