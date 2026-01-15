@@ -19,11 +19,24 @@ interface CustomizationDetailPageProps {
   customerEmail?: string;
 }
 
-// Helper to get user name safely (handles non-populated user field)
+// Helper to get user name safely (First Name -> Username -> Email)
 const getUserName = (customization: CustomizationResponse): string => {
   if (!customization.user) return 'Unknown User';
   if (typeof customization.user === 'string') return `User ${customization.user.substring(0, 8)}...`;
-  return customization.user.name || customization.user.email || 'Unknown User';
+
+  // 1. Try first name from name field
+  if (customization.user.name) {
+    const firstName = customization.user.name.trim().split(/\s+/)[0];
+    if (firstName) return firstName;
+  }
+
+  // 2. Try username
+  if (customization.user.username) {
+    return customization.user.username;
+  }
+
+  // 3. Fallback to email
+  return customization.user.email || 'Unknown User';
 };
 
 // Helper to get user email safely
@@ -65,7 +78,7 @@ const getValidImages = (images?: string[]): string[] => {
 // Convert size abbreviation to full name
 const getFullSizeName = (size?: string): string => {
   if (!size) return 'N/A';
-  
+
   const sizeMap: Record<string, string> = {
     'S': 'Small',
     'M': 'Medium',
@@ -76,7 +89,7 @@ const getFullSizeName = (size?: string): string => {
     '3X': '3X Large',
     'XS': 'Extra Small',
   };
-  
+
   return sizeMap[size.toUpperCase()] || size;
 };
 
@@ -86,15 +99,19 @@ const getOutfitBadge = (outfit: string) => {
     gown: 'bg-pink-100 text-pink-800 border-pink-200',
     skirt: 'bg-purple-100 text-purple-800 border-purple-200',
     blouse: 'bg-blue-100 text-blue-800 border-blue-200',
+    top: 'bg-blue-100 text-blue-800 border-blue-200',
     pants: 'bg-gray-100 text-gray-800 border-gray-200',
     sleeve: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   };
-  
+
   const className = outfitClasses[outfit] || 'bg-gray-100 text-gray-800 border-gray-200';
-  
+
+  // Map 'blouse' to 'Top' for display
+  const label = outfit === 'blouse' ? 'Top' : outfit.charAt(0).toUpperCase() + outfit.slice(1);
+
   return (
     <span className={`px-3 py-1 rounded-full text-sm font-medium border ${className}`}>
-      {outfit.charAt(0).toUpperCase() + outfit.slice(1)}
+      {label}
     </span>
   );
 };
@@ -107,12 +124,12 @@ export default function CustomizationDetailPage({ customizationId, customerName,
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(false);
   const { data: customization, isLoading: isLoadingCustomization, error } = useCustomizationByIdQuery(customizationId);
-  
+
   // Fetch fabrics for lookup
   const { data: fabrics = [], isLoading: isLoadingFabrics } = useFabricsQuery();
-  
+
   const isLoading = isLoadingCustomization || isLoadingFabrics;
-  
+
   // Get fabric details
   const fabric = fabrics.find(f => f._id === customization?.fabricType);
 
@@ -123,10 +140,10 @@ export default function CustomizationDetailPage({ customizationId, customerName,
   }, [customization?.user]);
 
   // Fetch customer history
-  const { 
-    data: userCustomizations = [], 
-    isLoading: isLoadingHistory, 
-    error: historyError 
+  const {
+    data: userCustomizations = [],
+    isLoading: isLoadingHistory,
+    error: historyError
   } = useUserCustomizationsQuery(userId);
 
   // Generate customer insights
@@ -141,14 +158,14 @@ export default function CustomizationDetailPage({ customizationId, customerName,
 
   const handleDelete = async () => {
     if (!customizationId) return;
-    
+
     setIsDeleting(true);
     try {
       await api(`/api/customization/${customizationId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
-      
+
       addToast('Customization request deleted successfully', 'success');
       router.push('/admin/customizations');
     } catch (error) {
@@ -244,8 +261,8 @@ export default function CustomizationDetailPage({ customizationId, customerName,
               <div>
                 <label className="text-sm font-medium text-gray-500">User ID</label>
                 <p className="text-gray-900 font-mono text-sm">
-                  {typeof customization.user === 'string' 
-                    ? customization.user 
+                  {typeof customization.user === 'string'
+                    ? customization.user
                     : customization.user?._id || 'N/A'}
                 </p>
               </div>
@@ -259,12 +276,11 @@ export default function CustomizationDetailPage({ customizationId, customerName,
                     <span className="text-sm font-medium text-gray-600">
                       {customerInsights.stats.totalRequests} total request{customerInsights.stats.totalRequests !== 1 ? 's' : ''}
                     </span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      customerInsights.stats.customerStatus === 'new' ? 'bg-blue-100 text-blue-800' :
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${customerInsights.stats.customerStatus === 'new' ? 'bg-blue-100 text-blue-800' :
                       customerInsights.stats.customerStatus === 'regular' ? 'bg-green-100 text-green-800' :
-                      customerInsights.stats.customerStatus === 'vip' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-purple-100 text-purple-800'
-                    }`}>
+                        customerInsights.stats.customerStatus === 'vip' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-purple-100 text-purple-800'
+                      }`}>
                       {customerInsights.stats.customerStatus.toUpperCase()}
                     </span>
                   </div>
@@ -287,12 +303,12 @@ export default function CustomizationDetailPage({ customizationId, customerName,
               <ImageIcon className="w-5 h-5 text-gray-500" />
               <h2 className="text-lg font-semibold text-gray-900">Reference Images</h2>
             </div>
-            
+
             {/* No Images Available */}
             {!hasValidReferenceImages(customization.referenceImage) && !isValidImageUrl(customization.fabricImage) && (
               <p className="text-gray-400 text-sm">This request was created before the image feature was added</p>
             )}
-            
+
             {/* Has Images */}
             {(hasValidReferenceImages(customization.referenceImage) || isValidImageUrl(customization.fabricImage)) && (
               <div className="space-y-6">
@@ -302,7 +318,7 @@ export default function CustomizationDetailPage({ customizationId, customerName,
                     <h3 className="text-sm font-medium text-gray-500 mb-3">Product Images</h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {getValidImages(customization.referenceImage).map((img, index) => (
-                        <button 
+                        <button
                           key={index}
                           onClick={() => { setIsImageLoading(true); setLightboxImage(img); }}
                           className="group relative aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200 hover:border-[#D4AF37] transition-colors cursor-pointer"
@@ -330,7 +346,7 @@ export default function CustomizationDetailPage({ customizationId, customerName,
                 {isValidImageUrl(customization.fabricImage) && (
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 mb-3">Selected Fabric</h3>
-                    <button 
+                    <button
                       onClick={() => { setIsImageLoading(true); setLightboxImage(customization.fabricImage!); }}
                       className="group cursor-pointer"
                     >
@@ -363,16 +379,36 @@ export default function CustomizationDetailPage({ customizationId, customerName,
               <h2 className="text-lg font-semibold text-gray-900">Customization Details</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="text-sm font-medium text-gray-500">Outfit Type</label>
-                <div className="mt-1">
-                  {customization.outfit ? getOutfitBadge(customization.outfit) : 'N/A'}
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Outfit Option</label>
-                <p className="text-gray-900 mt-1">{customization.outfitOption || 'N/A'}</p>
-              </div>
+              {/* Render either multiple selections or fallback to single outfit */}
+              {customization.selections && customization.selections.length > 0 ? (
+                customization.selections.map((s: { outfit: string; option: string }, index: number) => (
+                  <div key={index} className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Outfit Part</label>
+                      <div className="mt-1">
+                        {getOutfitBadge(s.outfit)}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Style Option</label>
+                      <p className="text-gray-900 mt-1 font-medium capitalize">{s.option.split('-').join(' ')}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Outfit Type</label>
+                    <div className="mt-1">
+                      {customization.outfit ? getOutfitBadge(customization.outfit) : 'N/A'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Outfit Option</label>
+                    <p className="text-gray-900 mt-1">{customization.outfitOption || 'N/A'}</p>
+                  </div>
+                </>
+              )}
               <div>
                 <label className="text-sm font-medium text-gray-500">Fabric</label>
                 <p className="text-gray-900 mt-1 font-medium">{fabric?.name || customization.fabricType || 'N/A'}</p>
@@ -492,7 +528,7 @@ export default function CustomizationDetailPage({ customizationId, customerName,
           {/* Delete Action */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Actions</h2>
-            <button 
+            <button
               onClick={() => setShowDeleteModal(true)}
               className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
             >
@@ -516,7 +552,7 @@ export default function CustomizationDetailPage({ customizationId, customerName,
                 <p className="text-sm text-gray-600">This action cannot be undone</p>
               </div>
             </div>
-            
+
             <div className="mb-6">
               <p className="text-gray-700">
                 Are you sure you want to delete this customization request? This will permanently remove:
@@ -560,7 +596,7 @@ export default function CustomizationDetailPage({ customizationId, customerName,
 
       {/* Image Lightbox Modal */}
       {lightboxImage && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => { setLightboxImage(null); setIsImageLoading(false); }}
         >
@@ -573,14 +609,14 @@ export default function CustomizationDetailPage({ customizationId, customerName,
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            
+
             {/* Loading Spinner */}
             {isImageLoading && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-10 h-10 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
               </div>
             )}
-            
+
             <img
               src={lightboxImage}
               alt="Enlarged view"

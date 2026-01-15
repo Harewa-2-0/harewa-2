@@ -61,7 +61,7 @@ export const wrapEmailHtml = (content: string, title?: string) => {
         .warning-box { background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; border-radius: 6px; margin: 24px 0; }
         .success-box { background-color: #fffbf0; border-left: 4px solid #D4AF37; padding: 20px; border-radius: 6px; margin: 24px 0; }
         h1 { color: #111827; font-size: 28px; font-weight: 700; margin: 0 0 16px 0; }
-        h2 { color: #1f2937; font-size: 22px; font-weight: 600; margin: 0 0 12px 0; }
+        h2 { color: #1f2937; font-size: 22px; font-weight: 600; margin: 0 0 12px; }
         p { margin: 0 0 16px 0; color: #374151; }
         ul { padding-left: 24px; margin: 16px 0; }
         li { margin-bottom: 8px; color: #4b5563; }
@@ -99,6 +99,100 @@ export const wrapEmailHtml = (content: string, title?: string) => {
       </div>
     </body>
     </html>
+  `;
+};
+
+const generateCustomRequestHtml = (data: any, type: 'user' | 'admin', customerEmail?: string) => {
+  // Helper to get display label for outfit
+  const getOutfitLabel = (outfit: string) => {
+    const lower = outfit.toLowerCase();
+    if (lower === 'blouse' || lower === 'top') return 'Top';
+    return outfit.charAt(0).toUpperCase() + outfit.slice(1);
+  };
+
+  // Helper to get display label for option
+  const getOptionLabel = (option: string) => {
+    return option.split('-').map(word => {
+      const lower = word.toLowerCase();
+      if (lower === 'blouse') return 'Top';
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }).join(' ');
+  };
+
+  // Determine selections HTML
+  let selectionsHtml = '';
+  if (data.selections && Array.isArray(data.selections) && data.selections.length > 0) {
+    selectionsHtml = data.selections.map((s: any) => `
+      <div style="margin-bottom: 8px; padding: 10px; background-color: #f9f9f9; border-radius: 8px; border-left: 4px solid #D4AF37;">
+        <span style="font-weight: bold;">${getOutfitLabel(s.outfit)}:</span> 
+        <span style="color: #333;">${getOptionLabel(s.option)}</span>
+      </div>
+    `).join('');
+  } else {
+    // Fallback for legacy data
+    selectionsHtml = `
+      <div style="margin-bottom: 8px; padding: 10px; background-color: #f9f9f9; border-radius: 8px; border-left: 4px solid #D4AF37;">
+        <span style="font-weight: bold;">${getOutfitLabel(data.outfit || '')}:</span> 
+        <span style="color: #333;">${getOptionLabel(data.outfitOption || 'N/A')}</span>
+      </div>
+    `;
+  }
+
+  return `
+    <div style="max-width: 600px; margin: 0 auto; color: #333; font-family: 'Inter', sans-serif;">
+      <h2 style="color: #000; font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #D4AF37; padding-bottom: 10px;">
+        Customization Request
+      </h2>
+      
+      <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+        ${type === 'user'
+      ? "Thank you for your customization request! We have received your design preferences and our team will review them shortly."
+      : `A new customization request has been received from <strong>${customerEmail || 'a customer'}</strong>.`
+    }
+      </p>
+
+      <div style="background-color: #fff; border: 1px solid #eee; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+        <h3 style="font-size: 18px; margin-top: 0; margin-bottom: 16px; color: #D4AF37; text-transform: uppercase; letter-spacing: 1px;">
+          Design Selections
+        </h3>
+        
+        <div style="margin-bottom: 20px;">
+          ${selectionsHtml}
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 10px 0; border-bottom: 1px solid #eee; color: #666;">Fabric Type</td>
+            <td style="padding: 10px 0; border-bottom: 1px solid #eee; font-weight: bold; text-align: right;">${data.fabricType}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; border-bottom: 1px solid #eee; color: #666;">Size</td>
+            <td style="padding: 10px 0; border-bottom: 1px solid #eee; font-weight: bold; text-align: right;">${data.size}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; border-bottom: 1px solid #eee; color: #666;">Preferred Color</td>
+            <td style="padding: 10px 0; border-bottom: 1px solid #eee; font-weight: bold; text-align: right;">${data.preferredColor}</td>
+          </tr>
+        </table>
+
+        ${data.additionalNotes ? `
+          <div style="margin-top: 24px;">
+            <h4 style="font-size: 14px; margin-bottom: 8px; color: #666; text-transform: uppercase;">Additional Notes</h4>
+            <div style="padding: 12px; background-color: #f5f5f5; border-radius: 8px; font-style: italic;">
+              "${data.additionalNotes}"
+            </div>
+          </div>
+        ` : ''}
+
+        ${type === 'admin' ? `
+          <div style="margin-top: 32px; padding: 20px; background-color: #fffbf0; border-radius: 12px; border: 1px solid #D4AF37; text-align: center;">
+            <p style="margin: 0; font-size: 14px; color: #333;">
+              <strong>Action Required:</strong> You can check the <strong>Admin Dashboard</strong> for more customization details and reference images.
+            </p>
+          </div>
+        ` : ''}
+      </div>
+    </div>
   `;
 };
 
@@ -338,96 +432,11 @@ export const sendCustomRequestMail = async ({
   data: ICustomization;
   customerEmail?: string;
 }) => {
-  const html = generateCustomRequestHtml(customerEmail || to, type, data);
+  const html = generateCustomRequestHtml(data, type, customerEmail);
   await notificationTransporter.sendMail({
     from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
     to,
     subject,
     html: wrapEmailHtml(html),
   });
-};
-
-/* -------------------------------------------------------------------------- */
-/*                              HTML GENERATORS                               */
-/* -------------------------------------------------------------------------- */
-
-const generateCustomRequestHtml = (
-  customerEmail: string,
-  type: "user" | "admin",
-  data: ICustomization
-) => {
-  const {
-    outfit,
-    outfitOption,
-    fabricType,
-    preferredColor,
-    additionalNotes,
-  } = data;
-
-  if (type === "user") {
-    return `
-      <h1>Customization Request Received! ✨</h1>
-      <p>Thank you for submitting your custom design request. We're excited to bring your vision to life!</p>
-      
-      <div class="success-box">
-        <h2 style="margin: 0 0 16px 0; font-size: 18px;">Your Request Details:</h2>
-        <ul style="margin: 0; padding-left: 20px;">
-          <li><strong>Outfit Type:</strong> ${outfit}</li>
-          <li><strong>Style Option:</strong> ${outfitOption}</li>
-          <li><strong>Fabric Type:</strong> ${fabricType}</li>
-          <li><strong>Preferred Color:</strong> ${preferredColor}</li>
-          ${additionalNotes ? `<li><strong>Additional Notes:</strong> ${additionalNotes}</li>` : ''}
-        </ul>
-      </div>
-      
-      <p>Our design team will review your request and get back to you within <strong>24-48 hours</strong> with a quote and timeline.</p>
-      
-      <div class="info-box">
-        <p style="margin: 0; font-size: 14px;">
-          <strong>What's Next?</strong><br>
-          We'll send you design mockups and pricing details soon. You'll have the opportunity to request adjustments before we begin production.
-        </p>
-      </div>
-      
-      <p style="color: #6b7280; font-size: 14px;">
-        Questions? Reply to this email or contact us at <a href="mailto:admin@harewa.com" style="color: #D4AF37; text-decoration: none;">admin@harewa.com</a>
-      </p>
-      
-      <div class="divider"></div>
-      
-      <p style="margin: 0; color: #6b7280; font-size: 14px;">
-        Best regards,<br>
-        <strong style="color: #1f2937;">Harewa Design Team</strong>
-      </p>
-    `;
-  } else {
-    return `
-      <h1>🎨 New Customization Request</h1>
-      <p>A customer has submitted a new custom design request that requires your attention.</p>
-      
-      <div class="info-box">
-        <p style="margin: 0 0 8px 0;"><strong>Customer Email:</strong></p>
-        <p style="margin: 0; font-size: 16px; color: #D4AF37; font-weight: 600;">${customerEmail}</p>
-      </div>
-      
-      <div class="success-box">
-        <h2 style="margin: 0 0 16px 0; font-size: 18px;">Request Specifications:</h2>
-        <ul style="margin: 0; padding-left: 20px;">
-          <li><strong>Outfit Type:</strong> ${outfit}</li>
-          <li><strong>Style Option:</strong> ${outfitOption}</li>
-          <li><strong>Fabric Type:</strong> ${fabricType}</li>
-          <li><strong>Preferred Color:</strong> ${preferredColor}</li>
-          ${additionalNotes ? `<li><strong>Additional Notes:</strong> ${additionalNotes}</li>` : ''}
-        </ul>
-      </div>
-      
-      <p><strong>Action Required:</strong> Please review this request and respond to the customer within 24-48 hours with a quote and estimated timeline.</p>
-      
-      <div class="divider"></div>
-      
-      <p style="margin: 0; color: #6b7280; font-size: 14px;">
-        <strong style="color: #1f2937;">Harewa Admin System</strong>
-      </p>
-    `;
-  }
 };

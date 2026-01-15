@@ -17,11 +17,24 @@ interface CustomizationsTableProps {
   onPageChange: (page: number) => void;
 }
 
-// Helper to get user name safely
+// Helper to get user name safely (First Name -> Username -> Email)
 const getUserName = (customization: CustomizationResponse): string => {
   if (!customization.user) return 'Unknown';
   if (typeof customization.user === 'string') return 'User ' + customization.user.substring(0, 8);
-  return customization.user.username || customization.user.name || customization.user.email || 'Unknown';
+
+  // 1. Try first name from name field
+  if (customization.user.name) {
+    const firstName = customization.user.name.trim().split(/\s+/)[0];
+    if (firstName) return firstName;
+  }
+
+  // 2. Try username
+  if (customization.user.username) {
+    return customization.user.username;
+  }
+
+  // 3. Fallback to email
+  return customization.user.email || 'Unknown';
 };
 
 // Helper to get user email safely
@@ -33,7 +46,7 @@ const getUserEmail = (customization: CustomizationResponse): string | null => {
 // Format date to relative time or date string
 const formatRelativeTime = (dateString?: string) => {
   if (!dateString) return 'N/A';
-  
+
   const date = new Date(dateString);
   const now = new Date();
   const diffInMs = now.getTime() - date.getTime();
@@ -58,22 +71,26 @@ const getOutfitBadge = (outfit: string) => {
     gown: 'bg-pink-100 text-pink-800',
     skirt: 'bg-purple-100 text-purple-800',
     blouse: 'bg-blue-100 text-blue-800',
+    top: 'bg-blue-100 text-blue-800',
     pants: 'bg-gray-100 text-gray-800',
     sleeve: 'bg-yellow-100 text-yellow-800',
   };
-  
+
   const className = outfitClasses[outfit] || 'bg-gray-100 text-gray-800';
-  
+
+  // Map 'blouse' to 'Top' for display
+  const label = outfit === 'blouse' ? 'Top' : outfit.charAt(0).toUpperCase() + outfit.slice(1);
+
   return (
     <span className={`px-2 py-1 rounded-full text-xs font-medium ${className}`}>
-      {outfit.charAt(0).toUpperCase() + outfit.slice(1)}
+      {label}
     </span>
   );
 };
 
-export default function CustomizationsTable({ 
-  search, 
-  loading = false, 
+export default function CustomizationsTable({
+  search,
+  loading = false,
   customizations,
   totalItems,
   currentPage,
@@ -89,7 +106,7 @@ export default function CustomizationsTable({
     const customizationId = customization._id || customization.id || '';
     const customerName = getUserName(customization);
     const customerEmail = getUserEmail(customization);
-    
+
     const params = new URLSearchParams();
     if (customerName && customerName !== 'Unknown') {
       params.set('customerName', customerName);
@@ -97,18 +114,18 @@ export default function CustomizationsTable({
     if (customerEmail) {
       params.set('customerEmail', customerEmail);
     }
-    
+
     const queryString = params.toString();
     router.push(`/admin/customizations/${customizationId}${queryString ? `?${queryString}` : ''}`);
   };
 
   const toggleExpanded = (customizationId: string) => {
     const isCurrentlyExpanded = expandedRows.has(customizationId);
-    
+
     if (isCurrentlyExpanded) {
       // Closing: Start slide up animation
       setAnimatingRows(prev => new Set(prev).add(customizationId));
-      
+
       // After animation duration, remove from expanded and animating
       setTimeout(() => {
         setExpandedRows(new Set<string>());
@@ -122,12 +139,12 @@ export default function CustomizationsTable({
       // Opening: Close all others first, then open this one
       setExpandedRows(new Set<string>());
       setAnimatingRows(new Set<string>());
-      
+
       // Small delay to ensure smooth transition
       setTimeout(() => {
         setExpandedRows(new Set([customizationId]));
         setAnimatingRows(prev => new Set(prev).add(customizationId));
-        
+
         // Remove from animating after animation completes
         setTimeout(() => {
           setAnimatingRows(prev => {
@@ -197,8 +214,8 @@ export default function CustomizationsTable({
             <div>
               <span className="text-gray-600">Created:</span>{' '}
               <span className="text-gray-900 font-medium">
-                {customization.createdAt 
-                  ? new Date(customization.createdAt).toLocaleString() 
+                {customization.createdAt
+                  ? new Date(customization.createdAt).toLocaleString()
                   : 'N/A'}
               </span>
             </div>
@@ -221,8 +238,8 @@ export default function CustomizationsTable({
       <div className="bg-white rounded-lg shadow">
         <div className="p-8 text-center">
           <p className="text-gray-500">
-            {search.trim() 
-              ? 'No customizations found matching your search' 
+            {search.trim()
+              ? 'No customizations found matching your search'
               : 'No customization requests yet'}
           </p>
         </div>
@@ -265,10 +282,10 @@ export default function CustomizationsTable({
           <tbody className="bg-white divide-y divide-gray-200">
             {customizations.map((customization) => {
               const customizationId = customization._id || customization.id || '';
-              
+
               return (
                 <React.Fragment key={customizationId}>
-                  <tr 
+                  <tr
                     className="hover:bg-gray-50 cursor-pointer transition-colors"
                     onClick={() => handleRowClick(customization)}
                   >
@@ -293,7 +310,7 @@ export default function CustomizationsTable({
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatRelativeTime(customization.createdAt)}
                     </td>
-                    <td 
+                    <td
                       className="px-6 py-4 whitespace-nowrap text-sm font-medium"
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -321,16 +338,15 @@ export default function CustomizationsTable({
                       </div>
                     </td>
                   </tr>
-                  
+
                   {/* Expanded Customization Details */}
                   {(expandedRows.has(customizationId) || animatingRows.has(customizationId)) && (
                     <tr>
                       <td colSpan={8} className="px-6 py-4 bg-gray-50">
-                        <div className={`transition-all duration-300 ease-out ${
-                          expandedRows.has(customizationId) 
-                            ? 'animate-in slide-in-from-top-2 opacity-100' 
-                            : 'animate-out slide-out-to-top-2 opacity-0'
-                        }`}>
+                        <div className={`transition-all duration-300 ease-out ${expandedRows.has(customizationId)
+                          ? 'animate-in slide-in-from-top-2 opacity-100'
+                          : 'animate-out slide-out-to-top-2 opacity-0'
+                          }`}>
                           {expandableContent(customization)}
                         </div>
                       </td>
@@ -361,7 +377,7 @@ export default function CustomizationsTable({
             <ChevronLeft className="w-4 h-4" />
             Previous
           </button>
-          
+
           {/* Page Numbers */}
           <div className="flex items-center space-x-1">
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
@@ -380,11 +396,10 @@ export default function CustomizationsTable({
                 <button
                   key={pageNum}
                   onClick={() => onPageChange(pageNum)}
-                  className={`px-3 py-1 text-sm rounded transition-colors ${
-                    currentPage === pageNum
-                      ? 'bg-[#D4AF37] text-white'
-                      : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-300'
-                  }`}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${currentPage === pageNum
+                    ? 'bg-[#D4AF37] text-white'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-300'
+                    }`}
                 >
                   {pageNum}
                 </button>
