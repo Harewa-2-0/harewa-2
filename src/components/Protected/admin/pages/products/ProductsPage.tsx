@@ -19,9 +19,10 @@ export default function ProductsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Use React Query hook for data fetching with server-side pagination
-  const { data: productsResponse, isLoading, error } = useAdminProducts({ 
-    page: currentPage, 
-    limit: itemsPerPage 
+  const { data: productsResponse, isLoading, error } = useAdminProducts({
+    page: currentPage,
+    limit: itemsPerPage,
+    sort: 'newest'
   });
 
   // Extract products and pagination data from response
@@ -109,8 +110,8 @@ export default function ProductsPage() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800 font-medium">Error loading products</p>
           <p className="text-red-600 text-sm mt-1">{error instanceof Error ? error.message : 'Failed to load products'}</p>
-          <button 
-            onClick={() => window.location.reload()} 
+          <button
+            onClick={() => window.location.reload()}
             className="mt-3 text-red-600 hover:text-red-800 underline text-sm"
           >
             Try again
@@ -141,9 +142,8 @@ export default function ProductsPage() {
               <span className="block truncate text-gray-900">{selectedOption.label}</span>
               <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                 <svg
-                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-                    isDropdownOpen ? 'rotate-180' : ''
-                  }`}
+                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''
+                    }`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -162,11 +162,10 @@ export default function ProductsPage() {
                       setGenderFilter(option.value);
                       setIsDropdownOpen(false);
                     }}
-                    className={`${
-                      option.value === genderFilter
+                    className={`${option.value === genderFilter
                         ? 'text-[#D4AF37] bg-[#D4AF37]/10'
                         : 'text-gray-900'
-                    } cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-50 transition-colors`}
+                      } cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-50 transition-colors`}
                   >
                     <span className="block truncate font-normal">{option.label}</span>
                     {option.value === genderFilter && (
@@ -181,7 +180,7 @@ export default function ProductsPage() {
               </div>
             )}
           </div>
-          
+
           {/* Add Product Button */}
           <button
             onClick={() => setShowAddModal(true)}
@@ -196,8 +195,8 @@ export default function ProductsPage() {
       </div>
 
       {/* Products Table */}
-      <ProductsTable 
-        genderFilter={genderFilter} 
+      <ProductsTable
+        genderFilter={genderFilter}
         onProductCountChange={setProductCount}
         products={products}
         isLoading={isLoading}

@@ -1,13 +1,13 @@
 // Custom hooks for fetching products using React Query
 import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { 
-  getProducts, 
-  getProductById, 
+import {
+  getProducts,
+  getProductById,
   adminGetProducts,
   adminAddProduct,
   adminUpdateProduct,
   adminDeleteProduct,
-  type Product, 
+  type Product,
   type PaginatedResponse,
   type AdminProductInput
 } from '@/services/products';
@@ -20,7 +20,7 @@ export function useHomepageProducts() {
   return useQuery<Product[], Error>({
     queryKey: ['homepage-products'],
     queryFn: async () => {
-      const response = await getProducts({ page: 1, limit: 20 });
+      const response = await getProducts({ page: 1, limit: 20, sort: 'newest' });
       const data = 'items' in response ? response.items : response;
       return Array.isArray(data) ? data : [];
     },
@@ -43,12 +43,12 @@ export function useShopProducts(params?: {
   seller?: string;
 }) {
   const queryKey = ['shop-products', params];
-  
+
   return useQuery<PaginatedResponse<Product>, Error>({
     queryKey,
     queryFn: async () => {
       const response = await getProducts(params);
-      
+
       // Ensure we always return a PaginatedResponse format
       if (Array.isArray(response)) {
         // Legacy format - convert to paginated response
@@ -63,7 +63,7 @@ export function useShopProducts(params?: {
           }
         } as PaginatedResponse<Product>;
       }
-      
+
       // Already in PaginatedResponse format
       return response as PaginatedResponse<Product>;
     },
@@ -80,7 +80,7 @@ export function useShopProducts(params?: {
 export const adminProductKeys = {
   all: ['admin-products'] as const,
   lists: () => [...adminProductKeys.all, 'list'] as const,
-  list: (params?: { page?: number; limit?: number }) => [...adminProductKeys.lists(), params] as const,
+  list: (params?: { page?: number; limit?: number; sort?: string }) => [...adminProductKeys.lists(), params] as const,
   details: () => [...adminProductKeys.all, 'detail'] as const,
   detail: (id: string) => [...adminProductKeys.details(), id] as const,
 };
@@ -91,12 +91,13 @@ export const adminProductKeys = {
 export function useAdminProducts(params?: {
   page?: number;
   limit?: number;
+  sort?: string;
 }) {
   return useQuery<PaginatedResponse<Product>, Error>({
     queryKey: adminProductKeys.list(params),
     queryFn: async () => {
       const response = await adminGetProducts(params);
-      
+
       // Ensure we always return a PaginatedResponse format
       if (Array.isArray(response)) {
         // Legacy format - convert to paginated response
@@ -111,7 +112,7 @@ export function useAdminProducts(params?: {
           }
         } as PaginatedResponse<Product>;
       }
-      
+
       // Already in PaginatedResponse format
       return response as PaginatedResponse<Product>;
     },
@@ -135,23 +136,23 @@ export function useCreateProductMutation() {
     onSuccess: (newProduct) => {
       // Invalidate and refetch admin products list
       queryClient.invalidateQueries({ queryKey: adminProductKeys.lists() });
-      
+
       // Optionally update the cache optimistically
       queryClient.setQueryData(adminProductKeys.lists(), (old: any) => {
         if (!old) return old;
-        
+
         // Handle both array and paginated response
         if (Array.isArray(old)) {
           return [newProduct, ...old];
         }
-        
+
         if (old && typeof old === 'object' && 'items' in old) {
           return {
             ...old,
             items: [newProduct, ...old.items],
           };
         }
-        
+
         return old;
       });
     },
@@ -174,29 +175,29 @@ export function useUpdateProductMutation() {
     onSuccess: (updatedProduct, variables) => {
       // Invalidate and refetch admin products list
       queryClient.invalidateQueries({ queryKey: adminProductKeys.lists() });
-      
+
       // Update the specific product in cache if it exists
       queryClient.setQueryData(adminProductKeys.detail(variables.id), updatedProduct);
-      
+
       // Optimistically update in list cache
       queryClient.setQueryData(adminProductKeys.lists(), (old: any) => {
         if (!old) return old;
-        
+
         if (Array.isArray(old)) {
-          return old.map((product: Product) => 
+          return old.map((product: Product) =>
             (product._id === variables.id || product.id === variables.id) ? updatedProduct : product
           );
         }
-        
+
         if (old && typeof old === 'object' && 'items' in old) {
           return {
             ...old,
-            items: old.items.map((product: Product) => 
+            items: old.items.map((product: Product) =>
               (product._id === variables.id || product.id === variables.id) ? updatedProduct : product
             ),
           };
         }
-        
+
         return old;
       });
     },
@@ -219,29 +220,29 @@ export function useDeleteProductMutation() {
     onSuccess: (_, productId) => {
       // Invalidate and refetch admin products list
       queryClient.invalidateQueries({ queryKey: adminProductKeys.lists() });
-      
+
       // Remove from cache
       queryClient.removeQueries({ queryKey: adminProductKeys.detail(productId) });
-      
+
       // Optimistically remove from list cache
       queryClient.setQueryData(adminProductKeys.lists(), (old: any) => {
         if (!old) return old;
-        
+
         if (Array.isArray(old)) {
-          return old.filter((product: Product) => 
+          return old.filter((product: Product) =>
             product._id !== productId && product.id !== productId
           );
         }
-        
+
         if (old && typeof old === 'object' && 'items' in old) {
           return {
             ...old,
-            items: old.items.filter((product: Product) => 
+            items: old.items.filter((product: Product) =>
               product._id !== productId && product.id !== productId
             ),
           };
         }
-        
+
         return old;
       });
     },
@@ -311,20 +312,20 @@ export function useRecommendedProductsQuery(
       // First fetch the product to get its category
       const product = await getProductById(productId);
       if (!product) return [];
-      
+
       // Extract category ID
-      const categoryId = typeof product.category === 'object' && product.category?._id 
-        ? product.category._id 
+      const categoryId = typeof product.category === 'object' && product.category?._id
+        ? product.category._id
         : typeof product.category === 'string' ? product.category : undefined;
-      
+
       if (!categoryId) return [];
-      
+
       // Fetch products from same category
       const response = await getProducts({ category: categoryId, limit: 9 });
       const products = 'items' in response ? response.items : response;
-      
+
       if (!Array.isArray(products)) return [];
-      
+
       // Filter out current product and limit to 8
       return products
         .filter(p => p._id !== productId)
