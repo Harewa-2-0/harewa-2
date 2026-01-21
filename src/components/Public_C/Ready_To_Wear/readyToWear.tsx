@@ -14,25 +14,16 @@ import { useToast } from "@/contexts/toast-context";
 
 interface FilterState {
   category: string;
-  style: string;
   size: string;
-  fitType: string;
-  color: string;
   priceRange: [number, number];
 }
 
-const styles = ["Casual", "Formal", "Traditional", "Sport"];
-const sizes = ["XS", "S", "M", "L", "XL", "XXL"];
-const fitTypes = ["Slim", "Regular", "Loose"];
-const colors = ["Red", "Blue", "Green", "Black", "White", "Yellow"];
+const sizes = ["small", "medium", "large", "extra-large", "XXL"];
 
 const ReadyToWearPage: React.FC = () => {
   const [filters, setFilters] = useState<FilterState>({
     category: "All",
-    style: "",
     size: "",
-    fitType: "",
-    color: "",
     priceRange: [0, 500000],
   });
   const [sortBy, setSortBy] = useState<"feature" | "price-low" | "price-high" | "newest">("feature");
@@ -143,21 +134,12 @@ const ReadyToWearPage: React.FC = () => {
       // Backend handles: category(gender), price
       // Frontend handles: style, size, fitType, color (until backend updated)
 
-      if (filters.style && product.style && product.style.toLowerCase() !== filters.style.toLowerCase()) {
-        return false;
-      }
       if (filters.size && product.sizes && !product.sizes.includes(filters.size)) {
-        return false;
-      }
-      if (filters.fitType && product.fitType && product.fitType.toLowerCase() !== filters.fitType.toLowerCase()) {
-        return false;
-      }
-      if (filters.color && product.color && product.color.toLowerCase() !== filters.color.toLowerCase()) {
         return false;
       }
       return true;
     });
-  }, [products, likedProducts, filters.style, filters.size, filters.fitType, filters.color]);
+  }, [products, likedProducts, filters.size]);
 
   // No client-side sorting needed, backend handles it
   const sortedProducts = filteredProducts;
@@ -202,11 +184,8 @@ const ReadyToWearPage: React.FC = () => {
             onClose={() => setIsMobileFilterOpen(false)}
             filters={filters}
             onFilterChange={handleFilterChange}
-            styles={styles}
             sizes={sizes}
-            fitTypes={fitTypes}
-            colors={colors}
-            totalItems={filteredProducts.length}
+            totalItems={paginationData.total}
           />
 
           {/* Desktop Sidebar */}
@@ -214,11 +193,8 @@ const ReadyToWearPage: React.FC = () => {
             <Sidebar
               filters={filters}
               handleFilterChange={handleFilterChange}
-              styles={styles}
               sizes={sizes}
-              fitTypes={fitTypes}
-              colors={colors}
-              totalItems={filteredProducts.length}
+              totalItems={paginationData.total}
             />
           </div>
 

@@ -10,25 +10,16 @@ import { useShopProducts } from "@/hooks/useProducts";
 
 interface FilterState {
     category: string;
-    style: string;
     size: string;
-    fitType: string;
-    color: string;
     priceRange: [number, number];
 }
 
-const styles = ["Casual", "Formal", "Traditional", "Sport"];
-const sizes = ["XS", "S", "M", "L", "XL", "XXL"];
-const fitTypes = ["Slim", "Regular", "Loose"];
-const colors = ["Red", "Blue", "Green", "Black", "White", "Yellow"];
+const sizes = ["small", "medium", "large", "extra-large", "XXL"];
 
 const CustomizeSelectionPage: React.FC = () => {
     const [filters, setFilters] = useState<FilterState>({
         category: "All",
-        style: "",
         size: "",
-        fitType: "",
-        color: "",
         priceRange: [0, 500000],
     });
     const [sortBy, setSortBy] = useState<"feature" | "price-low" | "price-high" | "newest">("feature");
@@ -110,16 +101,7 @@ const CustomizeSelectionPage: React.FC = () => {
             if (product.price < filters.priceRange[0] || product.price > filters.priceRange[1]) {
                 return false;
             }
-            if (filters.style && product.style && product.style.toLowerCase() !== filters.style.toLowerCase()) {
-                return false;
-            }
             if (filters.size && product.sizes && !product.sizes.includes(filters.size)) {
-                return false;
-            }
-            if (filters.fitType && product.fitType && product.fitType.toLowerCase() !== filters.fitType.toLowerCase()) {
-                return false;
-            }
-            if (filters.color && product.color && product.color.toLowerCase() !== filters.color.toLowerCase()) {
                 return false;
             }
             return true;
@@ -170,22 +152,16 @@ const CustomizeSelectionPage: React.FC = () => {
                         onClose={() => setIsMobileFilterOpen(false)}
                         filters={filters}
                         onFilterChange={handleFilterChange}
-                        styles={styles}
                         sizes={sizes}
-                        fitTypes={fitTypes}
-                        colors={colors}
-                        totalItems={filteredProducts.length}
+                        totalItems={paginationData.total}
                     />
 
                     <div className="hidden lg:block font-medium">
                         <Sidebar
                             filters={filters}
                             handleFilterChange={handleFilterChange}
-                            styles={styles}
                             sizes={sizes}
-                            fitTypes={fitTypes}
-                            colors={colors}
-                            totalItems={filteredProducts.length}
+                            totalItems={paginationData.total}
                         />
                     </div>
 

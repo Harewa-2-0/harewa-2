@@ -10,7 +10,7 @@ import { ok, created } from "@/lib/response";
 // Get all fabrics    
 export async function GET() {
     await connectDB();
-    const fabrics = await Fabric.find().lean();
+    const fabrics = await Fabric.find().sort({ createdAt: -1 }).lean();
     return ok(fabrics);
 }
 // POST /api/fabric

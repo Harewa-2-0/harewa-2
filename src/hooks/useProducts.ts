@@ -83,7 +83,7 @@ export function useShopProducts(params?: {
 export const adminProductKeys = {
   all: ['admin-products'] as const,
   lists: () => [...adminProductKeys.all, 'list'] as const,
-  list: (params?: { page?: number; limit?: number; sort?: string }) => [...adminProductKeys.lists(), params] as const,
+  list: (params?: { page?: number; limit?: number; sort?: string; gender?: string }) => [...adminProductKeys.lists(), params] as const,
   details: () => [...adminProductKeys.all, 'detail'] as const,
   detail: (id: string) => [...adminProductKeys.details(), id] as const,
 };
@@ -95,6 +95,7 @@ export function useAdminProducts(params?: {
   page?: number;
   limit?: number;
   sort?: string;
+  gender?: string;
 }) {
   return useQuery<PaginatedResponse<Product>, Error>({
     queryKey: adminProductKeys.list(params),
