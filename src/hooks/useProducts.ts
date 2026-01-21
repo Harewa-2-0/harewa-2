@@ -41,6 +41,9 @@ export function useShopProducts(params?: {
   category?: string;
   shop?: string;
   seller?: string;
+  sort?: string;
+  minPrice?: number;
+  maxPrice?: number;
 }) {
   const queryKey = ['shop-products', params];
 

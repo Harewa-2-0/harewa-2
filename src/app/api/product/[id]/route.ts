@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         console.warn("User not authenticated, skipping wishlist logic", err);
     }
 
-    const product = await Product.findById(id).lean();
+    const product = await Product.findById(id).populate('category fabricType').lean();
     if (!product) {
         return notFound("Product not found");
     }
