@@ -16,7 +16,7 @@ const productSchema = new mongoose.Schema({
   },
   gender: {
     type: String,
-    enum: ['male', 'female', 'non-binary'],
+    enum: ['male', 'female', 'non-binary', 'unisex'],
     required: true
   },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductCategory', required: true },

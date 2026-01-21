@@ -22,8 +22,14 @@ export default function ProductsPage() {
   const { data: productsResponse, isLoading, error } = useAdminProducts({
     page: currentPage,
     limit: itemsPerPage,
+    gender: genderFilter,
     sort: 'newest'
   });
+
+  // Reset to first page when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [genderFilter]);
 
   // Extract products and pagination data from response
   const products: Product[] = productsResponse?.items || [];
@@ -163,8 +169,8 @@ export default function ProductsPage() {
                       setIsDropdownOpen(false);
                     }}
                     className={`${option.value === genderFilter
-                        ? 'text-[#D4AF37] bg-[#D4AF37]/10'
-                        : 'text-gray-900'
+                      ? 'text-[#D4AF37] bg-[#D4AF37]/10'
+                      : 'text-gray-900'
                       } cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-50 transition-colors`}
                   >
                     <span className="block truncate font-normal">{option.label}</span>

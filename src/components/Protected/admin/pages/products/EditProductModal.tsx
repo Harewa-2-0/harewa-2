@@ -277,13 +277,19 @@ export default function EditProductModal({
           console.log('Adding valid ObjectId fabricType to payload:', fabricTypeValue);
         } else {
           console.error('FabricType is not a valid ObjectId, skipping:', fabricTypeValue);
+          // If the user selected something invalid, we might want to warn them, 
+          // or just ignore it. Given it's a dropdown of valid IDs, this case is rare 
+          // unless manually manipulated. We'll warn but not block if we want to be safe, 
+          // or block if we want strictness. Let's block invalid non-empty values.
           setError('Fabric Type must be a valid ObjectId (24 characters)');
           return;
         }
       } else {
-        console.log('No fabricType value to send');
-        setError('Fabric Type is required');
-        return;
+        // If empty, we can explicitly set it to null to clear it in the backend
+        // or just send empty string if backend handles it. 
+        // Typically sending null is safer for "clearing" a field.
+        // updatePayload.fabricType = null; 
+        console.log('No fabricType value to send (optional)');
       }
 
       // if (formData.seller && formData.seller.trim() !== '') {
@@ -529,18 +535,17 @@ export default function EditProductModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fabric Type <span className="text-red-500">*</span>
+                Fabric Type
               </label>
               <select
                 name="fabricType"
                 value={formData.fabricType}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent text-gray-900"
-                required
                 disabled={isLoadingFabrics}
               >
                 <option value="">
-                  {isLoadingFabrics ? "Loading..." : "Select fabric"}
+                  {isLoadingFabrics ? "Loading..." : "Select fabric (Optional)"}
                 </option>
                 {fabrics.map(fabric => (
                   <option key={fabric._id} value={fabric._id}>
@@ -607,8 +612,8 @@ export default function EditProductModal({
                   type="button"
                   onClick={() => handleSizeChange(size)}
                   className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${(formData.sizes || []).includes(size)
-                      ? 'bg-[#D4AF37] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-[#D4AF37] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   {size.toUpperCase()}

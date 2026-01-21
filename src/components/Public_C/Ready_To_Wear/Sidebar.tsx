@@ -3,41 +3,31 @@ import FilterDropdown from './FilterDropdown';
 
 interface FilterState {
   category: string;
-  style: string;
   size: string;
-  fitType: string;
-  color: string;
   priceRange: [number, number];
 }
 
 interface SidebarProps {
   filters: FilterState;
   handleFilterChange: (filterType: keyof FilterState, value: any) => void;
-  styles: string[];
   sizes: string[];
-  fitTypes: string[];
-  colors: string[];
   totalItems?: number;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ 
-  filters, 
-  handleFilterChange, 
-  styles, 
-  sizes, 
-  fitTypes, 
-  colors,
-  totalItems = 0 
+const Sidebar: React.FC<SidebarProps> = ({
+  filters,
+  handleFilterChange,
+  sizes,
+  totalItems = 0
 }) => (
   <div className="w-full lg:w-64 bg-white p-6 border-r border-gray-200">
     <h3 className="text-2xl font-bold text-black mb-2">{filters.category}</h3>
     <p className="text-base text-gray-400 mb-8">{totalItems} items available</p>
-    <FilterDropdown label="Style" value={filters.style} options={styles} onChange={value => handleFilterChange('style', value)} />
     <FilterDropdown label="Size" value={filters.size} options={sizes} onChange={value => handleFilterChange('size', value)} />
-    <FilterDropdown label="Fit type" value={filters.fitType} options={fitTypes} onChange={value => handleFilterChange('fitType', value)} />
-    <FilterDropdown label="Colour" value={filters.color} options={colors} onChange={value => handleFilterChange('color', value)} />
     <div className="mb-4 mt-8">
-      <label className="block text-base font-medium text-gray-600 mb-4">Price range ($ USD 20,000)</label>
+      <label className="block text-base font-medium text-gray-600 mb-4">
+        Price range ($ {filters.priceRange[0].toLocaleString()} - $ {filters.priceRange[1].toLocaleString()})
+      </label>
       <div className="flex items-center space-x-2 w-full">
         <input
           type="range"

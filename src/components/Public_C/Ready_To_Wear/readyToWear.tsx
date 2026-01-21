@@ -14,25 +14,16 @@ import { useToast } from "@/contexts/toast-context";
 
 interface FilterState {
   category: string;
-  style: string;
   size: string;
-  fitType: string;
-  color: string;
   priceRange: [number, number];
 }
 
-const styles = ["Casual", "Formal", "Traditional", "Sport"];
-const sizes = ["XS", "S", "M", "L", "XL", "XXL"];
-const fitTypes = ["Slim", "Regular", "Loose"];
-const colors = ["Red", "Blue", "Green", "Black", "White", "Yellow"];
+const sizes = ["small", "medium", "large", "extra-large", "XXL"];
 
 const ReadyToWearPage: React.FC = () => {
   const [filters, setFilters] = useState<FilterState>({
     category: "All",
-    style: "",
     size: "",
-    fitType: "",
-    color: "",
     priceRange: [0, 500000],
   });
   const [sortBy, setSortBy] = useState<"feature" | "price-low" | "price-high" | "newest">("feature");
@@ -41,10 +32,29 @@ const ReadyToWearPage: React.FC = () => {
   const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
 
-  // Fetch products using React Query with server-side pagination
-  const { data: productsResponse, isLoading: loading, error: queryError } = useShopProducts({ 
-    page: currentPage, 
-    limit: 20 
+  // Map UI category to gender for backend
+  const genderFilter = useMemo(() => {
+    if (filters.category === "All") return undefined;
+    const map: Record<string, string> = {
+      "Men": "male",
+      "Women": "female",
+      "Kids": "kids" // Ensure backend supports this or maps correctly
+    };
+    return map[filters.category];
+  }, [filters.category]);
+
+  // Fetch products using React Query with server-side pagination and filtering
+  const { data: productsResponse, isLoading: loading, error: queryError } = useShopProducts({
+    page: currentPage,
+    limit: 20,
+    sort: sortBy === 'feature' ? undefined : sortBy, // 'feature' is default/no sort
+    gender: genderFilter,
+    minPrice: filters.priceRange[0],
+    maxPrice: filters.priceRange[1],
+    // style: filters.style, // Not supported by backend yet
+    // size: filters.size, // Not supported by backend yet
+    // fitType: filters.fitType, // Not supported by backend yet
+    // color: filters.color, // Not supported by backend yet
   });
 
   // Extract products and pagination data from response
@@ -59,27 +69,27 @@ const ReadyToWearPage: React.FC = () => {
 
   // Normalize product images
   const products = useMemo(() => {
-        // Basic validator: if images missing/empty/clearly placeholder -> use single fallback
-        const isBadUrl = (u?: string) => {
-          if (!u) return true;
-          // allow site-relative paths
-          if (u.startsWith("/")) return false;
-          try {
-            const { hostname } = new URL(u);
-            return ["example.com", "placehold.co"].includes(hostname);
-          } catch {
-            return true;
-          }
-        };
+    // Basic validator: if images missing/empty/clearly placeholder -> use single fallback
+    const isBadUrl = (u?: string) => {
+      if (!u) return true;
+      // allow site-relative paths
+      if (u.startsWith("/")) return false;
+      try {
+        const { hostname } = new URL(u);
+        return ["example.com", "placehold.co"].includes(hostname);
+      } catch {
+        return true;
+      }
+    };
 
     return fetchedProducts.map((product: any) => {
-          let images: string[] = Array.isArray(product?.images) ? product.images : [];
-          images = images.filter(Boolean);
-          if (images.length === 0 || images.every(isBadUrl)) {
-            images = ["/placeholder.png"];
-          }
-          return { ...product, images };
-        });
+      let images: string[] = Array.isArray(product?.images) ? product.images : [];
+      images = images.filter(Boolean);
+      if (images.length === 0 || images.every(isBadUrl)) {
+        images = ["/placeholder.png"];
+      }
+      return { ...product, images };
+    });
   }, [fetchedProducts]);
 
   const error = queryError ? queryError.message : null;
@@ -114,58 +124,25 @@ const ReadyToWearPage: React.FC = () => {
   };
 
   // Enhance products with like state
-  const productsWithLikes = useMemo(() => {
+  // Apply client-side filtering ONLY for fields not supported by backend
+  // This is a hybrid approach until backend supports all filters
+  const filteredProducts = useMemo(() => {
     return products.map((p) => ({
       ...p,
       isLiked: likedProducts.has(p._id),
-    }));
-  }, [products, likedProducts]);
+    })).filter((product) => {
+      // Backend handles: category(gender), price
+      // Frontend handles: style, size, fitType, color (until backend updated)
 
-  const filteredProducts = useMemo(() => {
-    return productsWithLikes.filter((product) => {
-      if (filters.category !== "All") {
-        const categoryGenderMap: { [key: string]: string } = {
-          Men: "male",
-          Women: "female",
-          Kids: "kids",
-        };
-        const expectedGender = categoryGenderMap[filters.category];
-        if (
-          expectedGender &&
-          product.gender?.toLowerCase() !== expectedGender.toLowerCase()
-        ) {
-          return false;
-        }
-      }
-      if (product.price < filters.priceRange[0] || product.price > filters.priceRange[1]) {
-        return false;
-      }
-      if (filters.style && product.style && product.style.toLowerCase() !== filters.style.toLowerCase()) {
-        return false;
-      }
       if (filters.size && product.sizes && !product.sizes.includes(filters.size)) {
-        return false;
-      }
-      if (filters.fitType && product.fitType && product.fitType.toLowerCase() !== filters.fitType.toLowerCase()) {
-        return false;
-      }
-      if (filters.color && product.color && product.color.toLowerCase() !== filters.color.toLowerCase()) {
         return false;
       }
       return true;
     });
-  }, [productsWithLikes, filters]);
+  }, [products, likedProducts, filters.size]);
 
-  const sortedProducts = useMemo(() => {
-    const arr = [...filteredProducts];
-    if (sortBy === "price-low") return arr.sort((a, b) => a.price - b.price);
-    if (sortBy === "price-high") return arr.sort((a, b) => b.price - a.price);
-    if (sortBy === "newest") {
-      const dateOf = (p: any) => (p?.createdAt ? new Date(p.createdAt).getTime() : 0);
-      return arr.sort((a: any, b: any) => dateOf(b) - dateOf(a));
-    }
-    return arr; // "feature" (default)
-  }, [filteredProducts, sortBy]);
+  // No client-side sorting needed, backend handles it
+  const sortedProducts = filteredProducts;
 
   // Handle page change - reset to page 1 when filters change
   const handlePageChange = (page: number) => {
@@ -205,25 +182,19 @@ const ReadyToWearPage: React.FC = () => {
           <MobileFilterOverlay
             isOpen={isMobileFilterOpen}
             onClose={() => setIsMobileFilterOpen(false)}
-                    filters={filters}
+            filters={filters}
             onFilterChange={handleFilterChange}
-                    styles={styles}
-                    sizes={sizes}
-                    fitTypes={fitTypes}
-                    colors={colors}
-                    totalItems={filteredProducts.length}
-                  />
+            sizes={sizes}
+            totalItems={paginationData.total}
+          />
 
           {/* Desktop Sidebar */}
           <div className="hidden lg:block">
             <Sidebar
               filters={filters}
               handleFilterChange={handleFilterChange}
-              styles={styles}
               sizes={sizes}
-              fitTypes={fitTypes}
-              colors={colors}
-              totalItems={filteredProducts.length}
+              totalItems={paginationData.total}
             />
           </div>
 

@@ -92,9 +92,9 @@ export default function ProductInformationStep({ formData, onFormDataChange, onN
       {!isLoadingCategories && !isLoadingFabrics && (categories.length === 0 || fabrics.length === 0) && (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-yellow-800 text-sm">
-            {categories.length === 0 && fabrics.length === 0 
+            {categories.length === 0 && fabrics.length === 0
               ? "No categories or fabrics available. Please create categories and fabrics first."
-              : categories.length === 0 
+              : categories.length === 0
                 ? "No categories available. Please create categories first."
                 : "No fabrics available. Please create fabrics first."
             }
@@ -229,18 +229,17 @@ export default function ProductInformationStep({ formData, onFormDataChange, onN
 
         <div>
           <label className="mb-3 block text-base font-medium text-gray-700">
-            Fabric Type<span className="text-red-500">*</span>
+            Fabric Type
           </label>
           <select
             name="fabricType"
             value={formData.fabricType}
             onChange={handleInputChange}
             className="w-full rounded-lg border border-gray-300 px-4 py-4 text-base text-black focus:border-transparent focus:ring-2 focus:ring-[#D4AF37]"
-            required
             disabled={!canProceed || isLoadingFabrics}
           >
             <option value="">
-              {isLoadingFabrics ? "Loading..." : "Select fabric"}
+              {isLoadingFabrics ? "Loading..." : "Select fabric (Optional)"}
             </option>
             {fabrics.map(fabric => (
               <option key={fabric._id} value={fabric._id}>

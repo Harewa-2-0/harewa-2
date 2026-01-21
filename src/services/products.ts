@@ -87,11 +87,11 @@ const ADMIN_PATHS = {
 const toQS = (params?: Record<string, string | number | boolean | undefined>) =>
   params
     ? `?${new URLSearchParams(
-        Object.entries(params).reduce<Record<string, string>>((acc, [k, v]) => {
-          if (v !== undefined && v !== null) acc[k] = String(v);
-          return acc;
-        }, {})
-      )}`
+      Object.entries(params).reduce<Record<string, string>>((acc, [k, v]) => {
+        if (v !== undefined && v !== null) acc[k] = String(v);
+        return acc;
+      }, {})
+    )}`
     : "";
 
 // Normalize product id coming from backend
@@ -121,7 +121,7 @@ export async function adminAddProduct(payload: AdminProductInput) {
     body: JSON.stringify(payload),
     credentials: "include",
   }, { timeout: 30000 }); // 30 second timeout for product creation
-  
+
   return unwrap<Product>(raw);
 }
 
@@ -148,11 +148,11 @@ export async function adminDeleteProduct(id: string) {
 // Admin: Get all products (for admin dashboard) - with pagination support
 export async function adminGetProducts(params?: Record<string, string | number | boolean | undefined>): Promise<Product[] | PaginatedResponse<Product>> {
   const url = `${ADMIN_PATHS.list}${toQS(params)}`;
-  
+
   try {
     const raw = await api<MaybeWrapped<Product[] | PaginatedResponse<Product> | { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number }>>(
       url,
-      { 
+      {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -161,39 +161,43 @@ export async function adminGetProducts(params?: Record<string, string | number |
       },
       { timeout: 30000 } // 30 second timeout for fetching products
     );
-    const data = unwrap<Product[] | PaginatedResponse<Product> | { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number }>(raw);
-    
-    // Check if it's the new backend format with 'data' key
-    if (data && typeof data === 'object' && 'data' in data && Array.isArray((data as any).data)) {
-      const response = data as { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number };
-      return {
-        items: response.data,
-        pagination: {
-          page: response.page,
-          limit: response.limit,
-          total: response.total,
-          totalPages: response.totalPages,
-          hasMore: response.page < response.totalPages,
-        }
-      } as PaginatedResponse<Product>;
+    // Check if it's the backend format with 'data' key (pagination object)
+    if (raw && typeof raw === 'object' && 'data' in raw) {
+      const payload = (raw as any).data;
+      // Check if this payload has the pagination fields + data array
+      if (payload && typeof payload === 'object' && 'data' in payload && Array.isArray(payload.data) && 'total' in payload) {
+        return {
+          items: payload.data,
+          pagination: {
+            page: payload.page,
+            limit: payload.limit,
+            total: payload.total,
+            totalPages: payload.totalPages,
+            hasMore: payload.page < payload.totalPages,
+          }
+        } as PaginatedResponse<Product>;
+      }
     }
-    
+
+    const data = unwrap<Product[] | PaginatedResponse<Product> | { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number }>(raw);
+
+
     // Check if it's a paginated response with 'items' key (legacy format)
     if (data && typeof data === 'object' && 'items' in data && 'pagination' in data) {
       return data as PaginatedResponse<Product>;
     }
-    
+
     // Legacy support: return as array
     return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error('Error fetching products:', error);
-    
+
     // Check if it's an authentication error
     if (error instanceof Error && (error.message.includes('Token') || error.message.includes('Unauthorized'))) {
       // Return empty array for auth errors - user might not be logged in
       return [];
     }
-    
+
     // If the main endpoint fails, try to return empty array instead of throwing
     return [];
   }
@@ -244,28 +248,32 @@ export async function getProducts(params?: Record<string, string | number | bool
   const raw = await api<MaybeWrapped<Product[] | PaginatedResponse<Product> | { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number }>>(
     `${paths.list}${toQS(params)}`
   );
-  const data = unwrap<Product[] | PaginatedResponse<Product> | { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number }>(raw);
-  
-  // Check if it's the new backend format with 'data' key
-  if (data && typeof data === 'object' && 'data' in data && Array.isArray((data as any).data)) {
-    const response = data as { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number };
-    return {
-      items: response.data,
-      pagination: {
-        page: response.page,
-        limit: response.limit,
-        total: response.total,
-        totalPages: response.totalPages,
-        hasMore: response.page < response.totalPages,
-      }
-    } as PaginatedResponse<Product>;
+  // Check if it's the backend format with 'data' key (pagination object)
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    const payload = (raw as any).data;
+    // Check if this payload has the pagination fields + data array
+    if (payload && typeof payload === 'object' && 'data' in payload && Array.isArray(payload.data) && 'total' in payload) {
+      return {
+        items: payload.data,
+        pagination: {
+          page: payload.page,
+          limit: payload.limit,
+          total: payload.total,
+          totalPages: payload.totalPages,
+          hasMore: payload.page < payload.totalPages,
+        }
+      } as PaginatedResponse<Product>;
+    }
   }
-  
+
+  const data = unwrap<Product[] | PaginatedResponse<Product> | { data: Product[]; page: number; limit: number; total: number; totalPages: number; count: number }>(raw);
+
+
   // Check if it's a paginated response with 'items' key (legacy format)
   if (data && typeof data === 'object' && 'items' in data && 'pagination' in data) {
     return data as PaginatedResponse<Product>;
   }
-  
+
   // Legacy support: return as array
   return Array.isArray(data) ? data : [];
 }

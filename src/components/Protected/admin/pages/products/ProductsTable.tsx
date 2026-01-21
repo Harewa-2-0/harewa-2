@@ -28,9 +28,9 @@ interface ProductsTableProps {
   onItemsPerPageChange?: (itemsPerPage: number) => void;
 }
 
-export default function ProductsTable({ 
-  genderFilter, 
-  onProductCountChange, 
+export default function ProductsTable({
+  genderFilter,
+  onProductCountChange,
   products,
   isLoading = false,
   error: parentError,
@@ -49,47 +49,39 @@ export default function ProductsTable({
   const updateProductMutation = useUpdateProductMutation();
   const deleteProductMutation = useDeleteProductMutation();
 
-  // Filter products based on gender (client-side filter)
-  const filteredProducts = products.filter(product => {
-    if (!genderFilter) return true;
-    return product.gender === genderFilter || product.gender === 'unisex';
-  });
-
   // Notify parent component of product count changes
   useEffect(() => {
-    if (onProductCountChange) {
-      // When using server-side pagination, use the total from pagination
-      // Otherwise, use filtered products count
-      const count = pagination ? pagination.total : filteredProducts.length;
-      onProductCountChange(count);
+    if (onProductCountChange && pagination) {
+      onProductCountChange(pagination.total);
     }
-  }, [filteredProducts.length, onProductCountChange, pagination]);
+  }, [pagination?.total, onProductCountChange]);
 
   // Calculate pagination
-  // When pagination prop is provided, use server-side pagination totals
-  // Otherwise, use client-side pagination
-  const totalItems = pagination ? pagination.total : filteredProducts.length;
+  // When pagination prop is provided (server-side), these are just for display/logic
+  const totalItems = pagination ? pagination.total : products.length;
+  // If server-side, totalPages comes from prop. If client-side fallback, calculate it.
   const totalPages = pagination ? pagination.totalPages : Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // If server-side (pagination prop exists), products are already the correct page.
+  // If client-side (fallback), we slice.
+  const paginatedProducts = pagination ? products : products.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
 
   const getStatusBadge = (product: Product) => {
     // Determine status based on stock
-    const stock = typeof product.remainingInStock === 'number' 
-      ? product.remainingInStock 
-      : typeof product.quantity === 'number' 
-        ? product.quantity 
+    const stock = typeof product.remainingInStock === 'number'
+      ? product.remainingInStock
+      : typeof product.quantity === 'number'
+        ? product.quantity
         : parseInt(String(product.remainingInStock || product.quantity || '0'));
     const status = stock > 10 ? 'active' : stock > 0 ? 'low_stock' : 'out_of_stock';
-    
+
     const statusClasses = {
       active: 'bg-green-100 text-green-800',
       low_stock: 'bg-[#D4AF37]/20 text-[#D4AF37]',
       out_of_stock: 'bg-red-100 text-red-800'
     };
-    
+
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusClasses[status as keyof typeof statusClasses]}`}>
         {status.replace('_', ' ').toUpperCase()}
@@ -115,14 +107,14 @@ export default function ProductsTable({
       label: 'Product',
       render: (product) => {
         const productName = product.name || 'Unknown Product';
-        const truncatedName = productName.length > 10 
-          ? `${productName.substring(0, 10)}...` 
+        const truncatedName = productName.length > 10
+          ? `${productName.substring(0, 10)}...`
           : productName;
         const productId = product.id || product._id || 'N/A';
         const shortId = productId.length > 8 ? `${productId.substring(0, 8)}...` : productId;
-        
+
         return (
-          <Link 
+          <Link
             href={`/admin/products/${productId}`}
             className="flex items-center hover:opacity-80 transition-opacity"
           >
@@ -166,10 +158,10 @@ export default function ProductsTable({
       key: 'stock',
       label: 'Stock',
       render: (product) => {
-        const stock = typeof product.remainingInStock === 'number' 
-          ? product.remainingInStock 
-          : typeof product.quantity === 'number' 
-            ? product.quantity 
+        const stock = typeof product.remainingInStock === 'number'
+          ? product.remainingInStock
+          : typeof product.quantity === 'number'
+            ? product.quantity
             : parseInt(String(product.remainingInStock || product.quantity || '0')) || 0;
         return stock.toLocaleString();
       },
@@ -184,23 +176,23 @@ export default function ProductsTable({
       key: 'actions',
       label: 'Actions',
       render: (product) => (
-                  <div className="flex space-x-2">
-          <button 
+        <div className="flex space-x-2">
+          <button
             onClick={() => handleEditClick(product)}
             className="text-[#D4AF37] hover:text-[#D4AF37]/80 transition-colors cursor-pointer"
           >
-                      Edit
-                    </button>
-          <button 
+            Edit
+          </button>
+          <button
             onClick={() => handleDeleteClick(product)}
             className="text-red-600 hover:text-red-800 transition-colors cursor-pointer"
           >
-                      Delete
-                    </button>
-                  </div>
+            Delete
+          </button>
+        </div>
       )
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ], []);
 
 
@@ -259,8 +251,8 @@ export default function ProductsTable({
   // Get row classes with animation support
   const getRowClasses = (product: Product) => {
     const baseClasses = "transition-all duration-300 ease-in-out";
-    const deletingClasses = deletingProductId === (product._id || product.id) 
-      ? "opacity-0 transform translate-x-full" 
+    const deletingClasses = deletingProductId === (product._id || product.id)
+      ? "opacity-0 transform translate-x-full"
       : "opacity-100 transform translate-x-0";
     return `${baseClasses} ${deletingClasses}`;
   };
@@ -297,7 +289,7 @@ export default function ProductsTable({
         </div>
       ) : (
         <DataTable
-          data={pagination ? filteredProducts : paginatedProducts}
+          data={paginatedProducts}
           columns={columns}
           emptyMessage="No products found"
           rowClassName={getRowClasses}

@@ -3,10 +3,7 @@ import Sidebar from "./Sidebar";
 
 interface FilterState {
   category: string;
-  style: string;
   size: string;
-  fitType: string;
-  color: string;
   priceRange: [number, number];
 }
 
@@ -15,10 +12,7 @@ interface MobileFilterOverlayProps {
   onClose: () => void;
   filters: FilterState;
   onFilterChange: (filterType: keyof FilterState, value: any) => void;
-  styles: string[];
   sizes: string[];
-  fitTypes: string[];
-  colors: string[];
   totalItems: number;
 }
 
@@ -27,10 +21,7 @@ const MobileFilterOverlay: React.FC<MobileFilterOverlayProps> = ({
   onClose,
   filters,
   onFilterChange,
-  styles,
   sizes,
-  fitTypes,
-  colors,
   totalItems,
 }) => {
   if (!isOpen) return null;
@@ -42,10 +33,7 @@ const MobileFilterOverlay: React.FC<MobileFilterOverlayProps> = ({
           <Sidebar
             filters={filters}
             handleFilterChange={onFilterChange}
-            styles={styles}
             sizes={sizes}
-            fitTypes={fitTypes}
-            colors={colors}
             totalItems={totalItems}
           />
         </div>

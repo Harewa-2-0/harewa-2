@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
         // Filters
         const category = searchParams.get("category");
         const fabric = searchParams.get("fabric");
+        const gender = searchParams.get("gender");
         const minPrice = searchParams.get("minPrice");
         const maxPrice = searchParams.get("maxPrice");
         const search = searchParams.get("search");
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest) {
         const filter: any = {};
         if (category) filter.category = category;
         if (fabric) filter.fabricType = fabric;
+        if (gender) filter.gender = gender;
 
         if (minPrice || maxPrice) {
             filter.price = {};
@@ -101,7 +103,7 @@ export async function GET(req: NextRequest) {
             .lean();
 
         // Add favourite field only for logged-in users
-        const enriched = products.map((product) => ({
+        const enriched = products.map((product: any) => ({
             ...product,
             favourite: wishlistProductIds.includes(product._id.toString()),
         }));
@@ -116,6 +118,6 @@ export async function GET(req: NextRequest) {
         });
 
     } catch (error) {
-        return serverError(error);
+        return serverError(error instanceof Error ? error.message : "Unknown error");
     }
 }
