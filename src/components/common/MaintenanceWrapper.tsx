@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 // Set to true to bring the website down.
 // Set to false to restore the website.
 // ==========================================
-const IS_MAINTENANCE_MODE = true;
+const IS_MAINTENANCE_MODE = false;
 // ==========================================
 
 const DEACTIVATION_DATE = new Date('2026-02-14T00:16:27'); // The time the site was deactivated
