@@ -8,42 +8,131 @@ const openai = new OpenAI({
 });
 
 /**
- * Generates fashion recommendations based on user inputs.
- * @param params Object containing user fashion preferences and context.
- * @returns AI-generated style recommendations as a string.
+ * Generates fashion recommendations and handles StyleForge AI logic.
  */
 export async function generateFashionRecommendations(params: {
-    bodyType: string;
-    occasion: string;
-    preferences?: string[];
-    colorPreferences?: string[];
-    season?: string;
-    requirements?: string;
+    messages: any[];
+    image?: string; // base64 or URL
+    userId?: string;
+    botName?: string;
+    usePublicData?: boolean;
 }) {
-    const { bodyType, occasion, preferences, colorPreferences, season, requirements } = params;
+    const { messages, image, userId, botName = "StyleForge AI", usePublicData = false } = params;
 
-    const prompt = `
-    You are a professional fashion stylist. Based on:
-    - Body Type: ${bodyType}
-    - Occasion: ${occasion}
-    - Preferences: ${preferences?.join(", ") || "none"}
-    - Color Preferences: ${colorPreferences?.join(", ") || "none"}
-    - Season: ${season || "not specified"}
-    - Special Requirements: ${requirements || "none"}
-    
-    Recommend:
-    1. Suggested apparel categories (tops, bottoms, dresses, shoes).
-    2. Color palette.
-    3. Accessory ideas.
-    4. Style tips.
-    Format clearly, and suggest products with clickable links in Markdown if possible.
-  `;
+    const publicDataInstruction = usePublicData
+        ? "- You may use your general knowledge to provide fashion advice, history, and styling tips beyond our specific inventory."
+        : "- Strictly limit your advice and recommendations to our platform's inventory and tailoring capabilities. Do not suggest or define generic fashion items outside of our context.";
+
+    const systemPrompt = `
+You are ${botName} — an intelligent fashion assistant integrated into an online fashion marketplace.
+
+Your purpose is to help users discover fashion items, recreate outfits from images, place custom orders, provide styling advice, and connect users with human representatives when necessary.
+
+You operate as a friendly, knowledgeable, and culturally aware fashion expert and shopping assistant, specifically aware of African prints (aso-ebi, senator wear, agbada, etc.) and global trends.
+
+BEHAVIORAL GUIDELINES:
+- Be conversational and friendly
+- Keep responses short but informative
+- Ask clarifying questions when uncertain
+- Avoid hallucinating unavailable products
+- Prioritize platform inventory first
+${publicDataInstruction}
+- Encourage custom tailoring when product unavailable
+- Support both male and female fashion styles
+- When suggesting a product from search, always include its image as a clickable link using Markdown: [![Product Name](image_url)](/product/[id])
+
+IMAGE ANALYSIS (If image provided):
+When analyzing outfit images, respond using this format:
+Outfit Analysis:
+- Style:
+- Primary Colors: primary colors and palette
+- Fabric Type: e.g. Cotton, Lace, Silk, Aso Oke
+- Clothing Components: e.g. Kaftan, Trousers, Cap
+- Suggested Occasion: e.g. Wedding, Corporate
+- Similar Products: [List similar items from platform]
+- Custom Tailoring Option: [Suggested approach for a custom order]
+
+CUSTOM ORDERS:
+If a user asks "Make something similar to this" or similar:
+Return this format:
+Custom Order Draft:
+Outfit Description:
+Fabric Suggestion:
+Color Options:
+Estimated Complexity:
+Estimated Price Range:
+Tailoring Notes:
+Next Information Needed: [Ask for Size, Budget, Timeline, etc.]
+
+HUMAN ESCALATION:
+If user requests help with complaints, disputes, or complex tailoring, say:
+"Let me connect you with a fashion consultant." 
+(This will trigger a handoff flag).
+`;
+
+    const chatMessages: any[] = [
+        { role: "system", content: systemPrompt },
+        ...messages
+    ];
+
+    if (image) {
+        // Multi-modal support
+        chatMessages.push({
+            role: "user",
+            content: [
+                { type: "text", text: "Please analyze this outfit image." },
+                {
+                    type: "image_url",
+                    image_url: {
+                        url: image.startsWith("data:") ? image : `data:image/jpeg;base64,${image}`,
+                    },
+                },
+            ],
+        });
+    }
+
+    const tools: any[] = [
+        {
+            type: "function",
+            function: {
+                name: "search_products",
+                description: "Search for fashion products on the platform.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        search: { type: "string", description: "Search query" },
+                        category: { type: "string", description: "Category ID or name" },
+                        gender: { type: "string", enum: ["male", "female", "unisex"] },
+                        minPrice: { type: "number" },
+                        maxPrice: { type: "number" },
+                        fabricType: { type: "string", description: "Fabric type name (e.g. Cotton, Lace, Silk)" },
+                    },
+                },
+            },
+        },
+        {
+            type: "function",
+            function: {
+                name: "escalate_to_human",
+                description: "Escalate the conversation to a human fashion consultant.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        reason: { type: "string", description: "Reason for escalation" },
+                    },
+                },
+            },
+        }
+    ];
 
     const aiResponse = await openai.chat.completions.create({
-        model: "openai/gpt-4o-mini", // you can swap with any OpenRouter-supported model
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.8,
+        model: "google/gemini-2.5-pro",
+        messages: chatMessages,
+        tools,
+        tool_choice: "auto",
+        temperature: 0.7,
+        max_tokens: 1000,
     });
-
-    return aiResponse.choices[0]?.message?.content || "";
+    console.log(aiResponse.choices[0]?.message);
+    return aiResponse.choices[0]?.message || null;
 }

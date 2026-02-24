@@ -2,48 +2,75 @@ import React, { useEffect, useRef, useState } from 'react';
 import { X, Sparkles } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import { sendFashionConsultation, type ChatMessage as ChatMessageType } from '@/services/fashionChat';
 
 interface ChatWindowProps {
     onClose: () => void;
 }
 
-interface Message {
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: string;
-}
-
 const ChatWindow: React.FC<ChatWindowProps> = ({ onClose }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const [messages, setMessages] = useState<Message[]>([]);
+    const [messages, setMessages] = useState<ChatMessageType[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const [botName, setBotName] = useState('Fashion AI');
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const handleSendMessage = (messageText: string) => {
-        // Add user message
-        const userMessage: Message = {
-            id: `user-${Date.now()}`,
+    // Fetch AI Settings for dynamic bot name
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const res = await fetch('/api/admin/ai-settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data?.data?.settings?.botName) {
+                        setBotName(data.data.settings.botName);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch AI settings:", err);
+            }
+        };
+        fetchSettings();
+    }, []);
+
+    const handleSendMessage = async (messageText: string, image?: string) => {
+        // Add user message to UI
+        const userMessage: ChatMessageType = {
             role: 'user',
             content: messageText,
+            image: image,
             timestamp: new Date().toISOString(),
         };
 
         setMessages(prev => [...prev, userMessage]);
+        setIsLoading(true);
 
-        // Auto-reply with "Coming Soon" message
-        setTimeout(() => {
-            const botMessage: Message = {
-                id: `bot-${Date.now()}`,
+        try {
+            // Send to AI
+            const response = await sendFashionConsultation({
+                messages: [...messages, userMessage],
+                image: image
+            });
+
+            if (response.reply) {
+                setMessages(prev => [...prev, response.reply]);
+            }
+        } catch (error) {
+            console.error("Chat Error:", error);
+            const errorMessage: ChatMessageType = {
                 role: 'assistant',
-                content: 'Coming Soon! For inquiries, please reach us at admin@harewa.com',
+                content: "I'm sorry, I encountered an error. Please try again later.",
                 timestamp: new Date().toISOString(),
             };
-            setMessages(prev => [...prev, botMessage]);
-        }, 500);
+            setMessages(prev => [...prev, errorMessage]);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -55,7 +82,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onClose }) => {
                         <Sparkles className="w-5 h-5" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-base">Fashion AI</h3>
+                        <h3 className="font-semibold text-base">{botName}</h3>
                         <p className="text-xs text-white/80">Style Consultant</p>
                     </div>
                 </div>
@@ -84,9 +111,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onClose }) => {
                     </div>
                 ) : (
                     <>
-                        {messages.map((message) => (
-                            <ChatMessage key={message.id} message={message} />
+                        {messages.map((message, idx) => (
+                            <ChatMessage key={idx} message={message} />
                         ))}
+                        {isLoading && (
+                            <div className="flex gap-2 items-center text-gray-400 text-xs animate-pulse mb-4">
+                                <Sparkles className="w-3 h-3" />
+                                <span>StyleForge AI is thinking...</span>
+                            </div>
+                        )}
                         <div ref={messagesEndRef} />
                     </>
                 )}
@@ -95,6 +128,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onClose }) => {
             {/* Input area */}
             <ChatInput
                 onSend={handleSendMessage}
+                disabled={isLoading}
                 placeholder="Ask me about fashion..."
             />
         </div>

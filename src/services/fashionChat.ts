@@ -3,12 +3,8 @@ import { api, unwrap, type MaybeWrapped } from "@/utils/api";
 
 /** ---------- Types ---------- */
 export type FashionChatInput = {
-    bodyType: string;
-    occasion: string;
-    preferences: string[];
-    colorPreferences: string[];
-    season: string;
-    requirements: string;
+    messages: ChatMessage[];
+    image?: string; // base64 string
 };
 
 export type ChatMessage = {
@@ -16,12 +12,15 @@ export type ChatMessage = {
     id?: string;
     role: "user" | "assistant";
     content: string;
+    image?: string;
     timestamp?: string;
     createdAt?: string;
 };
 
 export type SendMessageResponse = {
-    message: ChatMessage;
+    message: string;
+    chat?: any;
+    handoffRequired?: boolean;
     reply: ChatMessage;
 };
 

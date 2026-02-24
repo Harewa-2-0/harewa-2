@@ -15,6 +15,7 @@ const fashionChatSchema = new mongoose.Schema(
             {
                 role: { type: String, enum: ["user", "assistant"], required: true },
                 content: { type: String, required: true },
+                image: { type: String },
             },
         ],
         context: {
@@ -26,6 +27,7 @@ const fashionChatSchema = new mongoose.Schema(
             requirements: String,
         },
         recommendations: mongoose.Schema.Types.Mixed, // AI output (styles, products, etc.)
+        handoffRequired: { type: Boolean, default: false },
     },
     { timestamps: true }
 );

@@ -37,10 +37,11 @@ export function useSendConsultationMutation() {
             // Snapshot previous value
             const previousHistory = queryClient.getQueryData<ChatMessage[]>(fashionChatKeys.history());
 
-            // Optimistically update with user message
             const optimisticUserMessage: ChatMessage = {
                 role: 'user',
-                content: `Fashion consultation request for ${input.occasion} occasion`,
+                content: input.messages && input.messages.length > 0
+                    ? input.messages[input.messages.length - 1].content
+                    : "Fashion consultation request",
                 timestamp: new Date().toISOString(),
             };
 
@@ -55,10 +56,12 @@ export function useSendConsultationMutation() {
             // Update cache with actual server response
             queryClient.setQueryData<ChatMessage[]>(
                 fashionChatKeys.history(),
-                (old = []) => {
-                    // Remove optimistic message and add real messages
-                    const withoutOptimistic = old.filter(msg => msg._id || msg.id);
-                    return [...withoutOptimistic, data.message, data.reply];
+                () => {
+                    // Use the newly returned complete message array if available, otherwise fallback
+                    if (data.chat && Array.isArray(data.chat.messages)) {
+                        return data.chat.messages;
+                    }
+                    return [];
                 }
             );
         },

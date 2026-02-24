@@ -31,12 +31,88 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
             {/* Message bubble */}
             <div className={`flex flex-col max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
                 <div className={`px-4 py-2.5 rounded-2xl ${isUser
-                        ? 'bg-[#D4AF37] text-white rounded-tr-sm'
-                        : 'bg-gray-100 text-gray-900 rounded-tl-sm'
+                    ? 'bg-[#D4AF37] text-white rounded-tr-sm'
+                    : 'bg-gray-100 text-gray-900 rounded-tl-sm'
                     }`}>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                        {message.content}
-                    </p>
+                    {message.image && (
+                        <div className="mb-2">
+                            <img
+                                src={message.image}
+                                alt="Shared image"
+                                className="max-w-full h-auto rounded-lg border border-white/20 shadow-sm"
+                                style={{ maxHeight: '200px' }}
+                            />
+                        </div>
+                    )}
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                        {message.content.split('\n').map((line, i) => (
+                            <div key={i}>
+                                {line.split(/(\*\*.*?\*\*|\[!\[.*?\]\(.*?\)\]\(.*?\)|!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))/g).map((part, j) => {
+                                    if (part.startsWith('**') && part.endsWith('**')) {
+                                        return <strong key={j}>{part.slice(2, -2)}</strong>;
+                                    }
+
+                                    // Match Linked Image [![alt](img_url)](link_url)
+                                    const linkedImgMatch = part.match(/^\[!\[(.*?)\]\((.*?)\)\]\((.*?)\)$/);
+                                    if (linkedImgMatch) {
+                                        return (
+                                            <div key={j} className="my-3 flex flex-col gap-2 bg-white/50 rounded-xl p-2 border border-black/5">
+                                                <a
+                                                    href={linkedImgMatch[3]}
+                                                    className="block hover:opacity-90 transition-opacity"
+                                                >
+                                                    <img
+                                                        src={linkedImgMatch[2]}
+                                                        alt={linkedImgMatch[1]}
+                                                        className="w-full h-auto rounded-lg shadow-sm"
+                                                        style={{ maxHeight: '200px', objectFit: 'cover' }}
+                                                    />
+                                                </a>
+                                                <a
+                                                    href={linkedImgMatch[3]}
+                                                    className="w-full text-center py-2 px-3 bg-[#D4AF37] hover:bg-[#B8941F] text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
+                                                >
+                                                    Learn More
+                                                </a>
+                                            </div>
+                                        );
+                                    }
+
+                                    // Match Image ![alt](url)
+                                    const imgMatch = part.match(/^!\[(.*?)\]\((.*?)\)$/);
+                                    if (imgMatch) {
+                                        return (
+                                            <div key={j} className="my-2">
+                                                <img
+                                                    src={imgMatch[2]}
+                                                    alt={imgMatch[1]}
+                                                    className="max-w-full h-auto rounded-lg shadow-sm border border-black/5"
+                                                    style={{ maxHeight: '200px', objectFit: 'cover' }}
+                                                />
+                                            </div>
+                                        );
+                                    }
+
+                                    // Match Link [text](url)
+                                    const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+                                    if (linkMatch) {
+                                        return (
+                                            <a
+                                                key={j}
+                                                href={linkMatch[2]}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-500 hover:underline underline-offset-2 break-all"
+                                            >
+                                                {linkMatch[1]}
+                                            </a>
+                                        );
+                                    }
+                                    return part;
+                                })}
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Timestamp */}
