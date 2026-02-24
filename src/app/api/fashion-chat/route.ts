@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
         });
 
         let handoffRequired = false;
+        let foundProducts: any[] = [];
 
         // Handle tool calls
         if (aiMessage?.tool_calls) {
@@ -120,8 +121,9 @@ export async function POST(req: NextRequest) {
                         price: p.price,
                         category: p.category,
                         description: p.description,
-                        image_url: p.mainImage || (p.images && p.images.length > 0 ? p.images[0] : "")
+                        image_url: (p.images && p.images.length > 0) ? p.images[0] : ""
                     }));
+                    foundProducts = simplifiedProducts;
                     toolResults.push({
                         tool_call_id: toolCall.id,
                         role: "tool",
@@ -140,23 +142,41 @@ export async function POST(req: NextRequest) {
             }
 
             // Get final response after tool results
-            const secondResponse = await generateFashionRecommendations({
-                messages: [...messages, aiMessage, ...toolResults],
-                userId: userId || undefined,
-                botName: settings?.botName,
-                usePublicData: settings?.usePublicData
-            });
-            aiMessage = secondResponse;
+            try {
+                const secondResponse = await generateFashionRecommendations({
+                    messages: [...messages, aiMessage, ...toolResults],
+                    userId: userId || undefined,
+                    botName: settings?.botName,
+                    usePublicData: settings?.usePublicData
+                });
+                aiMessage = secondResponse;
+            } catch (err) {
+                console.error("Second AI call failed, using direct product cards:", err);
+                // Will be handled by the fallback below
+                aiMessage = { content: "", role: "assistant" as const } as any;
+            }
         }
 
         let recommendations = aiMessage?.content || "";
-        if (!recommendations.trim()) {
-            if (aiMessage?.tool_calls) {
-                // Occurs if the model tries to chain another tool call
-                recommendations = "I am looking for some options for you...";
-            } else {
-                recommendations = "Here are some suggestions based on your request. Let me know if you need anything else!";
-            }
+
+        // If AI returned empty but we found products, build markdown cards directly
+        if (!recommendations.trim() && foundProducts.length > 0) {
+            const productCards = foundProducts.map((p: any) => {
+                const imgUrl = p.image_url || "";
+                const productLink = `/shop/${p.id}`;
+                let card = `**${p.name}**`;
+                if (p.price) card += ` — ₦${Number(p.price).toLocaleString()}`;
+                card += `\n`;
+                if (imgUrl) {
+                    card += `[![${p.name}](${imgUrl})](${productLink})`;
+                } else {
+                    card += `[View Product](${productLink})`;
+                }
+                return card;
+            }).join("\n\n");
+            recommendations = `Here are some items I found for you:\n\n${productCards}`;
+        } else if (!recommendations.trim()) {
+            recommendations = "I couldn't find any matching products right now. Could you try describing what you're looking for differently?";
         }
 
         const chat = new FashionChat({

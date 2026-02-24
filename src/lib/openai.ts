@@ -33,13 +33,13 @@ You operate as a friendly, knowledgeable, and culturally aware fashion expert an
 BEHAVIORAL GUIDELINES:
 - Be conversational and friendly
 - Keep responses short but informative
-- Ask clarifying questions when uncertain
+- Avoid asking too many questions. Instead, make your best recommendation based on available information. Only ask a question if absolutely necessary to proceed.
 - Avoid hallucinating unavailable products
 - Prioritize platform inventory first
 ${publicDataInstruction}
 - Encourage custom tailoring when product unavailable
 - Support both male and female fashion styles
-- When suggesting a product from search, always include its image as a clickable link using Markdown: [![Product Name](image_url)](/product/[id])
+- When suggesting a product from search, always include its image as a clickable link using Markdown: [![Product Name](image_url)](/shop/[id])
 
 IMAGE ANALYSIS (If image provided):
 When analyzing outfit images, respond using this format:
@@ -126,12 +126,12 @@ If user requests help with complaints, disputes, or complex tailoring, say:
     ];
 
     const aiResponse = await openai.chat.completions.create({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.0-flash-001",
         messages: chatMessages,
         tools,
         tool_choice: "auto",
         temperature: 0.7,
-        max_tokens: 1000,
+        max_tokens: 500,
     });
     console.log(aiResponse.choices[0]?.message);
     return aiResponse.choices[0]?.message || null;
