@@ -29,7 +29,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
             </div>
 
             {/* Message bubble */}
-            <div className={`flex flex-col max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
+            <div className={`flex flex-col max-w-[75%] overflow-hidden ${isUser ? 'items-end' : 'items-start'}`}>
                 <div className={`px-4 py-2.5 rounded-2xl ${isUser
                     ? 'bg-[#D4AF37] text-white rounded-tr-sm'
                     : 'bg-gray-100 text-gray-900 rounded-tl-sm'
@@ -56,7 +56,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                                     const linkedImgMatch = part.match(/^\[!\[(.*?)\]\((.*?)\)\]\((.*?)\)$/);
                                     if (linkedImgMatch) {
                                         return (
-                                            <div key={j} className="my-3 flex flex-col gap-2 bg-white/50 rounded-xl p-2 border border-black/5">
+                                            <div key={j} className="my-3 flex flex-col gap-2 bg-white/50 rounded-xl p-2 border border-black/5 w-full max-w-[180px]">
                                                 <a
                                                     href={linkedImgMatch[3]}
                                                     className="block hover:opacity-90 transition-opacity"
@@ -65,7 +65,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                                                         src={linkedImgMatch[2]}
                                                         alt={linkedImgMatch[1]}
                                                         className="w-full h-auto rounded-lg shadow-sm"
-                                                        style={{ maxHeight: '200px', objectFit: 'cover' }}
+                                                        style={{ maxHeight: '140px', objectFit: 'cover' }}
                                                     />
                                                 </a>
                                                 <a
@@ -87,7 +87,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                                                     src={imgMatch[2]}
                                                     alt={imgMatch[1]}
                                                     className="max-w-full h-auto rounded-lg shadow-sm border border-black/5"
-                                                    style={{ maxHeight: '200px', objectFit: 'cover' }}
+                                                    style={{ maxHeight: '140px', objectFit: 'cover' }}
                                                 />
                                             </div>
                                         );
