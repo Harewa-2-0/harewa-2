@@ -20,10 +20,28 @@ export type Order = {
   [k: string]: Json | undefined;
 };
 
+export type CartLine = {
+  lineType: 'product' | 'fabric';
+  product?: CartProduct['product'];
+  fabric?: {
+    _id: string;
+    name: string;
+    yardBundle?: number;
+    bundlePrice?: number;
+    [key: string]: unknown;
+  };
+  quantity: number;
+  productNote?: string[];
+  bundlePrice?: number;
+  yardBundle?: number;
+  _id?: string;
+};
+
 export type Cart = {
   _id: string;                 // Cart ID
   user: string;                // User ID
-  products: CartProduct[];     // Array of products in cart
+  products?: CartProduct[];    // Legacy product lines
+  lines?: CartLine[];          // Product + fabric bundle lines
   createdAt: string;           // ISO date string
   updatedAt: string;           // ISO date string
   __v: number;                 // Version key

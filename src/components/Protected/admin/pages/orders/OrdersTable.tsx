@@ -6,6 +6,7 @@ import { type Order } from '@/services/order';
 import { OrderPrint } from './print';
 import { PageSpinner } from '../../components/Spinner';
 import { formatPrice } from '@/utils/currency';
+import { getOrderDisplayLines } from '@/utils/orderCartLines';
 import { useRouter } from 'next/navigation';
 
 interface OrderItem {
@@ -217,6 +218,8 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
     const profit = calculateProfit(order.amount);
     const profitPercentage = calculateProfitPercentage(order.amount, profit);
 
+    const displayLines = getOrderDisplayLines(order.carts);
+
     return (
       <div className="space-y-4">
         {/* Order Items Table with PRINT Button in Header */}
@@ -225,7 +228,7 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
             <thead className="bg-gray-100">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TYPE</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NAME</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PRICE</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QTY</th>
@@ -243,29 +246,29 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {order.carts?.products?.map((cartProduct, index) => {
-                const productInfo = getProductInfo(cartProduct);
-                const itemTotal = productInfo.price && cartProduct.quantity
-                  ? productInfo.price * cartProduct.quantity
-                  : undefined;
-
-                return (
-                  <tr key={cartProduct._id || index}>
+              {displayLines.length > 0 ? (
+                displayLines.map((line, index) => (
+                  <tr key={line.key}>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {productInfo.id ? productInfo.id.substring(0, 8) : '-'}
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 capitalize">
+                      {line.kind}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {productInfo.name}
+                      {line.name}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {productInfo.price ? formatPrice(productInfo.price) : '-'}
+                      {formatPrice(line.unitPrice)}
+                      {line.kind === 'fabric' && (
+                        <span className="block text-xs text-gray-500">/ {line.yardBundle} yd</span>
+                      )}
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">x{cartProduct.quantity}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                      x{line.quantity}
+                    </td>
                     <td className="px-4 py-2 text-sm text-gray-900">
-                      {cartProduct.productNote && Array.isArray(cartProduct.productNote) && cartProduct.productNote.length > 0 ? (
+                      {line.productNote && line.productNote.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
-                          {cartProduct.productNote.map((note: string, noteIndex: number) => (
+                          {line.productNote.map((note: string, noteIndex: number) => (
                             <span
                               key={noteIndex}
                               className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#D4AF37]/10 text-[#B8941F] border border-[#D4AF37]/30"
@@ -274,13 +277,15 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
                             </span>
                           ))}
                         </div>
+                      ) : line.kind === 'fabric' ? (
+                        <span className="text-gray-600">{line.unitLabel}</span>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">0%</td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
-                      {itemTotal ? formatPrice(itemTotal) : '-'}
+                      {formatPrice(line.lineTotal)}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
                       <button className="text-gray-400 hover:text-gray-600 cursor-pointer">
@@ -290,8 +295,8 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
                       </button>
                     </td>
                   </tr>
-                );
-              }) || (
+                ))
+              ) : (
                   <tr>
                     <td colSpan={8} className="px-4 py-2 text-center text-sm text-gray-500">
                       No cart items available

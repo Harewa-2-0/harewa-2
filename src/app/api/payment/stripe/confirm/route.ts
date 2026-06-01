@@ -1,12 +1,11 @@
 import { ok, badRequest, serverError, notFound } from "@/lib/response";
 import { Order } from "@/lib/models/Order";
 import { Wallet } from "@/lib/models/Wallet";
-import { Cart } from "@/lib/models/Cart";
 import { addFunds, deductFunds } from "@/lib/wallet";
 import { getUserFromUuid } from "@/lib/utils";
-import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+import { getCheckoutSession } from "@/lib/stripe";
+import { completeOrderFulfillment } from "@/lib/orderFulfillment";
+import connectDB from "@/lib/db";
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
@@ -17,18 +16,20 @@ export async function GET(req: Request) {
     }
 
     try {
-        const session = await stripe.checkout.sessions.retrieve(sessionId);
-        // Map the Stripe session to a minimal internal payment shape expected by the rest of the handler
+        await connectDB();
+        const session = await getCheckoutSession(sessionId);
         const metadata = (session.metadata || {}) as Record<string, string | undefined>;
         const payment = {
-            status: session.payment_status === "paid" ? "success" : (session.payment_status || "unknown"),
+            status:
+                session.payment_status === "paid"
+                    ? "success"
+                    : session.payment_status || "unknown",
             metadata,
-            amount: (session.amount_total || 0) / 100, // Convert cents to dollars
+            amount: (session.amount_total || 0) / 100,
             id: session.id,
         };
 
-        console.log("Payment verification result:", payment);
-        if (!payment || payment.status !== "success") {
+        if (payment.status !== "success") {
             return badRequest("Payment not successful");
         }
 
@@ -44,25 +45,31 @@ export async function GET(req: Request) {
             return badRequest("Missing user ID from payment metadata");
         }
 
-        // Use metadata reference when present, otherwise fall back to session id
         const txReference = reference || payment.id;
 
         if (type == "wallet") {
-            console.log("Adding funds to wallet for user:", user);
             const wallet = await Wallet.findOne({ user: user._id });
-
-            // 1. Check if the reference is already recorded
-            const isDuplicate = wallet && wallet.transactions.some((tx: { reference?: string }) => tx.reference === txReference);
+            const isDuplicate =
+                wallet &&
+                wallet.transactions.some(
+                    (tx: { reference?: string }) => tx.reference === txReference
+                );
 
             if (isDuplicate) {
-                return serverError('Transaction already processed');
+                return serverError("Transaction already processed");
             }
-            const funds = await addFunds({ amount: payment.amount, userId: user._id, reference: txReference });
-            return ok(funds, "Funds  processed successfully");
+            const funds = await addFunds({
+                amount: payment.amount,
+                userId: user._id,
+                reference: txReference,
+            });
+            return ok(funds, "Funds processed successfully");
         }
 
         if (type == "order") {
-            await addFunds({ amount: payment.amount, userId: user._id, reference: txReference });
+            if (!orderId) {
+                return badRequest("Missing orderId in payment metadata");
+            }
 
             const order = await Order.findById(orderId);
             if (!order) {
@@ -73,25 +80,26 @@ export async function GET(req: Request) {
                 return ok(order, "Order already processed");
             }
 
+            await addFunds({
+                amount: payment.amount,
+                userId: user._id,
+                reference: txReference,
+            });
+
             await deductFunds({
-                amount: order.amount, userId: user._id, reference: txReference
+                amount: order.amount,
+                userId: user._id,
+                reference: txReference,
             });
 
             order.status = "paid";
             await order.save();
 
-            // 10. CREATE A NEW CART (Cart Swap)
-            // Instead of clearing the cart, we create a new one. 
-            // The old cart remains linked to the order to preserve history.
-            const newCart = new Cart({
-                user: user._id,
-                products: []
-            });
-            await newCart.save();
-            console.log(`New empty cart ${newCart._id} created for user ${user._id} (Cart Swap)`);
+            await completeOrderFulfillment(orderId, user._id);
 
             return ok(order, "Order processed successfully");
         }
+
         return ok(session);
     } catch (err: unknown) {
         console.error("Failed to retrieve session:", err);

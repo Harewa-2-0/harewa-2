@@ -5,14 +5,19 @@ import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
 import { ok, badRequest, serverError } from "@/lib/response";
 import { requireAuth } from "@/lib/middleware/requireAuth";
-import { Order, } from "@/lib/models/Order";
+import { Order } from "@/lib/models/Order";
 import { Wallet } from "@/lib/models/Wallet";
-import { Product } from "@/lib/models/Product";
-import { Cart } from "@/lib/models/Cart";
 import { initializePayment2 } from "@/lib/paystack";
 import { deductFunds } from "@/lib/wallet";
 import { getUserFromUserid } from "@/lib/utils";
 import { createCheckoutSession } from "@/lib/stripe";
+import {
+    buildPaymentLineItems,
+    completeOrderFulfillment,
+    getOrderCartPopulateConfig,
+    loadCartForCheckout,
+    validateCartForOrder,
+} from "@/lib/orderFulfillment";
 
 export async function POST(request: NextRequest) {
     try {
@@ -25,29 +30,37 @@ export async function POST(request: NextRequest) {
         if (!body.type || !body.orderId) {
             return badRequest("Type and orderId are required");
         }
-        //pay with wallet
+
+        const orderQuery = () =>
+            Order.findOne({ _id: body.orderId, user: user.sub }).populate(
+                getOrderCartPopulateConfig()
+            );
+
+        // Pay with wallet
         if (body.type == "wallet") {
             const wallet = await Wallet.findOne({ user: user.sub });
             if (!wallet) {
                 return badRequest("Wallet not found for user");
             }
-            const order = await Order.findOne({ _id: body.orderId, user: user.sub });
-            if (order.status !== "pending" || order.status !== "initiated") {
-                return badRequest("Order already processed");
-            }
+
+            const order = await orderQuery();
             if (!order) {
                 return badRequest("Order not found");
             }
-            if (order) {
-                order.status = "initiated";
-                await order.save();
+            if (order.status !== "pending" && order.status !== "initiated") {
+                return badRequest("Order already processed");
             }
+
+            const cart = await loadCartForCheckout(String(order.carts));
+            await validateCartForOrder(cart);
+
             if (order.amount > wallet.balance) {
                 return badRequest("Insufficient funds in wallet");
             }
 
+            order.status = "initiated";
+            await order.save();
 
-            // Deduct funds from wallet
             const deduct = await deductFunds({
                 amount: order.amount,
                 userId: user.sub,
@@ -57,69 +70,62 @@ export async function POST(request: NextRequest) {
             if (!deduct.balance) {
                 return serverError("Failed to deduct funds from wallet");
             }
+
             order.status = "paid";
             await order.save();
+            await completeOrderFulfillment(String(order._id), user.sub);
+
             return ok({ success: true, message: "Funds deducted from wallet" });
         }
-        //pay with paystack gateway
+
+        // Paystack gateway
         if (body.type == "paystack-gateway") {
-
-            const order = await Order.findOne({ _id: body.orderId, user: user.sub })
-                .populate({
-                    path: "carts",
-                    model: Cart,
-                    populate: {
-                        path: "products.product",
-                        model: Product
-                    }
-                });
-
-            if (order.status !== "pending" && order.status !== "initiated") {
-                return badRequest("Order already processed");
-            }
+            const order = await orderQuery();
             if (!order) {
                 return badRequest("Order not found");
             }
-            if (order) {
-                order.status = "initiated";
-                await order.save();
+            if (order.status !== "pending" && order.status !== "initiated") {
+                return badRequest("Order already processed");
             }
-            console.log("Order to be paid:", order);
-            const paymentInit = await initializePayment2(
-                user.email,
-                order.amount,
-                { items: order.carts.products, type: "order", amount: order.amount, uuid, orderId: order._id },
-            );
-            // console.log("Payment initialized:", paymentInit);
+
+            const cart = await loadCartForCheckout(String(order.carts));
+            await validateCartForOrder(cart);
+            const items = buildPaymentLineItems(cart);
+
+            order.status = "initiated";
+            await order.save();
+
+            const paymentInit = await initializePayment2(user.email, order.amount, {
+                items,
+                type: "order",
+                amount: order.amount,
+                uuid,
+                orderId: String(order._id),
+            });
+
             return ok({
                 success: true,
                 message: "Payment initialized",
                 data: paymentInit,
             });
         }
+
+        // Stripe gateway
         if (body.type == "stripe-gateway") {
-
-            const order = await Order.findOne({ _id: body.orderId, user: user.sub })
-                .populate({
-                    path: "carts",
-                    model: Cart,
-                    populate: {
-                        path: "products.product",
-                        model: Product
-                    }
-                });
-
-            if (order.status !== "pending" && order.status !== "initiated") {
-                return badRequest("Order already processed");
-            }
+            const order = await orderQuery();
             if (!order) {
                 return badRequest("Order not found");
             }
-            if (order) {
-                order.status = "initiated";
-                await order.save();
+            if (order.status !== "pending" && order.status !== "initiated") {
+                return badRequest("Order already processed");
             }
-            console.log("Order to be paid:", order);
+
+            const cart = await loadCartForCheckout(String(order.carts));
+            await validateCartForOrder(cart);
+            const items = buildPaymentLineItems(cart);
+
+            order.status = "initiated";
+            await order.save();
 
             const paymentInit = await createCheckoutSession({
                 amount: order.amount,
@@ -127,22 +133,25 @@ export async function POST(request: NextRequest) {
                 successUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
                 cancelUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/checkout`,
                 metadata: {
-                    orderId: order.id,
-                    uuid: uuid,
+                    orderId: String(order._id),
+                    uuid,
                     amount: order.amount,
                     type: "order",
+                    items,
                 },
             });
 
-            // console.log("Payment initialized:", paymentInit);
             return ok({
                 success: true,
                 message: "Payment initialized",
                 data: paymentInit,
             });
         }
+
+        return badRequest("Invalid payment type");
     } catch (error) {
         console.error("Failed to initialize payment:", error);
-        return serverError("Failed to initialize payment: " + error);
+        const message = error instanceof Error ? error.message : String(error);
+        return badRequest(message);
     }
 }

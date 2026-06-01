@@ -2,54 +2,51 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 import { Order } from "@/lib/models/Order";
-import { Product } from "@/lib/models/Product";
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
 import { ok, notFound, badRequest } from "@/lib/response";
+import { getOrderCartPopulateConfig } from "@/lib/orderFulfillment";
 
 // GET /api/order/[id]
-// Get order by id
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
     const { id } = await params;
     await connectDB();
 
     try {
-        const orderData = await Order.findById(id).lean();
-        if (!orderData) {
+        const order = await Order.findById(id)
+            .populate(getOrderCartPopulateConfig())
+            .lean();
+
+        if (!order) {
             return notFound("Order not found");
         }
-        const orders = await Order.findById(id)
-            .populate({
-                path: "carts",
-                populate: {
-                    path: "products.product",
-                    model: Product
-                }
-            })
-            .lean();
 
         return ok({
             success: true,
             message: "Success",
-            data: orders
+            data: order,
         });
     } catch (error) {
         console.error("Failed to fetch orders:", error);
-        return badRequest("Failed to fetch orders" + error
-        );
+        return badRequest("Failed to fetch orders" + error);
     }
 }
+
 // PUT /api/order/[id]
-// Update an order by id  
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
     const { id } = await params;
     await connectDB();
     const body = await request.json();
-    // if (!body.name) {
-    //     return badRequest("Name is required");
-    // }
     try {
-        const updatedOrder = await Order.findByIdAndUpdate(id, body, { new: true }).lean();
+        const updatedOrder = await Order.findByIdAndUpdate(id, body, {
+            new: true,
+        }).lean();
         if (!updatedOrder) {
             return notFound("Order not found");
         }
@@ -58,9 +55,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         return badRequest("Invalid order data: " + error);
     }
 }
+
 // DELETE /api/order/[id]
-// Delete an order by id          
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
     const { id } = await params;
     await connectDB();
     try {
