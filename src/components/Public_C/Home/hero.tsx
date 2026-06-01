@@ -70,7 +70,7 @@ const HeroSection = () => {
               variants={textVariants}
               style={{ color: "#5D5D5D" }}
             >
-              Your premier destination where cutting-edge
+              Your premier destination (Dev Test) where cutting-edge
               <br />
               technology meets the vibrant world of fashion.
             </motion.p>
