@@ -4,9 +4,7 @@ import { Wallet } from "@/lib/models/Wallet";
 import { Cart } from "@/lib/models/Cart";
 import { addFunds, deductFunds } from "@/lib/wallet";
 import { getUserFromUuid } from "@/lib/utils";
-import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+import { getCheckoutSession } from "@/lib/stripe";
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
@@ -17,7 +15,7 @@ export async function GET(req: Request) {
     }
 
     try {
-        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        const session = await getCheckoutSession(sessionId);
         // Map the Stripe session to a minimal internal payment shape expected by the rest of the handler
         const metadata = (session.metadata || {}) as Record<string, string | undefined>;
         const payment = {
