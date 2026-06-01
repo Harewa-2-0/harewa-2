@@ -11,6 +11,7 @@ import { useUpdateCartQuantityMutation, useRemoveFromCartMutation } from '@/hook
 import { usePendingOrderQuery } from '@/hooks/useOrders';
 import { useQueryClient } from '@tanstack/react-query';
 import { CartItem } from '@/components/Public_C/shop/CartItem';
+import { dedupeCartLines, getCartLineKey } from '@/utils/cartDisplay';
 
 export default function CartItems() {
   const { addToast } = useToast();
@@ -30,17 +31,7 @@ export default function CartItems() {
   const removeCartMutation = useRemoveFromCartMutation();
 
   // Items should already be deduplicated by the cartStore
-  const uniqueItems = useMemo(() => {
-    const productMap = new Map<string, typeof items[0]>();
-    items.forEach((item) => {
-      if (!item || !item.id) return;
-      const productId = String(item.id);
-      if (!productMap.has(productId)) {
-        productMap.set(productId, { ...item });
-      }
-    });
-    return Array.from(productMap.values());
-  }, [items]);
+  const uniqueItems = useMemo(() => dedupeCartLines(items), [items]);
 
   const handleQuantityChange = async (id: string, mode: 'increase' | 'decrease', showPopover?: boolean) => {
     if (pendingOperations.has(id)) return;
@@ -73,14 +64,14 @@ export default function CartItems() {
       // Update local state immediately for optimistic UI
       updateQuantityLocal(id, qty);
 
-      // Sync to server in background if authenticated
       if (isAuthenticated && cartId) {
         try {
+          const freshItems = useCartStore.getState().items;
           await updateCartMutation.mutateAsync({
             cartId,
             productId: id,
             quantity: qty,
-            currentItems: items,
+            currentItems: freshItems,
           });
         } catch (serverError) {
           console.error('Failed to update quantity on server:', serverError);
@@ -106,7 +97,12 @@ export default function CartItems() {
 
       if (isAuthenticated && cartId) {
         try {
-          await removeCartMutation.mutateAsync({ cartId, productId: id });
+          const line = items.find((i) => i.id === id);
+          await removeCartMutation.mutateAsync({
+            cartId,
+            productId: id,
+            lineType: line?.lineType,
+          });
         } catch (serverError) {
           console.error('Failed to remove item from server:', serverError);
           addToast('Failed to remove item. Changes may not be saved.', 'error');
@@ -136,12 +132,20 @@ export default function CartItems() {
 
         <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
         <p className="text-gray-500 mb-6">Looks like you haven't added any items to your cart yet.</p>
-        <a
-          href="/shop"
-          className="inline-flex items-center px-6 py-3 bg-[#D4AF37] hover:bg-[#B8941F] text-white font-medium rounded-lg transition-colors"
-        >
-          Continue Shopping
-        </a>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <a
+            href="/shop"
+            className="inline-flex items-center justify-center px-6 py-3 bg-[#D4AF37] hover:bg-[#B8941F] text-white font-medium rounded-xl transition-colors"
+          >
+            Shop ready-to-wear
+          </a>
+          <a
+            href="/fabrics"
+            className="inline-flex items-center justify-center px-6 py-3 border border-[#D4AF37] text-[#B8941F] font-medium rounded-xl hover:bg-[#D4AF37]/10 transition-colors"
+          >
+            Shop fabrics
+          </a>
+        </div>
       </div>
     );
   }
@@ -169,7 +173,7 @@ export default function CartItems() {
       <AnimatePresence>
         {uniqueItems.map((item) => (
           <CartItem
-            key={item.id}
+            key={getCartLineKey(item)}
             item={item}
             pendingOperations={pendingOperations}
             handleQuantityChange={handleQuantityChange}

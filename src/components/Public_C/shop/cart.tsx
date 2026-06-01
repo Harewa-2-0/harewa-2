@@ -14,6 +14,7 @@ import { usePendingOrderQuery } from "@/hooks/useOrders";
 import { formatPrice } from "@/utils/currency";
 import { AlertCircle } from "lucide-react";
 import { CartItem } from "./CartItem";
+import { dedupeCartLines, calculateCartSubtotal, getCartLineKey } from "@/utils/cartDisplay";
 
 interface CartUIProps {
   isOpen?: boolean;
@@ -85,28 +86,9 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   }, [rawCart, isAuthenticated, setCartId]);
 
   // Items should already be deduplicated by the cartStore
-  const uniqueItems = useMemo(() => {
-    const productMap = new Map<string, typeof items[0]>();
+  const uniqueItems = useMemo(() => dedupeCartLines(items), [items]);
 
-    items.forEach((item) => {
-      if (!item || !item.id) return;
-
-      const productId = String(item.id);
-      if (!productMap.has(productId)) {
-        productMap.set(productId, { ...item });
-      }
-    });
-
-    return Array.from(productMap.values());
-  }, [items]);
-
-  const subtotal = useMemo(() => {
-    return uniqueItems.reduce((total, item) => {
-      const itemPrice =
-        typeof item.price === "number" && Number.isFinite(item.price) ? item.price : 0;
-      return total + itemPrice * item.quantity;
-    }, 0);
-  }, [uniqueItems]);
+  const subtotal = useMemo(() => calculateCartSubtotal(uniqueItems), [uniqueItems]);
 
   // Clear toasts when cart opens (consolidated with cart open logic)
   useEffect(() => {
@@ -302,7 +284,12 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
       // Sync to server if authenticated
       if (isAuthenticated && cartId) {
         try {
-          await removeCartMutation.mutateAsync({ cartId, productId: id });
+          const line = items.find((i) => i.id === id);
+          await removeCartMutation.mutateAsync({
+            cartId,
+            productId: id,
+            lineType: line?.lineType,
+          });
         } catch (serverError) {
           console.error('Failed to remove item from server:', serverError);
           addToast("Failed to remove item from server. Changes may not be saved.", "error");
@@ -435,7 +422,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                 <AnimatePresence>
                   {uniqueItems.map((item) => (
                     <CartItem
-                      key={item.id}
+                      key={getCartLineKey(item)}
                       item={item}
                       pendingOperations={pendingOperations}
                       handleQuantityChange={handleQuantityChange}

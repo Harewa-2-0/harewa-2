@@ -136,8 +136,12 @@ export function useUpdateCartQuantityMutation() {
           return old.filter(item => item.id !== productId);
         }
 
-        return old.map(item =>
-          item.id === productId ? { ...item, quantity } : item
+        const target = currentItems?.find((i) => i.id === productId);
+        const targetType = target?.lineType ?? "product";
+        return old.map((item) =>
+          item.id === productId && (item.lineType ?? "product") === targetType
+            ? { ...item, quantity }
+            : item
         );
       });
 
@@ -165,20 +169,27 @@ export function useRemoveFromCartMutation() {
   return useMutation<
     Cart,
     Error,
-    { cartId: string; productId: string },
+    { cartId: string; productId: string; lineType?: string },
     CartMutationContext
   >({
-    mutationFn: async ({ cartId, productId }) => {
-      return await removeProductFromCartById(cartId, productId);
+    mutationFn: async ({ cartId, productId, lineType }) => {
+      const { removeCartLineById } = await import("@/services/cart");
+      return await removeCartLineById(cartId, {
+        id: productId,
+        lineType: lineType as "fabric" | "product" | undefined,
+      });
     },
     // Optimistic update
-    onMutate: async ({ productId }) => {
+    onMutate: async ({ productId, lineType }) => {
       await queryClient.cancelQueries({ queryKey: cartKeys.mine() });
       const previousCart = queryClient.getQueryData<CartLine[]>(cartKeys.mine());
 
       queryClient.setQueryData<CartLine[]>(cartKeys.mine(), (old) => {
         if (!old) return [];
-        return old.filter(item => item.id !== productId);
+        return old.filter(
+          (item) =>
+            !(item.id === productId && (item.lineType ?? "product") === (lineType ?? "product"))
+        );
       });
 
       return { previousCart };

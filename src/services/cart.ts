@@ -68,6 +68,10 @@ const paths = {
     `${BASE}/${cartId}/product/${productId}`,         // POST /api/cart/:cartId/product/:productId
   removeProduct: (cartId: string, productId: string) =>
     `${BASE}/${cartId}/product/${productId}`,         // DELETE /api/cart/:cartId/product/:productId
+  updateFabric: (cartId: string, fabricId: string) =>
+    `${BASE}/${cartId}/fabric/${fabricId}`,           // PATCH /api/cart/:cartId/fabric/:fabricId
+  removeFabric: (cartId: string, fabricId: string) =>
+    `${BASE}/${cartId}/fabric/${fabricId}`,           // DELETE /api/cart/:cartId/fabric/:fabricId
 };
 
 /** ---------- Internals ---------- */
@@ -422,6 +426,144 @@ export async function removeProductFromMyCart(productId: string) {
   }
 }
 
+export async function removeFabricFromCartById(cartId: string, fabricId: string) {
+  const raw = await api<MaybeWrapped<Cart>>(paths.removeFabric(cartId, fabricId), {
+    method: "DELETE",
+    credentials: "include",
+    cache: "no-store",
+  });
+  return unwrap<Cart>(raw);
+}
+
+export async function updateFabricQuantityInCartById(
+  cartId: string,
+  fabricId: string,
+  quantity: number
+) {
+  if (quantity <= 0) {
+    return removeFabricFromCartById(cartId, fabricId);
+  }
+  const raw = await api<MaybeWrapped<Cart>>(paths.updateFabric(cartId, fabricId), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quantity }),
+    credentials: "include",
+    cache: "no-store",
+  });
+  return unwrap<Cart>(raw);
+}
+
+type CartLineRef = { id: string; lineType?: string; quantity?: number; price?: number; productNote?: string };
+
+export async function removeCartLineById(
+  cartId: string,
+  line: Pick<CartLineRef, 'id' | 'lineType'>
+) {
+  if (line.lineType === 'fabric') {
+    return removeFabricFromCartById(cartId, line.id);
+  }
+  return removeProductFromCartById(cartId, line.id);
+}
+
+function storeItemsToCartLines(
+  items: Array<{
+    id: string;
+    lineType?: string;
+    quantity?: number;
+    productNote?: string | string[];
+    yardBundle?: number;
+    bundlePrice?: number;
+  }>,
+  update?: { id: string; lineType?: string; quantity: number }
+) {
+  const mapped = items
+    .filter((item) => item.id && item.id !== "null")
+    .map((item) => {
+      const qty =
+        update && item.id === update.id && (item.lineType ?? "product") === (update.lineType ?? "product")
+          ? update.quantity
+          : Math.max(0, Math.floor(Number(item.quantity ?? 1)));
+
+      if (item.lineType === "fabric") {
+        if (qty <= 0) return null;
+        return {
+          lineType: "fabric",
+          fabric: item.id,
+          quantity: qty,
+          bundlePrice: item.bundlePrice,
+          yardBundle: item.yardBundle,
+        };
+      }
+
+      if (qty <= 0) return null;
+
+      let productNote: string[] = [];
+      if (Array.isArray(item.productNote)) {
+        productNote = item.productNote;
+      } else if (typeof item.productNote === "string" && item.productNote) {
+        productNote = item.productNote.split(",").map((s) => s.trim()).filter(Boolean);
+      }
+
+      return {
+        lineType: "product",
+        product: item.id,
+        quantity: qty,
+        productNote,
+      };
+    })
+    .filter(Boolean);
+
+  return mapped;
+}
+
+export async function replaceCartLinesFromStore(
+  cartId: string,
+  items: Array<{
+    id: string;
+    lineType?: string;
+    quantity?: number;
+    productNote?: string | string[];
+    yardBundle?: number;
+    bundlePrice?: number;
+  }>,
+  update?: { id: string; lineType?: string; quantity: number }
+) {
+  const lines = storeItemsToCartLines(items, update);
+  const raw = await api<MaybeWrapped<Cart>>(paths.update(cartId), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lines }),
+    credentials: "include",
+    cache: "no-store",
+  });
+  return unwrap<Cart>(raw);
+}
+
+export async function updateCartLineQuantity(
+  cartId: string,
+  line: CartLineRef,
+  quantity: number,
+  allItems?: CartLineRef[]
+) {
+  if (line.lineType === "fabric") {
+    return updateFabricQuantityInCartById(cartId, line.id, quantity);
+  }
+
+  if (allItems && allItems.length > 0) {
+    return replaceCartLinesFromStore(cartId, allItems, {
+      id: line.id,
+      lineType: line.lineType,
+      quantity,
+    });
+  }
+
+  if (quantity <= 0) {
+    return removeProductFromCartById(cartId, line.id);
+  }
+
+  return replaceCartLinesFromStore(cartId, [{ ...line, quantity }]);
+}
+
 /** Remove product from cart using cart ID directly (optimistic approach) */
 export async function removeProductFromCartById(cartId: string, productId: string) {
   try {
@@ -505,29 +647,19 @@ export async function updateProductQuantityInCartById(cartId: string, productId:
   }
 }
 
-/** Update product quantity in cart using local state (truly optimistic approach) */
-export async function updateProductQuantityOptimistic(cartId: string, productId: string, quantity: number, currentItems: any[]) {
-  try {
-    // If quantity is 0, remove the product
-    if (quantity <= 0) {
-      return await removeProductFromCartNew(cartId, productId);
-    }
-
-    // Build updated products array from local state instead of fetching from server
-    const updatedProducts = currentItems
-      .filter(item => item.id && item.id !== 'null' && item.id !== 'undefined')
-      .map(item => ({
-        productId: item.id,
-        quantity: item.id === productId ? quantity : item.quantity,
-        price: item.price,
-        productNote: item.productNote || undefined,  // include size breakdown
-      }));
-
-    return await replaceCartProducts(cartId, updatedProducts);
-  } catch (error) {
-    console.error("Failed to update product quantity:", error);
-    throw error;
-  }
+/** Update a cart line quantity (product or fabric bundle). */
+export async function updateProductQuantityOptimistic(
+  cartId: string,
+  productId: string,
+  quantity: number,
+  currentItems: Array<{ id: string; lineType?: string; productNote?: string }>
+) {
+  const line =
+    currentItems.find((item) => item.id === productId) ?? {
+      id: productId,
+      lineType: "product" as const,
+    };
+  return updateCartLineQuantity(cartId, line, quantity, currentItems);
 }
 
 /** Delete whole cart (rarely needed) */

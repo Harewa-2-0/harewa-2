@@ -93,6 +93,9 @@ export default function CheckoutPage() {
             <span className="text-gray-900 font-medium">Checkout</span>
           </nav> */}
           <h1 className="text-3xl font-bold text-gray-900 mt-2">Checkout</h1>
+          <p className="text-sm text-gray-600 mt-2">
+            Review your items — products and fabric bundles checkout together.
+          </p>
         </div>
       </div>
 
