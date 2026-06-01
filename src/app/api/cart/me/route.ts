@@ -2,117 +2,83 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 import { Cart } from "@/lib/models/Cart";
-import { Product } from "@/lib/models/Product";
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
-import { ok, created, serverError } from "@/lib/response";
+import { ok, created, serverError, badRequest } from "@/lib/response";
 import { requireAuth } from "@/lib/middleware/requireAuth";
-// import mongoose from "mongoose";
+import {
+    applyCartLineInputs,
+    getCartPopulateOptions,
+    migrateCartToLines,
+    syncLegacyProductsField,
+    type CartLineInput,
+} from "@/lib/cartLines";
 
-// GET /api/cart
-// Get all carts    
+// GET /api/cart/me
 export async function GET(request: NextRequest) {
     try {
         await connectDB();
         const decoded = requireAuth(request);
 
-        const cart = await Cart.findOne({ user: decoded.sub })
+        let cart = await Cart.findOne({ user: decoded.sub })
             .sort({ createdAt: -1 })
-            .populate({
-                path: "products.product",
-                model: Product,
-            });
+            .populate(getCartPopulateOptions());
 
         if (!cart) {
-            return ok({ products: [] }); // Empty cart response
+            return ok({ cart: { products: [], lines: [] } });
         }
 
-        // Format the response to flatten product + quantity
+        migrateCartToLines(cart);
+        syncLegacyProductsField(cart);
+        if (cart.isModified()) {
+            await cart.save();
+        }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        // const formattedProducts = Array.isArray(cart.products) && cart.products.length > 0
-        //     ? cart.products
-        //         .filter((item: any) => item?.product) // ✅ skip broken/null products
-        //         .map((item: any) => ({
-        //             _id: item.product._id,
-        //             name: item.product.name,
-        //             price: item.product.price,
-        //             description: item.product.description,
-        //             images: item.product.images,
-        //             quantity: Number(item.quantity) || 0,
-        //         }))
-        //     : [];
-
-
-
-        return ok({
-            cart,
-        });
+        return ok({ cart });
     } catch (error) {
         console.error("Cart fetch error:", error);
         return serverError("Failed to fetch cart: " + error);
     }
 }
 
-// POST /api/cart
-// Add items to cart (or create new cart)
-
+// POST /api/cart/me — add product and/or fabric bundle lines
+// Body: [{ product, quantity, productNote? }] | [{ lineType: "fabric", fabric, quantity }]
 export async function POST(request: NextRequest) {
     try {
         await connectDB();
-        const body = await request.json(); // expect [{ product, quantity }]
+        const body = (await request.json()) as CartLineInput[];
         const decoded = requireAuth(request);
+
+        if (!Array.isArray(body) || body.length === 0) {
+            return badRequest("Request body must be a non-empty array of cart lines");
+        }
 
         let cart = await Cart.findOne({ user: decoded.sub }).sort({ createdAt: -1 });
 
         if (cart) {
-            body.forEach((newItem: { product: string; quantity: number; productNote?: string[] }) => {
-                if (!newItem.product) return; // skip invalid
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const existingProduct = cart.products.find(
-                    (p: any) => p?.product?.toString() === newItem.product
-                );
-
-                if (existingProduct) {
-                    // ✅ replace with the sum
-                    existingProduct.quantity = Number(existingProduct.quantity || 0) + Number(newItem.quantity || 0);
-                    // Update productNote if provided
-                    if (newItem.productNote) {
-                        existingProduct.productNote = newItem.productNote;
-                    }
-                } else {
-                    // ✅ add as new product
-                    cart.products.push({
-                        product: newItem.product,
-                        quantity: newItem.quantity || 1,
-                        productNote: newItem.productNote || []
-                    });
-                }
-            });
-
+            await applyCartLineInputs(cart, body);
             await cart.save();
-            return ok(cart);
+            const populated = await Cart.findById(cart._id).populate(
+                getCartPopulateOptions()
+            );
+            return ok(populated);
         }
 
-        // if no cart exists, create a new one
         const newCart = new Cart({
             user: decoded.sub,
-            products: body.map((item: { product: string; quantity: number; productNote?: string[] }) => ({
-                product: item.product,
-                quantity: item.quantity || 1,
-                productNote: item.productNote || []
-            })),
+            lines: [],
+            products: [],
         });
-
+        await applyCartLineInputs(newCart, body);
         await newCart.save();
-        return created(newCart);
+
+        const populated = await Cart.findById(newCart._id).populate(
+            getCartPopulateOptions()
+        );
+        return created(populated);
     } catch (error) {
-        console.error("❌ Cart add error:", error);
-        return serverError("Failed to update cart: " + error);
+        console.error("Cart add error:", error);
+        const message = error instanceof Error ? error.message : String(error);
+        return badRequest(message);
     }
 }
-
-
-
-
-
