@@ -2,7 +2,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useCartStore, generateProductNote } from "@/store/cartStore";
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useAuthStore } from "@/store/authStore";
-import { useAddToCartMutation } from "@/hooks/useCart";
+import { useAddToCartMutation, useAddFabricToCartMutation } from "@/hooks/useCart";
 
 // Cart drawer state
 export const useCartOpen = () => useCartDrawerStore((s) => s.isOpen);
@@ -33,6 +33,7 @@ export const useAuthAwareCartActions = () => {
   } = useCartStore();
 
   const addToCartMutation = useAddToCartMutation();
+  const addFabricToCartMutation = useAddFabricToCartMutation();
 
   /**
    * Add item to cart
@@ -129,8 +130,45 @@ export const useAuthAwareCartActions = () => {
     clearCart();
   };
 
+  const addFabricToCart = async (item: {
+    id: string;
+    quantity: number;
+    price?: number;
+    name?: string;
+    image?: string;
+    yardBundle?: number;
+  }) => {
+    const qty = Math.max(1, Math.floor(item.quantity));
+
+    useCartStore.getState().addFabricItem({
+      id: item.id,
+      quantity: qty,
+      price: item.price,
+      name: item.name,
+      image: item.image,
+      yardBundle: item.yardBundle,
+    });
+
+    if (isAuthenticated) {
+      try {
+        const updatedCart = await addFabricToCartMutation.mutateAsync({
+          fabricId: item.id,
+          quantity: qty,
+        });
+        const cartId = (updatedCart as { _id?: string; id?: string })._id || (updatedCart as { id?: string }).id;
+        if (cartId) {
+          useCartStore.setState({ cartId, isGuestCart: false });
+        }
+      } catch (error) {
+        console.error('Failed to add fabric to cart on server:', error);
+        throw error;
+      }
+    }
+  };
+
   return {
     addToCart,
+    addFabricToCart,
     updateCartQuantity,
     removeFromCart,
     clearUserCart,

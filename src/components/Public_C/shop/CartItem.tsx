@@ -26,10 +26,71 @@ export const CartItem: React.FC<CartItemProps> = ({
     setSizePopover,
     sizePopover,
 }) => {
-    const name = item.name || 'Product Name';
+    const isFabric = item.lineType === 'fabric';
+    const name = item.name || (isFabric ? 'Fabric' : 'Product Name');
     const image = item.image || '/placeholder.png';
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
     const isPending = pendingOperations.has(item.id);
+    const yardBundle = item.yardBundle as number | undefined;
+
+    if (isFabric) {
+        return (
+            <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white rounded-xl border border-[#D4AF37]/15 p-4"
+            >
+                <div className="flex gap-4">
+                    <div className="w-20 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 ring-1 ring-[#D4AF37]/20">
+                        <img src={image} alt={name} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-[#B8941F] mb-1">
+                            Fabric bundle
+                        </span>
+                        <h3 className="text-sm font-medium text-gray-900 mb-1 line-clamp-2">{name}</h3>
+                        <p className="text-xs text-gray-500 mb-2">
+                            {formatPrice(itemPrice)} / {yardBundle ?? '—'} yards
+                        </p>
+                        <p className="text-sm font-bold text-gray-900 mb-3">
+                            {formatPrice(itemPrice * item.quantity)}
+                        </p>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => handleQuantityChange(item.id, 'decrease', false)}
+                                    disabled={isPending || item.quantity <= 1}
+                                    className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-[#D4AF37]/10 disabled:opacity-50"
+                                >
+                                    <Minus size={14} className="text-gray-600" />
+                                </button>
+                                <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => handleQuantityChange(item.id, 'increase', false)}
+                                    disabled={isPending}
+                                    className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center hover:bg-[#D4AF37]/10 disabled:opacity-50"
+                                >
+                                    <Plus size={14} className="text-gray-600" />
+                                </button>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => onRemove(item.id)}
+                                className="w-8 h-8 border border-red-200 rounded-full flex items-center justify-center hover:bg-red-50"
+                            >
+                                <Trash2 size={14} className="text-red-500" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+        );
+    }
     const sizeBreakdown = item.sizeBreakdown || {};
     const availableSizes = (item.availableSizes as string[]) || [];
     const activeSizes = Object.entries(sizeBreakdown).filter(([, qty]) => qty > 0);

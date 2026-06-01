@@ -49,6 +49,11 @@ export type AddToMyCartInput = {
   productNote?: string | string[];  // size breakdown: "1 medium, 2 small" or ["1 medium", "2 small"]
 } & Record<string, unknown>;
 
+export type AddFabricToMyCartInput = {
+  fabricId: string;
+  quantity?: number;
+};
+
 /** ---------- Paths (external cart API) ---------- */
 const BASE = `${process.env.NEXT_PUBLIC_API_BASE_URL || ""}/api/cart`;
 const paths = {
@@ -98,7 +103,98 @@ function toCartArray(data: any): Cart[] {
  * Store expects: { id, quantity, price?, name?, image?, sizeBreakdown?, productNote?, availableSizes? }
  * This function ensures no duplicates - each product appears only once.
  */
+type ServerCartLine = {
+  lineType?: string;
+  product?: string | Record<string, unknown>;
+  fabric?: string | Record<string, unknown>;
+  quantity?: number;
+  price?: number;
+  bundlePrice?: number;
+  yardBundle?: number;
+  productNote?: string | string[];
+};
+
 export function mapServerCartToStoreItems(server: Cart) {
+  const serverLines = (server as Cart & { lines?: ServerCartLine[] }).lines;
+
+  if (Array.isArray(serverLines) && serverLines.length > 0) {
+    const items: Array<{
+      id: string;
+      quantity: number;
+      price?: number;
+      name?: string;
+      image?: string;
+      lineType?: string;
+      yardBundle?: number;
+      sizeBreakdown?: SizeBreakdown;
+      productNote?: string;
+      availableSizes?: string[];
+    }> = [];
+
+    for (const l of serverLines) {
+      if (l.lineType === 'fabric') {
+        const fabricObj =
+          typeof l.fabric === 'object' && l.fabric ? l.fabric : null;
+        const fabricId = String(
+          (fabricObj as { _id?: string })?._id ?? l.fabric ?? ''
+        );
+        if (!fabricId || fabricId === 'undefined') continue;
+
+        items.push({
+          id: fabricId,
+          lineType: 'fabric',
+          quantity: Number(l.quantity) || 1,
+          price: Number(l.bundlePrice ?? (fabricObj as { bundlePrice?: number })?.bundlePrice) || undefined,
+          yardBundle: Number(
+            l.yardBundle ?? (fabricObj as { yardBundle?: number })?.yardBundle
+          ) || undefined,
+          name: (fabricObj as { name?: string })?.name,
+          image: (fabricObj as { image?: string })?.image,
+        });
+        continue;
+      }
+
+      const productObj =
+        typeof l.product === 'object' && l.product ? l.product : null;
+      const productId = String(
+        (productObj as { _id?: string; id?: string })?._id ??
+          (productObj as { id?: string })?.id ??
+          l.product ??
+          ''
+      );
+      if (!productId || productId === 'undefined') continue;
+
+      const rawProductNote = l.productNote;
+      const productNote = Array.isArray(rawProductNote)
+        ? rawProductNote.join(', ')
+        : (rawProductNote ?? '');
+      const sizeBreakdown = productNote ? parseProductNote(productNote) : undefined;
+
+      items.push({
+        id: productId,
+        lineType: 'product',
+        quantity: Number(l.quantity) || 1,
+        price:
+          typeof (productObj as { price?: number })?.price === 'number'
+            ? (productObj as { price: number }).price
+            : undefined,
+        name: (productObj as { name?: string })?.name,
+        image:
+          Array.isArray((productObj as { images?: string[] })?.images) &&
+          (productObj as { images: string[] }).images.length > 0
+            ? (productObj as { images: string[] }).images[0]
+            : undefined,
+        sizeBreakdown,
+        productNote,
+        availableSizes: Array.isArray((productObj as { sizes?: string[] })?.sizes)
+          ? (productObj as { sizes: string[] }).sizes
+          : undefined,
+      });
+    }
+
+    return items;
+  }
+
   const lines = Array.isArray(server?.products) ? server.products : [];
 
   // Create a map to ensure no duplicates - keep the latest quantity for each product
@@ -183,6 +279,25 @@ function pickActiveCart(list: Cart[] | any): Cart | null {
 }
 
 /** ---------- Mutations ---------- */
+
+/** Add fabric bundle(s) to cart using POST /cart/me */
+export async function addFabricToMyCart(item: AddFabricToMyCartInput) {
+  const body = [
+    {
+      lineType: 'fabric',
+      fabric: item.fabricId,
+      quantity: Math.max(1, Math.floor(Number(item.quantity ?? 1))),
+    },
+  ];
+  const raw = await api<MaybeWrapped<Cart>>(paths.add, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    credentials: 'include',
+    cache: 'no-store',
+  });
+  return unwrap<Cart>(raw);
+}
 
 /** Add product to cart using POST /cart/me endpoint */
 export async function addToMyCart(item: AddToMyCartInput) {
