@@ -24,6 +24,7 @@ export default function OrderDetailsPage({ params }: PageProps) {
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(true);
     const [showPrint, setShowPrint] = useState(false);
+    const [pendingStatus, setPendingStatus] = useState<Order['status'] | null>(null);
     const updateStatusMutation = useUpdateOrderStatusMutation();
 
     useEffect(() => {
@@ -72,6 +73,7 @@ export default function OrderDetailsPage({ params }: PageProps) {
 
     const handleStatusUpdate = async (status: Order['status']) => {
         if (!order || updateStatusMutation.isPending) return;
+        setPendingStatus(status);
         try {
             const updated = await updateStatusMutation.mutateAsync({
                 orderId: order._id,
@@ -82,6 +84,8 @@ export default function OrderDetailsPage({ params }: PageProps) {
         } catch (error) {
             console.error('Failed to update order status:', error);
             addToast('Failed to update order status. Please try again.', 'error');
+        } finally {
+            setPendingStatus(null);
         }
     };
 
@@ -166,16 +170,18 @@ export default function OrderDetailsPage({ params }: PageProps) {
                                 type="button"
                                 onClick={() => void handleStatusUpdate('shipped')}
                                 disabled={!canMarkShipped || updateStatusMutation.isPending}
-                                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                                className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                             >
+                                {pendingStatus === 'shipped' && <Loader2 className="h-4 w-4 animate-spin" />}
                                 Mark as Shipped
                             </button>
                             <button
                                 type="button"
                                 onClick={() => void handleStatusUpdate('delivered')}
                                 disabled={!canMarkDelivered || updateStatusMutation.isPending}
-                                className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                                className="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                             >
+                                {pendingStatus === 'delivered' && <Loader2 className="h-4 w-4 animate-spin" />}
                                 Mark as Delivered
                             </button>
                         </div>

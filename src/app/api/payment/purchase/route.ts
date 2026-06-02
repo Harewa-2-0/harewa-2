@@ -19,6 +19,7 @@ import {
     validateCartForOrder,
 } from "@/lib/orderFulfillment";
 import { sendOrderStatusEmail } from "@/lib/mailer";
+import { getOrderDisplayLines } from "@/utils/orderCartLines";
 
 export async function POST(request: NextRequest) {
     try {
@@ -36,8 +37,14 @@ export async function POST(request: NextRequest) {
             Order.findOne({ _id: body.orderId, user: user.sub }).populate(
                 getOrderCartPopulateConfig()
             );
-        const notifyStatus = async (status: string, orderId: string) => {
+        const notifyStatus = async (status: string, orderId: string, orderCart?: unknown) => {
             try {
+                const items = getOrderDisplayLines(orderCart as { lines?: unknown[]; products?: unknown[] }).map((line) => ({
+                    name: line.name,
+                    quantity: line.quantity,
+                    imageUrl: line.imageUrl,
+                    unitLabel: line.unitLabel,
+                }));
                 await sendOrderStatusEmail({
                     to: user.email,
                     customerName:
@@ -46,6 +53,7 @@ export async function POST(request: NextRequest) {
                         undefined,
                     orderId,
                     status,
+                    items,
                 });
             } catch (error) {
                 console.error("Failed to send order status email:", error);
@@ -83,7 +91,7 @@ export async function POST(request: NextRequest) {
 
             order.status = "initiated";
             await order.save();
-            await notifyStatus("initiated", String(order._id));
+            await notifyStatus("initiated", String(order._id), order.carts);
 
             const deduct = await deductFunds({
                 amount: order.amount,
@@ -97,7 +105,7 @@ export async function POST(request: NextRequest) {
 
             order.status = "paid";
             await order.save();
-            await notifyStatus("paid", String(order._id));
+            await notifyStatus("paid", String(order._id), order.carts);
             await completeOrderFulfillment(String(order._id), user.sub);
 
             return ok({ success: true, message: "Funds deducted from wallet" });
@@ -119,7 +127,7 @@ export async function POST(request: NextRequest) {
 
             order.status = "initiated";
             await order.save();
-            await notifyStatus("initiated", String(order._id));
+            await notifyStatus("initiated", String(order._id), order.carts);
 
             const paymentInit = await initializePayment2(user.email, order.amount, {
                 items,
@@ -152,7 +160,7 @@ export async function POST(request: NextRequest) {
 
             order.status = "initiated";
             await order.save();
-            await notifyStatus("initiated", String(order._id));
+            await notifyStatus("initiated", String(order._id), order.carts);
 
             const paymentInit = await createCheckoutSession({
                 amount: order.amount,
@@ -164,7 +172,6 @@ export async function POST(request: NextRequest) {
                     uuid,
                     amount: order.amount,
                     type: "order",
-                    items,
                 },
             });
 

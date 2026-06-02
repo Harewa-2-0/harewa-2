@@ -32,10 +32,14 @@ export const notificationTransporter = nodemailer.createTransport({
 /* -------------------------------------------------------------------------- */
 
 export const wrapEmailHtml = (content: string, title?: string) => {
-  // IMPORTANT: For emails to display the logo correctly, NEXT_PUBLIC_BASE_URL must be set to your production domain
-  // Example: NEXT_PUBLIC_BASE_URL=https://harewa.com
-  // The logo must be publicly accessible at: https://yourdomain.com/logoblackBG.png
-  const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  // Use a public base URL for remote email clients. Localhost assets will be broken.
+  const configuredBaseUrl =
+    process.env.EMAIL_ASSET_BASE_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    "https://harewa.com";
+  const siteUrl = configuredBaseUrl.includes("localhost")
+    ? "https://harewa.com"
+    : configuredBaseUrl;
   const logoUrl = `${siteUrl}/logoNobg.webp`;
 
   return `
@@ -446,11 +450,18 @@ export async function sendOrderStatusEmail({
   customerName,
   orderId,
   status,
+  items,
 }: {
   to: string;
   customerName?: string;
   orderId: string;
   status: string;
+  items?: Array<{
+    name: string;
+    quantity: number;
+    imageUrl?: string;
+    unitLabel?: string;
+  }>;
 }) {
   const firstName = customerName ? customerName.trim().split(/\s+/)[0] : "Customer";
   const shortOrderId = orderId.slice(-8);
@@ -494,6 +505,38 @@ export async function sendOrderStatusEmail({
     body: "There is a new update on your order. Please check your account for details.",
   };
 
+  const itemRows =
+    items && items.length > 0
+      ? `
+    <h2 style="font-size: 18px; margin: 24px 0 12px 0;">Items in your order</h2>
+    <table style="width:100%; border-collapse: collapse;">
+      <tbody>
+        ${items
+          .map(
+            (item) => `
+          <tr>
+            <td style="padding: 8px 0; vertical-align: top; width: 56px;">
+              ${
+                item.imageUrl
+                  ? `<img src="${item.imageUrl}" alt="${item.name}" width="48" height="48" style="display:block; width:48px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb;" />`
+                  : `<div style="width:48px; height:48px; border-radius:8px; border:1px solid #e5e7eb; background:#f9fafb;"></div>`
+              }
+            </td>
+            <td style="padding: 8px 0 8px 10px; vertical-align: top;">
+              <p style="margin:0; font-weight:600; color:#111827;">${item.name}</p>
+              <p style="margin:2px 0 0 0; font-size:12px; color:#6b7280;">Qty: ${item.quantity}${
+                item.unitLabel ? ` (${item.unitLabel})` : ""
+              }</p>
+            </td>
+          </tr>
+        `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `
+      : "";
+
   const content = `
     <h1>${copy.title}</h1>
     <p>Hi ${firstName},</p>
@@ -502,6 +545,7 @@ export async function sendOrderStatusEmail({
       <p style="margin: 0;"><strong>Order ID:</strong> #${shortOrderId}</p>
       <p style="margin: 0;"><strong>Current Status:</strong> ${status.charAt(0).toUpperCase() + status.slice(1)}</p>
     </div>
+    ${itemRows}
     <p>Thank you for shopping with Harewa.</p>
   `;
   const payload = {

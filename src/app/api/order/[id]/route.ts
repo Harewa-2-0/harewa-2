@@ -8,6 +8,7 @@ import connectDB from "@/lib/db";
 import { ok, notFound, badRequest } from "@/lib/response";
 import { getOrderCartPopulateConfig } from "@/lib/orderFulfillment";
 import { sendOrderStatusEmail } from "@/lib/mailer";
+import { getOrderDisplayLines } from "@/utils/orderCartLines";
 
 // GET /api/order/[id]
 export async function GET(
@@ -66,17 +67,27 @@ export async function PUT(
             typeof nextStatus === "string"
         ) {
             try {
+                const orderWithCart = await Order.findById(updatedOrder._id)
+                    .populate(getOrderCartPopulateConfig())
+                    .lean();
                 const user = await User.findById(updatedOrder.user).lean();
                 if (user?.email) {
                     const fullName =
                         [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
                         user.username ||
                         undefined;
+                    const items = getOrderDisplayLines(orderWithCart?.carts).map((line) => ({
+                        name: line.name,
+                        quantity: line.quantity,
+                        imageUrl: line.imageUrl,
+                        unitLabel: line.unitLabel,
+                    }));
                     await sendOrderStatusEmail({
                         to: user.email,
                         customerName: fullName,
                         orderId: String(updatedOrder._id),
                         status: nextStatus,
+                        items,
                     });
                 }
             } catch (emailError) {

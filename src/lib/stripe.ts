@@ -18,7 +18,6 @@ export async function createCheckoutSession({
     currency?: string;
     email: string;
     metadata: {
-        items?: any[];
         type: string;
         amount: number;
         uuid: string;
@@ -53,7 +52,6 @@ export async function createCheckoutSession({
             uuid: metadata.uuid,
             amount: metadata.amount?.toString() || "0",
             type: metadata.type,
-            items: JSON.stringify(metadata.items || []),
         },
     });
 

@@ -4,9 +4,10 @@ import { Wallet } from "@/lib/models/Wallet";
 import { addFunds, deductFunds } from "@/lib/wallet";
 import { getUserFromUuid } from "@/lib/utils";
 import { getCheckoutSession } from "@/lib/stripe";
-import { completeOrderFulfillment } from "@/lib/orderFulfillment";
+import { completeOrderFulfillment, loadCartForCheckout } from "@/lib/orderFulfillment";
 import connectDB from "@/lib/db";
 import { sendOrderStatusEmail } from "@/lib/mailer";
+import { getOrderDisplayLines } from "@/utils/orderCartLines";
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
@@ -96,6 +97,13 @@ export async function GET(req: Request) {
             order.status = "paid";
             await order.save();
             try {
+                const cart = await loadCartForCheckout(String(order.carts));
+                const items = getOrderDisplayLines(cart).map((line) => ({
+                    name: line.name,
+                    quantity: line.quantity,
+                    imageUrl: line.imageUrl,
+                    unitLabel: line.unitLabel,
+                }));
                 const fullName =
                     [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
                     user.username ||
@@ -105,6 +113,7 @@ export async function GET(req: Request) {
                     customerName: fullName,
                     orderId,
                     status: "paid",
+                    items,
                 });
             } catch (emailError) {
                 console.error("Failed to send order status email:", emailError);
