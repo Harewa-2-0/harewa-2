@@ -365,7 +365,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
           </h2>
           <button
             onClick={() => setIsOpen?.(false)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
             aria-label="Close cart"
           >
             <X size={24} className="text-gray-600" />
@@ -460,7 +460,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                   <button
                     onClick={handleCheckout}
                     disabled={uniqueItems.length === 0}
-                    className="w-full bg-[#D4AF37] text-black font-medium py-3 px-4 rounded-lg hover:bg-[#B8941F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-[#D4AF37] text-black font-medium py-3 px-4 rounded-lg hover:bg-[#B8941F] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     CHECKOUT
                   </button>
@@ -476,7 +476,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                       setIsOpen?.(false);
                       router.push('/cart');
                     }}
-                    className="w-full bg-white text-black font-medium py-3 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                    className="w-full bg-white text-black font-medium py-3 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer"
                   >
                     VIEW CART
                   </button>

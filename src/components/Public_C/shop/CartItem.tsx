@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Minus, Plus, Trash2, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSizeInitial, type CartLine } from "@/store/cartStore";
@@ -39,20 +39,51 @@ export const CartItem: React.FC<CartItemProps> = ({
 
     // Kept as anchor ref for consistent structure; no floating popovers now.
     const anchorRef = useRef<HTMLDivElement>(null);
+    const itemRowRef = useRef<HTMLDivElement>(null);
     const editorIsOpen = !isFabric && sizePopover?.itemId === item.id;
     const editorMode = sizePopover?.mode ?? 'increase';
     const editorSizes = editorMode === 'increase'
         ? (availableSizes.length > 0 ? availableSizes : Object.keys(sizeBreakdown))
         : Object.keys(sizeBreakdown).filter((size) => (sizeBreakdown[size] || 0) > 0);
+    const [isFocusPulsing, setIsFocusPulsing] = React.useState(false);
+
+    useEffect(() => {
+        if (!editorIsOpen || !itemRowRef.current) return;
+
+        // Ensure the active item + expanded editor are fully visible in the drawer viewport.
+        const scrollToItem = () => {
+            itemRowRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+                inline: "nearest",
+            });
+        };
+
+        const raf = requestAnimationFrame(scrollToItem);
+        const timer = setTimeout(scrollToItem, 140);
+        setIsFocusPulsing(true);
+        const pulseTimer = setTimeout(() => setIsFocusPulsing(false), 450);
+
+        return () => {
+            cancelAnimationFrame(raf);
+            clearTimeout(timer);
+            clearTimeout(pulseTimer);
+        };
+    }, [editorIsOpen]);
 
     return (
         <motion.div
             key={item.id}
+            ref={itemRowRef}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.2 }}
-            className="relative bg-white rounded-xl border border-gray-200 p-4"
+            className={`relative bg-white rounded-xl border p-4 transition-all duration-300 ${
+                isFocusPulsing
+                    ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/25'
+                    : 'border-gray-200'
+            }`}
         >
             <span
                 className={`absolute top-3 right-3 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
