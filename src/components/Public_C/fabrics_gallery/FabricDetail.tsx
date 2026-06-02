@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Minus, Plus, ShoppingBag, Loader2, Ruler, Layers } from 'lucide-react';
 import { useFabricByIdQuery } from '@/hooks/useFabrics';
-import { useAuthAwareCartActions, useCartActions } from '@/hooks/use-cart';
+import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
 import { formatPrice } from '@/utils/currency';
 import {
@@ -24,7 +24,6 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
   const [bundleQty, setBundleQty] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
   const { addFabricToCart } = useAuthAwareCartActions();
-  const { openCart } = useCartActions();
   const { addToast } = useToast();
 
   const purchasable = fabric ? isFabricPurchasable(fabric) : false;
@@ -52,7 +51,6 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
         `Added ${bundleQty} × ${fabric.yardBundle}-yard bundle to cart`,
         'success'
       );
-      openCart();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not add to cart';
       addToast(message, 'error');
@@ -75,7 +73,7 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
         <p className="text-gray-600 mb-6">We couldn&apos;t find this fabric.</p>
         <Link
           href="/fabrics"
-          className="inline-flex items-center gap-2 text-[#B8941F] font-medium hover:text-[#D4AF37] transition-colors"
+          className="inline-flex items-center gap-2 text-[#B8941F] font-medium hover:text-[#D4AF37] transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to gallery
@@ -94,29 +92,29 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
-      className="max-w-6xl mx-auto px-6 pb-20"
+      className="max-w-5xl mx-auto px-4 sm:px-6 pb-14"
     >
       <motion.div
         initial={{ opacity: 0, x: -8 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.1 }}
-        className="mb-8"
+        className="mb-5"
       >
         <Link
           href="/fabrics"
-          className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-[#B8941F] transition-colors group"
+          className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-[#B8941F] transition-colors group cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
           Fabrics gallery
         </Link>
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,440px)_1fr] gap-6 lg:gap-8">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-gray-100 shadow-xl shadow-black/5 ring-1 ring-black/5"
+          className="relative h-[360px] sm:h-[420px] rounded-2xl overflow-hidden bg-gray-100 shadow-lg shadow-black/5 ring-1 ring-black/5"
         >
           <img
             src={fabric.image || '/placeholder-fabric.jpg'}
@@ -137,19 +135,19 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.45 }}
-          className="flex flex-col"
+          className="flex flex-col lg:py-1"
         >
           <p className="text-sm font-medium text-[#B8941F] uppercase tracking-wider mb-2">
             {fabric.type}
           </p>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1.5">
             {fabric.name}
           </h1>
-          <p className="text-gray-600 mb-6">{fabric.color}</p>
+          <p className="text-gray-600 mb-4">{fabric.color}</p>
 
           {purchasable ? (
-            <div className="rounded-2xl border border-[#D4AF37]/25 bg-gradient-to-br from-[#D4AF37]/10 to-white p-6 mb-8">
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="rounded-2xl border border-[#D4AF37]/25 bg-gradient-to-br from-[#D4AF37]/10 to-white p-5 mb-5">
+              <p className="text-xl font-bold text-gray-900">
                 {formatFabricBundlePrice(fabric)}
               </p>
               <p className="text-sm text-gray-600 mt-1">
@@ -162,14 +160,14 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
               )}
             </div>
           ) : (
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 mb-8">
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 mb-5">
               <p className="text-sm text-gray-600">
                 This fabric is for gallery reference only and is not available for online purchase yet.
               </p>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 mb-8 text-sm">
+          <div className="grid grid-cols-2 gap-2.5 mb-5 text-sm">
             {fabric.pattern && (
               <SpecChip icon={<Layers className="w-4 h-4" />} label="Pattern" value={fabric.pattern} />
             )}
@@ -185,7 +183,7 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
           </div>
 
           {purchasable && (
-            <div className="mt-auto space-y-4">
+            <div className="mt-auto space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Number of bundles
@@ -194,7 +192,7 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
                   <button
                     type="button"
                     onClick={() => setBundleQty((q) => Math.max(1, q - 1))}
-                    className="p-3 text-gray-600 hover:bg-[#D4AF37]/10 hover:text-[#B8941F] transition-colors"
+                    className="p-3 text-gray-600 hover:bg-[#D4AF37]/10 hover:text-[#B8941F] transition-colors cursor-pointer"
                     aria-label="Decrease bundles"
                   >
                     <Minus className="w-4 h-4" />
@@ -210,7 +208,7 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
                       )
                     }
                     disabled={maxBundles > 0 && bundleQty >= maxBundles}
-                    className="p-3 text-gray-600 hover:bg-[#D4AF37]/10 hover:text-[#B8941F] transition-colors disabled:opacity-40"
+                    className="p-3 text-gray-600 hover:bg-[#D4AF37]/10 hover:text-[#B8941F] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     aria-label="Increase bundles"
                   >
                     <Plus className="w-4 h-4" />
@@ -227,7 +225,7 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAddToCart}
                 disabled={isAdding || (maxBundles === 0)}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white font-semibold py-4 shadow-lg shadow-[#D4AF37]/25 hover:bg-[#B8941F] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white font-semibold py-4 shadow-lg shadow-[#D4AF37]/25 hover:bg-[#B8941F] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isAdding ? (
                   <Loader2 className="w-5 h-5 animate-spin" />

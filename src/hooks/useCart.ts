@@ -121,7 +121,7 @@ export function useUpdateCartQuantityMutation() {
       return await updateProductQuantityOptimistic(cartId, productId, quantity, currentItems);
     },
     // Optimistic update - update UI immediately
-    onMutate: async ({ productId, quantity }) => {
+    onMutate: async ({ productId, quantity, currentItems }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: cartKeys.mine() });
 
@@ -132,12 +132,16 @@ export function useUpdateCartQuantityMutation() {
       queryClient.setQueryData<CartLine[]>(cartKeys.mine(), (old) => {
         if (!old) return [];
 
-        if (quantity <= 0) {
-          return old.filter(item => item.id !== productId);
-        }
-
         const target = currentItems?.find((i) => i.id === productId);
         const targetType = target?.lineType ?? "product";
+
+        if (quantity <= 0) {
+          return old.filter(
+            (item) =>
+              !(item.id === productId && (item.lineType ?? "product") === targetType)
+          );
+        }
+
         return old.map((item) =>
           item.id === productId && (item.lineType ?? "product") === targetType
             ? { ...item, quantity }

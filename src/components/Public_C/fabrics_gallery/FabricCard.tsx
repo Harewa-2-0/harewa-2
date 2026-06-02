@@ -3,11 +3,14 @@
 import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { ShoppingCart, Loader2 } from 'lucide-react';
 import { type Fabric } from '@/services/fabric';
 import {
   formatFabricBundlePrice,
   isFabricPurchasable,
 } from '@/utils/fabricDisplay';
+import { useAuthAwareCartActions } from '@/hooks/use-cart';
+import { useToast } from '@/contexts/toast-context';
 
 interface FabricCardProps {
   fabric: Fabric;
@@ -19,12 +22,39 @@ interface FabricCardProps {
 
 const FabricCard: React.FC<FabricCardProps> = ({ fabric, variants }) => {
   const purchasable = isFabricPurchasable(fabric);
+  const [isAdding, setIsAdding] = React.useState(false);
+  const { addFabricToCart } = useAuthAwareCartActions();
+  const { addToast } = useToast();
+
+  const handleQuickAdd = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!purchasable || isAdding) return;
+
+    setIsAdding(true);
+    try {
+      await addFabricToCart({
+        id: fabric._id,
+        quantity: 1,
+        price: fabric.bundlePrice,
+        name: fabric.name,
+        image: fabric.image,
+        yardBundle: fabric.yardBundle,
+      });
+      addToast(`Added ${fabric.name} bundle to cart`, 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not add fabric to cart';
+      addToast(message, 'error');
+    } finally {
+      setIsAdding(false);
+    }
+  };
 
   return (
     <motion.div variants={variants} className="group">
       <Link
         href={`/fabrics/${fabric._id}`}
-        className="block bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl ring-1 ring-transparent hover:ring-[#D4AF37]/30 transition-all duration-300"
+        className="block cursor-pointer bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl ring-1 ring-transparent hover:ring-[#D4AF37]/30 transition-all duration-300"
       >
         <div className="relative h-56 sm:h-64 overflow-hidden">
           <img
@@ -47,6 +77,17 @@ const FabricCard: React.FC<FabricCardProps> = ({ fabric, variants }) => {
             <span className="absolute top-3 right-3 rounded-full bg-white/90 text-gray-600 text-xs font-medium px-2.5 py-1">
               Gallery
             </span>
+          )}
+          {purchasable && (
+            <button
+              type="button"
+              onClick={handleQuickAdd}
+              disabled={isAdding}
+              className="absolute bottom-3 right-3 p-2.5 rounded-full bg-white/95 text-[#B8941F] shadow-md hover:bg-[#D4AF37] hover:text-white transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              aria-label={isAdding ? 'Adding to cart' : 'Add bundle to cart'}
+            >
+              {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+            </button>
           )}
         </div>
 

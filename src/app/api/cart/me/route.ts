@@ -4,7 +4,7 @@ export const runtime = 'nodejs';
 import { Cart } from "@/lib/models/Cart";
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
-import { ok, created, serverError, badRequest } from "@/lib/response";
+import { ok, created, serverError, badRequest, unauthorized } from "@/lib/response";
 import { requireAuth } from "@/lib/middleware/requireAuth";
 import {
     applyCartLineInputs,
@@ -37,6 +37,14 @@ export async function GET(request: NextRequest) {
         return ok({ cart });
     } catch (error) {
         console.error("Cart fetch error:", error);
+        const message = error instanceof Error ? error.message : String(error);
+        if (
+            message.includes("Token expired") ||
+            message.includes("Invalid token") ||
+            message.includes("No access token")
+        ) {
+            return unauthorized(message);
+        }
         return serverError("Failed to fetch cart: " + error);
     }
 }
@@ -79,6 +87,13 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error("Cart add error:", error);
         const message = error instanceof Error ? error.message : String(error);
+        if (
+            message.includes("Token expired") ||
+            message.includes("Invalid token") ||
+            message.includes("No access token")
+        ) {
+            return unauthorized(message);
+        }
         return badRequest(message);
     }
 }
