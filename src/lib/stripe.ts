@@ -1,17 +1,7 @@
 import Stripe from "stripe";
 
-let stripeInstance: Stripe | null = null;
-
-export function getStripe(): Stripe {
-    if (!stripeInstance) {
-        const key = process.env.STRIPE_SECRET_KEY;
-        if (!key) {
-            throw new Error("Missing STRIPE_SECRET_KEY environment variable");
-        }
-        stripeInstance = new Stripe(key);
-    }
-    return stripeInstance;
-}
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY as string;
+const stripe = new Stripe(STRIPE_SECRET_KEY);
 
 /**
  * ✅ Create a Stripe Checkout Session
@@ -28,7 +18,6 @@ export async function createCheckoutSession({
     currency?: string;
     email: string;
     metadata: {
-        items?: any[];
         type: string;
         amount: number;
         uuid: string;
@@ -37,7 +26,7 @@ export async function createCheckoutSession({
     successUrl: string;
     cancelUrl: string;
 }): Promise<Stripe.Checkout.Session> {
-    const session = await getStripe().checkout.sessions.create({
+    const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         customer_email: email,
         line_items: [
@@ -63,7 +52,6 @@ export async function createCheckoutSession({
             uuid: metadata.uuid,
             amount: metadata.amount?.toString() || "0",
             type: metadata.type,
-            items: JSON.stringify(metadata.items || []),
         },
     });
 
@@ -83,7 +71,7 @@ export function verifyStripeWebhook(
     }
 
     try {
-        const event = getStripe().webhooks.constructEvent(
+        const event = stripe.webhooks.constructEvent(
             rawBody,
             signature,
             webhookSecret
@@ -102,7 +90,7 @@ export function verifyStripeWebhook(
 export async function getCheckoutSession(
     sessionId: string
 ): Promise<Stripe.Checkout.Session> {
-    const session = await getStripe().checkout.sessions.retrieve(sessionId);
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
     return session as Stripe.Checkout.Session;
 }
 
@@ -112,7 +100,7 @@ export async function getCheckoutSession(
 export async function getPaymentIntent(
     paymentIntentId: string
 ): Promise<Stripe.PaymentIntent> {
-    const pi = await getStripe().paymentIntents.retrieve(paymentIntentId);
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
     return pi as Stripe.PaymentIntent;
 }
 
@@ -133,6 +121,6 @@ export async function refundPayment(
         params.amount = Math.round(amount * 100);
     }
 
-    const refund = await getStripe().refunds.create(params);
+    const refund = await stripe.refunds.create(params);
     return refund as Stripe.Refund;
 }

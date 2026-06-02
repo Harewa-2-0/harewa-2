@@ -143,14 +143,31 @@ const FabricsTable = forwardRef<FabricsTableRef, FabricsTableProps>(({ onFabricC
     },
     { 
       key: 'pricing', 
-      label: 'Pricing & Stock', 
+      label: 'Sale & Stock', 
       render: (fabric) => (
-        <div className="text-sm text-gray-900">
-          <div className="font-medium">
-            {fabric.pricePerMeter ? `${formatPrice(fabric.pricePerMeter)}/m` : 'N/A'}
-          </div>
-          <div className={`text-xs ${fabric.inStock ? 'text-green-600' : 'text-red-600'}`}>
-            {fabric.inStock ? 'In Stock' : 'Out of Stock'}
+        <div className="text-sm text-gray-900 space-y-1">
+          {fabric.isSellable && fabric.yardBundle && fabric.bundlePrice ? (
+            <>
+              <div className="font-medium text-gray-900">
+                {formatPrice(fabric.bundlePrice)}
+                <span className="text-gray-500 font-normal"> / {fabric.yardBundle} yd</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center rounded-full bg-[#D4AF37]/15 px-2 py-0.5 text-xs font-medium text-[#B8941F]">
+                  For sale
+                </span>
+                {typeof fabric.stockBundles === 'number' && (
+                  <span className="text-xs text-gray-500">
+                    {fabric.stockBundles} bundle{fabric.stockBundles === 1 ? '' : 's'}
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <span className="text-gray-500 text-xs">Catalog only</span>
+          )}
+          <div className={`text-xs ${fabric.inStock !== false ? 'text-green-600' : 'text-red-600'}`}>
+            {fabric.inStock !== false ? 'In stock' : 'Out of stock'}
           </div>
         </div>
       )

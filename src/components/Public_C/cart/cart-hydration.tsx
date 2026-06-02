@@ -5,10 +5,11 @@ import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import { useCartDrawerStore } from '@/store/cartDrawerStore';
 import { useCartQuery, useCartRawQuery, useReplaceCartMutation, cartKeys } from '@/hooks/useCart';
-import { addLinesToMyCart, deduplicateCartItems } from '@/services/cart';
+import { addLinesToMyCart, addFabricToMyCart } from '@/services/cart';
 import { useQueryClient } from '@tanstack/react-query';
 import { CartErrorBoundary } from './cart-error-boundary';
 import { useCartSync } from '@/hooks/useCartSync';
+import { dedupeCartLines } from '@/utils/cartDisplay';
 
 /**
  * Cart Hydration Component (React Query Version)
@@ -120,37 +121,82 @@ export function CartHydration() {
         // Set merging flag to prevent sync effect from overwriting
         setIsMerging(true);
         
-        // Merge guest items with server items
-        const merged = deduplicateCartItems([...serverCartItems, ...guestCart]);
+        // Merge guest items with server items (line-type aware)
+        const merged = dedupeCartLines([...serverCartItems, ...guestCart]);
         
         // Optimistically update Zustand immediately with merged cart
         setItems(merged);
         setIsGuestCart(false);
         
-        // If there's a difference, sync to server
-        if (merged.length > serverCartItems.length || 
-            !merged.every((item, i) => serverCartItems[i]?.id === item.id)) {
-          
-          addLinesToMyCart(merged.map(i => ({
-            productId: i.id,
-            quantity: i.quantity,
-            price: i.price,
-          }))).then(() => {
-            // Refetch cart after merge
-            queryClient.invalidateQueries({ queryKey: cartKeys.mine() });
-            // Clear guest cart after successful merge
-            clearGuestCart();
-            console.log('[CartHydration] Guest cart merged successfully');
-            
-            // Clear merging flag after a delay to allow React Query to refetch
-            setTimeout(() => {
+        // If there's a difference, sync guest-only lines to server
+        if (
+          merged.length > serverCartItems.length ||
+          !merged.every(
+            (item, i) =>
+              serverCartItems[i]?.id === item.id &&
+              (serverCartItems[i]?.lineType ?? 'product') === (item.lineType ?? 'product')
+          )
+        ) {
+          const byKey = (line: { id: string; lineType?: string }) =>
+            `${line.lineType ?? 'product'}:${line.id}`;
+          const serverMap = new Map(
+            serverCartItems.map((line) => [byKey(line), Math.max(0, Math.floor(line.quantity || 0))])
+          );
+          const deltaItems = merged
+            .map((line) => {
+              const mergedQty = Math.max(0, Math.floor(line.quantity || 0));
+              const serverQty = serverMap.get(byKey(line)) ?? 0;
+              const delta = mergedQty - serverQty;
+              if (delta <= 0) return null;
+              return { ...line, quantity: delta };
+            })
+            .filter(Boolean) as typeof merged;
+
+          const productLines = deltaItems.filter(
+            (i) => (i.lineType ?? 'product') !== 'fabric'
+          );
+          const fabricLines = deltaItems.filter((i) => i.lineType === 'fabric');
+
+          const mergeRequests: Array<Promise<unknown>> = [];
+
+          if (productLines.length > 0) {
+            mergeRequests.push(
+              addLinesToMyCart(
+                productLines.map((i) => ({
+                  productId: i.id,
+                  quantity: i.quantity,
+                  price: i.price,
+                  productNote: i.productNote as string | undefined,
+                }))
+              )
+            );
+          }
+
+          for (const fabric of fabricLines) {
+            mergeRequests.push(
+              addFabricToMyCart({
+                fabricId: fabric.id,
+                quantity: fabric.quantity,
+              })
+            );
+          }
+
+          Promise.all(mergeRequests)
+            .then(() => {
+              queryClient.invalidateQueries({ queryKey: cartKeys.mine() });
+              clearGuestCart();
+              console.log('[CartHydration] Guest cart merged successfully');
+              setTimeout(() => {
+                setIsMerging(false);
+              }, 500);
+            })
+            .catch((error) => {
+              console.error('[CartHydration] Failed to merge guest cart:', error);
+              // Keep guest cart as fallback if merge fails
+              setItems(guestCart);
+              setIsGuestCart(true);
               setIsMerging(false);
-            }, 500);
-          }).catch((error) => {
-            console.error('[CartHydration] Failed to merge guest cart:', error);
-            // Clear merging flag on error so sync can resume
-            setIsMerging(false);
-          });
+            });
         } else {
           // No merge needed, just clear guest cart
           clearGuestCart();

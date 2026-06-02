@@ -8,8 +8,11 @@ import FilterControls from "./FilterControls";
 import ProductGrid from "./ProductGrid";
 import MobileFilterOverlay from "./MobileFilterOverlay";
 import { useShopProducts } from "@/hooks/useProducts";
+import { useFabricsQuery } from "@/hooks/useFabrics";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/contexts/toast-context";
+import { isFabricPurchasable } from "@/utils/fabricDisplay";
+import FabricShopCard from "./FabricShopCard";
 //import Image from "next/image";
 
 interface FilterState {
@@ -110,6 +113,8 @@ const ReadyToWearPage: React.FC = () => {
   };
 
   const [likedProducts, setLikedProducts] = useState<Set<string>>(new Set());
+  const isFabricCategory = filters.category === "Fabrics";
+  const { data: allFabrics = [], isLoading: loadingFabrics } = useFabricsQuery();
 
   const toggleLike = (productId: string) => {
     setLikedProducts((prev) => {
@@ -143,6 +148,10 @@ const ReadyToWearPage: React.FC = () => {
 
   // No client-side sorting needed, backend handles it
   const sortedProducts = filteredProducts;
+  const sellableFabrics = useMemo(
+    () => allFabrics.filter((fabric) => isFabricPurchasable(fabric)),
+    [allFabrics]
+  );
 
   // Handle page change - reset to page 1 when filters change
   const handlePageChange = (page: number) => {
@@ -194,22 +203,45 @@ const ReadyToWearPage: React.FC = () => {
               filters={filters}
               handleFilterChange={handleFilterChange}
               sizes={sizes}
-              totalItems={paginationData.total}
+              totalItems={isFabricCategory ? sellableFabrics.length : paginationData.total}
             />
           </div>
 
           {/* Product Grid */}
           <div className="flex-1">
-            <ProductGrid
-              products={sortedProducts}
-              loading={loading}
-              error={error}
-              currentPage={currentPage}
-              totalPages={paginationData.totalPages}
-              onPageChange={handlePageChange}
-              onToggleLike={toggleLike}
-              isLoggedIn={isAuthenticated}
-            />
+            {isFabricCategory ? (
+              <>
+                {loadingFabrics ? (
+                  <div className="w-full flex items-center justify-center py-16">
+                    <div className="w-10 h-10 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : sellableFabrics.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No sellable fabrics yet</h3>
+                    <p className="text-gray-500">
+                      Ask admin to enable sellable fabrics with bundle price and stock.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {sellableFabrics.map((fabric) => (
+                      <FabricShopCard key={fabric._id} fabric={fabric} />
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <ProductGrid
+                products={sortedProducts}
+                loading={loading}
+                error={error}
+                currentPage={currentPage}
+                totalPages={paginationData.totalPages}
+                onPageChange={handlePageChange}
+                onToggleLike={toggleLike}
+                isLoggedIn={isAuthenticated}
+              />
+            )}
           </div>
         </div>
       </div>

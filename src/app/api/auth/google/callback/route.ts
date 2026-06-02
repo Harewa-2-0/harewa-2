@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from "next/server";
 import { signAccessToken, signRefreshToken } from "@/lib/jwt";
 import { User } from "@/lib/models/User";
+import { Profile } from "@/lib/models/Profile";
 import dbConnect from "@/lib/db";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
@@ -50,9 +51,24 @@ export async function GET(req: NextRequest) {
     email: profile.email,
     googleId: { $exists: false },
   });
+  const firstName =
+    typeof profile.given_name === "string" && profile.given_name.trim().length
+      ? profile.given_name.trim()
+      : undefined;
+  const lastName =
+    typeof profile.family_name === "string" && profile.family_name.trim().length
+      ? profile.family_name.trim()
+      : undefined;
+  const displayName =
+    typeof profile.name === "string" && profile.name.trim().length
+      ? profile.name.trim()
+      : profile.email.split("@")[0];
+
   if (existingUser) {
     existingUser.googleId = profile.id;
-    existingUser.username = profile.name || profile.email.split("@")[0];
+    existingUser.username = displayName;
+    if (firstName) existingUser.firstName = firstName;
+    if (lastName) existingUser.lastName = lastName;
     existingUser.isVerified = true;
     await existingUser.save();
   }
@@ -64,9 +80,45 @@ export async function GET(req: NextRequest) {
     user = await User.create({
       googleId: profile.id,
       email: profile.email,
-      username: profile.name || profile.email.split("@")[0],
+      username: displayName,
+      firstName,
+      lastName,
       isVerified: true,
     });
+  }
+
+  // Ensure profile doc exists and carries social avatar/name metadata.
+  const existingProfile = await Profile.findOne({ user: user._id });
+  const picture =
+    typeof profile.picture === "string" && profile.picture.trim().length
+      ? profile.picture.trim()
+      : undefined;
+  if (!existingProfile) {
+    await Profile.create({
+      user: user._id,
+      firstName: firstName ?? user.firstName ?? "",
+      lastName: lastName ?? user.lastName ?? "",
+      profilePicture: picture ?? "",
+      bio: "",
+      addresses: [],
+    });
+  } else {
+    let changed = false;
+    if (firstName && existingProfile.firstName !== firstName) {
+      existingProfile.firstName = firstName;
+      changed = true;
+    }
+    if (lastName && existingProfile.lastName !== lastName) {
+      existingProfile.lastName = lastName;
+      changed = true;
+    }
+    if (picture && existingProfile.profilePicture !== picture) {
+      existingProfile.profilePicture = picture;
+      changed = true;
+    }
+    if (changed) {
+      await existingProfile.save();
+    }
   }
 
   // 4) Sign tokens & set cookies
@@ -103,7 +155,15 @@ export async function GET(req: NextRequest) {
     <script>
       // 1) Tell the parent window we succeeded
       window.opener.postMessage(
-        { type: "oauth", status: "success" },
+        { 
+          type: "oauth", 
+          status: "success",
+          user: {
+            name: ${JSON.stringify(displayName)},
+            picture: ${JSON.stringify(picture ?? "")},
+            email: ${JSON.stringify(profile.email)}
+          }
+        },
         window.origin
       );
       // 2) Close the popup

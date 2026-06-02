@@ -1,6 +1,8 @@
 import { api, unwrap, type MaybeWrapped, type Json } from "@/utils/api";
 
 /** ---------- Types ---------- */
+export type YardBundle = 4 | 6;
+
 export type Fabric = {
   _id: string;                 // Mongo ObjectId (use this in URL path)
   name: string;
@@ -12,8 +14,13 @@ export type Fabric = {
   width?: number;              // cm
   composition?: string;
   supplier?: string;
+  /** @deprecated Use bundlePrice + yardBundle */
   pricePerMeter?: number;
   inStock?: boolean;
+  yardBundle?: YardBundle;
+  bundlePrice?: number;
+  stockBundles?: number;
+  isSellable?: boolean;
   createdAt?: string;
   updatedAt?: string;
   [k: string]: Json | undefined;
@@ -31,6 +38,10 @@ export type CreateFabricInput = {
   supplier?: string;
   pricePerMeter?: number;
   inStock?: boolean;
+  yardBundle?: YardBundle;
+  bundlePrice?: number;
+  stockBundles?: number;
+  isSellable?: boolean;
 };
 
 export type UpdateFabricInput = Partial<CreateFabricInput> & {
@@ -88,6 +99,10 @@ export async function createFabric(payload: CreateFabricInput) {
     supplier: payload.supplier,
     pricePerMeter: payload.pricePerMeter,
     inStock: payload.inStock,
+    yardBundle: payload.yardBundle,
+    bundlePrice: payload.bundlePrice,
+    stockBundles: payload.stockBundles,
+    isSellable: payload.isSellable,
   });
 
   console.log('Sending JSON payload:', body);
@@ -118,6 +133,10 @@ export async function updateFabric(_id: string, payload: UpdateFabricInput) {
     supplier: payload.supplier,
     pricePerMeter: payload.pricePerMeter,
     inStock: payload.inStock,
+    yardBundle: payload.yardBundle,
+    bundlePrice: payload.bundlePrice,
+    stockBundles: payload.stockBundles,
+    isSellable: payload.isSellable,
   });
 
   const raw = await api<MaybeWrapped<Fabric>>(paths.update(_id), {

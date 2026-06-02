@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getMyCart,
   addToMyCart,
+  addFabricToMyCart,
   removeProductFromCartById,
   updateProductQuantityOptimistic,
   replaceCartProducts,
@@ -66,6 +67,19 @@ export function useCartRawQuery(enabled: boolean = true, options?: Partial<Param
  * Mutation to add item to cart
  * Automatically refetches cart on success
  */
+export function useAddFabricToCartMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Cart, Error, { fabricId: string; quantity?: number }>({
+    mutationFn: async ({ fabricId, quantity }) => {
+      return await addFabricToMyCart({ fabricId, quantity });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cartKeys.mine() });
+    },
+  });
+}
+
 export function useAddToCartMutation() {
   const queryClient = useQueryClient();
 
@@ -107,7 +121,7 @@ export function useUpdateCartQuantityMutation() {
       return await updateProductQuantityOptimistic(cartId, productId, quantity, currentItems);
     },
     // Optimistic update - update UI immediately
-    onMutate: async ({ productId, quantity }) => {
+    onMutate: async ({ productId, quantity, currentItems }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: cartKeys.mine() });
 
@@ -118,12 +132,20 @@ export function useUpdateCartQuantityMutation() {
       queryClient.setQueryData<CartLine[]>(cartKeys.mine(), (old) => {
         if (!old) return [];
 
+        const target = currentItems?.find((i) => i.id === productId);
+        const targetType = target?.lineType ?? "product";
+
         if (quantity <= 0) {
-          return old.filter(item => item.id !== productId);
+          return old.filter(
+            (item) =>
+              !(item.id === productId && (item.lineType ?? "product") === targetType)
+          );
         }
 
-        return old.map(item =>
-          item.id === productId ? { ...item, quantity } : item
+        return old.map((item) =>
+          item.id === productId && (item.lineType ?? "product") === targetType
+            ? { ...item, quantity }
+            : item
         );
       });
 
@@ -151,20 +173,27 @@ export function useRemoveFromCartMutation() {
   return useMutation<
     Cart,
     Error,
-    { cartId: string; productId: string },
+    { cartId: string; productId: string; lineType?: string },
     CartMutationContext
   >({
-    mutationFn: async ({ cartId, productId }) => {
-      return await removeProductFromCartById(cartId, productId);
+    mutationFn: async ({ cartId, productId, lineType }) => {
+      const { removeCartLineById } = await import("@/services/cart");
+      return await removeCartLineById(cartId, {
+        id: productId,
+        lineType: lineType as "fabric" | "product" | undefined,
+      });
     },
     // Optimistic update
-    onMutate: async ({ productId }) => {
+    onMutate: async ({ productId, lineType }) => {
       await queryClient.cancelQueries({ queryKey: cartKeys.mine() });
       const previousCart = queryClient.getQueryData<CartLine[]>(cartKeys.mine());
 
       queryClient.setQueryData<CartLine[]>(cartKeys.mine(), (old) => {
         if (!old) return [];
-        return old.filter(item => item.id !== productId);
+        return old.filter(
+          (item) =>
+            !(item.id === productId && (item.lineType ?? "product") === (lineType ?? "product"))
+        );
       });
 
       return { previousCart };

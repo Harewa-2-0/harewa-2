@@ -32,10 +32,14 @@ export const notificationTransporter = nodemailer.createTransport({
 /* -------------------------------------------------------------------------- */
 
 export const wrapEmailHtml = (content: string, title?: string) => {
-  // IMPORTANT: For emails to display the logo correctly, NEXT_PUBLIC_BASE_URL must be set to your production domain
-  // Example: NEXT_PUBLIC_BASE_URL=https://harewa.com
-  // The logo must be publicly accessible at: https://yourdomain.com/logoblackBG.png
-  const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  // Use a public base URL for remote email clients. Localhost assets will be broken.
+  const configuredBaseUrl =
+    process.env.EMAIL_ASSET_BASE_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    "https://harewa.com";
+  const siteUrl = configuredBaseUrl.includes("localhost")
+    ? "https://harewa.com"
+    : configuredBaseUrl;
   const logoUrl = `${siteUrl}/logoNobg.webp`;
 
   return `
@@ -440,3 +444,127 @@ export const sendCustomRequestMail = async ({
     html: wrapEmailHtml(html),
   });
 };
+
+export async function sendOrderStatusEmail({
+  to,
+  customerName,
+  orderId,
+  status,
+  items,
+}: {
+  to: string;
+  customerName?: string;
+  orderId: string;
+  status: string;
+  items?: Array<{
+    name: string;
+    quantity: number;
+    imageUrl?: string;
+    unitLabel?: string;
+  }>;
+}) {
+  const firstName = customerName ? customerName.trim().split(/\s+/)[0] : "Customer";
+  const shortOrderId = orderId.slice(-8);
+
+  const statusCopy: Record<
+    string,
+    { title: string; body: string }
+  > = {
+    pending: {
+      title: "Your order is pending",
+      body: "We have received your order and it is currently pending confirmation.",
+    },
+    initiated: {
+      title: "Your order payment is being processed",
+      body: "Your payment flow has started and we will confirm once payment is completed.",
+    },
+    paid: {
+      title: "Your order is confirmed",
+      body: "Payment was received successfully and your order is now confirmed.",
+    },
+    shipping: {
+      title: "Your order is in transit",
+      body: "Your order is now on the way. We are preparing delivery and will notify you again once it is delivered.",
+    },
+    shipped: {
+      title: "Your order has been shipped",
+      body: "Great news! Your order has left our facility and is now with the courier.",
+    },
+    delivered: {
+      title: "Your order has been delivered",
+      body: "Your order was marked as delivered. We hope you love your purchase.",
+    },
+    cancelled: {
+      title: "Your order has been cancelled",
+      body: "Your order was cancelled. If this was unexpected, please contact support.",
+    },
+  };
+
+  const copy = statusCopy[status] ?? {
+    title: "Your order status was updated",
+    body: "There is a new update on your order. Please check your account for details.",
+  };
+
+  const itemRows =
+    items && items.length > 0
+      ? `
+    <h2 style="font-size: 18px; margin: 24px 0 12px 0;">Items in your order</h2>
+    <table style="width:100%; border-collapse: collapse;">
+      <tbody>
+        ${items
+          .map(
+            (item) => `
+          <tr>
+            <td style="padding: 8px 0; vertical-align: top; width: 56px;">
+              ${
+                item.imageUrl
+                  ? `<img src="${item.imageUrl}" alt="${item.name}" width="48" height="48" style="display:block; width:48px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb;" />`
+                  : `<div style="width:48px; height:48px; border-radius:8px; border:1px solid #e5e7eb; background:#f9fafb;"></div>`
+              }
+            </td>
+            <td style="padding: 8px 0 8px 10px; vertical-align: top;">
+              <p style="margin:0; font-weight:600; color:#111827;">${item.name}</p>
+              <p style="margin:2px 0 0 0; font-size:12px; color:#6b7280;">Qty: ${item.quantity}${
+                item.unitLabel ? ` (${item.unitLabel})` : ""
+              }</p>
+            </td>
+          </tr>
+        `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `
+      : "";
+
+  const content = `
+    <h1>${copy.title}</h1>
+    <p>Hi ${firstName},</p>
+    <p>${copy.body}</p>
+    <div class="success-box">
+      <p style="margin: 0;"><strong>Order ID:</strong> #${shortOrderId}</p>
+      <p style="margin: 0;"><strong>Current Status:</strong> ${status.charAt(0).toUpperCase() + status.slice(1)}</p>
+    </div>
+    ${itemRows}
+    <p>Thank you for shopping with Harewa.</p>
+  `;
+  const payload = {
+    to,
+    subject: `Order #${shortOrderId} update: ${status}`,
+    html: wrapEmailHtml(content, `Order ${status} - Harewa`),
+  };
+  try {
+    await notificationTransporter.sendMail({
+      from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
+      ...payload,
+    });
+    return;
+  } catch (notificationError) {
+    console.error("Notification transporter failed for order status email:", notificationError);
+  }
+  // Fallback transporter in case notification credentials are invalid.
+  await teamTransporter.sendMail({
+    from: `"Harewa" <${process.env.TEAM_EMAIL_USER}>`,
+    ...payload,
+  });
+}

@@ -8,6 +8,7 @@ import { useOrderStore } from '@/store/orderStore';
 import { useToast } from '@/contexts/toast-context';
 import { formatPrice } from '@/utils/currency';
 import { useRouter } from 'next/navigation';
+import { getOrderDisplayLines } from '@/utils/orderCartLines';
 
 interface OrderDetailsModalProps {
   isOpen: boolean;
@@ -65,39 +66,12 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     }
   };
 
-  // Helper to safely get products from order
-  const getOrderProducts = () => {
-    if (!order) return [];
-
-    // Check if carts exists and has products
-    if (order.carts && Array.isArray(order.carts.products)) {
-      return order.carts.products;
-    }
-
-    // Fallback: check if products is directly on order
-    if (Array.isArray((order as any).products)) {
-      return (order as any).products;
-    }
-
-    return [];
-  };
-
   if (!isOpen || !orderId) return null;
 
-  const products = getOrderProducts();
-  console.log('Rendered products:', products);
+  const displayLines = getOrderDisplayLines(order?.carts);
+  console.log('Rendered order lines:', displayLines);
 
-  // Calculate actual subtotal from product prices
-  const calculatedSubtotal = products.reduce((total: number, cartProduct: any) => {
-    const product = typeof cartProduct.product === 'object' && cartProduct.product !== null
-      ? cartProduct.product
-      : null;
-
-    if (product?.price) {
-      return total + (product.price * (cartProduct?.quantity || 1));
-    }
-    return total;
-  }, 0);
+  const calculatedSubtotal = displayLines.reduce((total, line) => total + line.lineTotal, 0);
 
   return (
     <AnimatePresence>
@@ -207,76 +181,56 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                         <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                           <h3 className="text-lg font-semibold mb-4 text-gray-900">Order Items</h3>
                           <div className="space-y-4">
-                            {products.length > 0 ? (
-                              products.map((cartProduct: any, index: number) => {
-                                // Handle both populated and unpopulated product references
-                                const product = typeof cartProduct.product === 'object' && cartProduct.product !== null
-                                  ? cartProduct.product
-                                  : null;
-
-                                const productId = typeof cartProduct.product === 'string'
-                                  ? cartProduct.product
-                                  : product?._id;
-
-                                return (
-                                  <div key={productId || index} className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-                                    <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
-                                      {product?.images?.[0] ? (
-                                        <img
-                                          src={product.images[0]}
-                                          alt={product.name || 'Product'}
-                                          className="w-full h-full object-cover"
-                                          onError={(e) => {
-                                            (e.target as HTMLImageElement).style.display = 'none';
-                                          }}
-                                        />
-                                      ) : (
-                                        <Package className="w-6 h-6 text-gray-400" />
-                                      )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <h4 className="font-semibold text-gray-900 truncate">
-                                        {product?.name || `Product ${index + 1}`}
-                                      </h4>
-                                      <div className="flex items-center gap-4 mt-1">
-                                        <p className="text-sm text-gray-600">
-                                          Qty: {cartProduct?.quantity || 1}
-                                        </p>
-                                        {product?.price && (
-                                          <p className="text-sm font-semibold text-gray-900">
-                                            {formatPrice(product.price * (cartProduct?.quantity || 1))}
-                                          </p>
-                                        )}
-                                      </div>
-
-                                      {/* Size Breakdown from productNote */}
-                                      {cartProduct?.productNote && Array.isArray(cartProduct.productNote) && cartProduct.productNote.length > 0 && (
-                                        <div className="mt-2 flex flex-wrap gap-2">
-                                          {cartProduct.productNote.map((note: string, noteIndex: number) => (
-                                            <span
-                                              key={noteIndex}
-                                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#D4AF37]/10 text-[#B8941F] border border-[#D4AF37]/30"
-                                            >
-                                              {note}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
-
-                                      {product?.description && (
-                                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                                          {product.description}
-                                        </p>
-                                      )}
-                                      {!product && (
-                                        <p className="text-xs text-gray-400 mt-1 italic">
-                                          Product details unavailable
-                                        </p>
-                                      )}
-                                    </div>
+                            {displayLines.length > 0 ? (
+                              displayLines.map((line, index) => (
+                                <div key={line.key} className="relative flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                  <span className="absolute right-3 top-3 inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600">
+                                    {line.kind}
+                                  </span>
+                                  <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+                                    {line.imageUrl ? (
+                                      <img
+                                        src={line.imageUrl}
+                                        alt={line.name}
+                                        className="h-full w-full object-cover"
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                        }}
+                                      />
+                                    ) : (
+                                      <Package className="w-6 h-6 text-gray-400" />
+                                    )}
                                   </div>
-                                );
-                              })
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-gray-900 truncate pr-20">
+                                      {line.name || `Item ${index + 1}`}
+                                    </h4>
+                                    <div className="flex items-center gap-4 mt-1">
+                                      <p className="text-sm text-gray-600">
+                                        Qty: {line.quantity}
+                                      </p>
+                                      <p className="text-sm font-semibold text-gray-900">
+                                        {formatPrice(line.lineTotal)}
+                                      </p>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {formatPrice(line.unitPrice)} per {line.unitLabel}
+                                    </p>
+                                    {line.productNote && line.productNote.length > 0 && (
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        {line.productNote.map((note: string, noteIndex: number) => (
+                                          <span
+                                            key={noteIndex}
+                                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#D4AF37]/10 text-[#B8941F] border border-[#D4AF37]/30"
+                                          >
+                                            {note}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))
                             ) : (
                               <div className="text-center py-8 text-gray-500">
                                 <Package className="w-12 h-12 mx-auto mb-3 text-gray-400" />

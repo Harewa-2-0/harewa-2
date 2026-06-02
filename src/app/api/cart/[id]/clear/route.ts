@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
 import { Cart } from "@/lib/models/Cart";
 import { ok, notFound, badRequest } from "@/lib/response";
+import { clearAllCartLines } from "@/lib/cartLines";
 
 // DELETE /api/cart/[id]/clear
 // Remove all products from the cart (clear cart)
@@ -20,7 +21,7 @@ export async function DELETE(
             return notFound("Cart not found");
         }
 
-        cart.products = []; // clear all products
+        clearAllCartLines(cart);
         await cart.save();
 
         return ok({ message: "Cart cleared successfully", cart });

@@ -14,6 +14,7 @@ import { usePendingOrderQuery } from "@/hooks/useOrders";
 import { formatPrice } from "@/utils/currency";
 import { AlertCircle } from "lucide-react";
 import { CartItem } from "./CartItem";
+import { dedupeCartLines, calculateCartSubtotal, getCartLineKey } from "@/utils/cartDisplay";
 
 interface CartUIProps {
   isOpen?: boolean;
@@ -85,28 +86,9 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
   }, [rawCart, isAuthenticated, setCartId]);
 
   // Items should already be deduplicated by the cartStore
-  const uniqueItems = useMemo(() => {
-    const productMap = new Map<string, typeof items[0]>();
+  const uniqueItems = useMemo(() => dedupeCartLines(items), [items]);
 
-    items.forEach((item) => {
-      if (!item || !item.id) return;
-
-      const productId = String(item.id);
-      if (!productMap.has(productId)) {
-        productMap.set(productId, { ...item });
-      }
-    });
-
-    return Array.from(productMap.values());
-  }, [items]);
-
-  const subtotal = useMemo(() => {
-    return uniqueItems.reduce((total, item) => {
-      const itemPrice =
-        typeof item.price === "number" && Number.isFinite(item.price) ? item.price : 0;
-      return total + itemPrice * item.quantity;
-    }, 0);
-  }, [uniqueItems]);
+  const subtotal = useMemo(() => calculateCartSubtotal(uniqueItems), [uniqueItems]);
 
   // Clear toasts when cart opens (consolidated with cart open logic)
   useEffect(() => {
@@ -192,9 +174,12 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   // Handle quantity change - shows popover if multiple sizes exist or multiple available sizes
   const handleQuantityChange = (id: string, mode: 'increase' | 'decrease', showPopover: boolean = false) => {
-    if (pendingOperations.has(id)) return;
-
     const item = items.find(i => i.id === id);
+    if (!item) return;
+    const pendingKey = `${item.lineType ?? 'product'}:${id}`;
+    if (pendingOperations.has(pendingKey)) return;
+
+    const lineType = item.lineType ?? 'product';
     if (!item) return;
 
     // If should show popover, show it to let user choose size
@@ -205,20 +190,23 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
     // Single size or no breakdown - update directly
     const newQty = mode === 'increase' ? item.quantity + 1 : Math.max(0, item.quantity - 1);
-    onChangeQty(id, newQty);
+    onChangeQty(id, newQty, lineType);
   };
 
   // Handle size-specific quantity change (from popover)
   const onChangeSizeQty = async (id: string, size: string, qty: number) => {
-    console.log('[CartUI] onChangeSizeQty called', { id, size, qty, isPending: pendingOperations.has(id) });
+    const line = items.find((i) => i.id === id);
+    const lineType = (line?.lineType ?? 'product') as 'product' | 'fabric';
+    const pendingKey = `${lineType}:${id}`;
+    console.log('[CartUI] onChangeSizeQty called', { id, size, qty, isPending: pendingOperations.has(pendingKey) });
 
-    if (pendingOperations.has(id)) {
+    if (pendingOperations.has(pendingKey)) {
       console.warn('[CartUI] Operation blocked by pendingOperations', id);
       return;
     }
 
     try {
-      setPendingOperations(prev => new Set(prev).add(id));
+      setPendingOperations(prev => new Set(prev).add(pendingKey));
 
       // Update local state immediately (optimistic)
       console.log('[CartUI] calling updateSizeQuantityLocal');
@@ -248,20 +236,21 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     } finally {
       setPendingOperations(prev => {
         const newSet = new Set(prev);
-        newSet.delete(id);
+        newSet.delete(pendingKey);
         return newSet;
       });
     }
   };
 
-  const onChangeQty = async (id: string, qty: number) => {
-    if (pendingOperations.has(id)) return;
+  const onChangeQty = async (id: string, qty: number, lineType: 'product' | 'fabric' = 'product') => {
+    const pendingKey = `${lineType}:${id}`;
+    if (pendingOperations.has(pendingKey)) return;
 
     try {
-      setPendingOperations(prev => new Set(prev).add(id));
+      setPendingOperations(prev => new Set(prev).add(pendingKey));
 
       // Update local state immediately (optimistic)
-      updateQuantityLocal(id, qty);
+      updateQuantityLocal(id, qty, lineType);
 
       // Sync to server if authenticated
       if (isAuthenticated && cartId) {
@@ -287,7 +276,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     } finally {
       setPendingOperations(prev => {
         const newSet = new Set(prev);
-        newSet.delete(id);
+        newSet.delete(pendingKey);
         return newSet;
       });
     }
@@ -295,14 +284,20 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   const onRemove = async (id: string) => {
     try {
+      const line = items.find((i) => i.id === id);
+      const lineType = (line?.lineType ?? 'product') as 'product' | 'fabric';
       // Update local state immediately (optimistic)
-      removeItemLocal(id);
+      removeItemLocal(id, lineType);
       addToast("Item removed from cart", "success");
 
       // Sync to server if authenticated
       if (isAuthenticated && cartId) {
         try {
-          await removeCartMutation.mutateAsync({ cartId, productId: id });
+          await removeCartMutation.mutateAsync({
+            cartId,
+            productId: id,
+            lineType: line?.lineType,
+          });
         } catch (serverError) {
           console.error('Failed to remove item from server:', serverError);
           addToast("Failed to remove item from server. Changes may not be saved.", "error");
@@ -378,7 +373,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
           </h2>
           <button
             onClick={() => setIsOpen?.(false)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
             aria-label="Close cart"
           >
             <X size={24} className="text-gray-600" />
@@ -435,7 +430,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                 <AnimatePresence>
                   {uniqueItems.map((item) => (
                     <CartItem
-                      key={item.id}
+                      key={getCartLineKey(item)}
                       item={item}
                       pendingOperations={pendingOperations}
                       handleQuantityChange={handleQuantityChange}
@@ -473,7 +468,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                   <button
                     onClick={handleCheckout}
                     disabled={uniqueItems.length === 0}
-                    className="w-full bg-[#D4AF37] text-black font-medium py-3 px-4 rounded-lg hover:bg-[#B8941F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-[#D4AF37] text-black font-medium py-3 px-4 rounded-lg hover:bg-[#B8941F] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     CHECKOUT
                   </button>
@@ -489,7 +484,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
                       setIsOpen?.(false);
                       router.push('/cart');
                     }}
-                    className="w-full bg-white text-black font-medium py-3 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                    className="w-full bg-white text-black font-medium py-3 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer"
                   >
                     VIEW CART
                   </button>

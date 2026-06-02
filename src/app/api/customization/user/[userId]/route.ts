@@ -3,7 +3,7 @@ export const runtime = 'nodejs';
 
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
-import { ok, notFound } from "@/lib/response";
+import { ok } from "@/lib/response";
 import { Customization } from "@/lib/models/Customization";
 
 // GET /api/customization/user/[userId]
@@ -16,9 +16,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const customizations = await Customization.find({ user: userId }).lean();
 
-    if (!customizations || customizations.length === 0) {
-        return notFound("No customization requests found for this user");
-    }
-
-    return ok(customizations);
+    return ok(customizations ?? []);
 }

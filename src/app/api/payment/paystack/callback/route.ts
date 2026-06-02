@@ -9,7 +9,9 @@ import { Wallet } from "@/lib/models/Wallet";
 import { addFunds, deductFunds } from "@/lib/wallet";
 import { getUserFromUuid } from "@/lib/utils";
 import { Iuser } from "@/lib/types/auth";
-
+import { completeOrderFulfillment, loadCartForCheckout } from "@/lib/orderFulfillment";
+import { sendOrderStatusEmail } from "@/lib/mailer";
+import { getOrderDisplayLines } from "@/utils/orderCartLines";
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
@@ -19,11 +21,9 @@ export async function GET(req: Request) {
         return badRequest("Missing reference");
     }
 
-
     try {
         await connectDB();
 
-        // Step 1: Verify payment
         const { data } = await axios.get(
             `https://api.paystack.co/transaction/verify/${reference}`,
             {
@@ -34,7 +34,6 @@ export async function GET(req: Request) {
         );
 
         const payment = data?.data;
-        console.log("Payment verification result:", payment);
         if (!payment || payment.status !== "success") {
             return badRequest("Payment not successful");
         }
@@ -44,26 +43,27 @@ export async function GET(req: Request) {
         const user: Iuser = await getUserFromUuid(uuid);
 
         if (!user._id) {
-            badRequest("Missing order ID from payment metadata");
+            return badRequest("Missing user from payment metadata");
         }
 
         if (type == "wallet") {
-            console.log("Adding funds to wallet for user:", user);
             const wallet = await Wallet.findOne({ user: user._id });
-
-            // 1. Check if the reference is already recorded
-            const isDuplicate = wallet.transactions.some((tx: { reference?: string }) => tx.reference === reference);
+            const isDuplicate = wallet?.transactions.some(
+                (tx: { reference?: string }) => tx.reference === reference
+            );
 
             if (isDuplicate) {
-                return serverError('Transaction already processed');
+                return serverError("Transaction already processed");
             }
-            const funds = await addFunds({ amount, userId: user._id, reference });
-            return ok(funds, "Funds  processed successfully");
+            const funds = await addFunds({
+                amount,
+                userId: user._id,
+                reference,
+            });
+            return ok(funds, "Funds processed successfully");
         }
 
         if (type == "order") {
-            await addFunds({ amount, userId: user._id, reference });
-
             const order = await Order.findById(orderId);
             if (!order) {
                 return notFound("Order not found");
@@ -73,17 +73,46 @@ export async function GET(req: Request) {
                 return ok(order, "Order already processed");
             }
 
+            await addFunds({ amount, userId: user._id, reference });
             await deductFunds({
-                amount: order.amount, userId: user._id, reference
+                amount: order.amount,
+                userId: user._id,
+                reference,
             });
 
             order.status = "paid";
             await order.save();
+            try {
+                const cart = await loadCartForCheckout(String(order.carts));
+                const items = getOrderDisplayLines(cart).map((line) => ({
+                    name: line.name,
+                    quantity: line.quantity,
+                    imageUrl: line.imageUrl,
+                    unitLabel: line.unitLabel,
+                }));
+                const fullName =
+                    [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+                    user.username ||
+                    undefined;
+                await sendOrderStatusEmail({
+                    to: user.email,
+                    customerName: fullName,
+                    orderId: String(order._id),
+                    status: "paid",
+                    items,
+                });
+            } catch (emailError) {
+                console.error("Failed to send order status email:", emailError);
+            }
+
+            await completeOrderFulfillment(String(order._id), user._id);
 
             return ok(order, "Order processed successfully");
         }
+
+        return badRequest("Unknown payment type");
     } catch (err: unknown) {
         console.error("Verification failed:", err);
-        return serverError()
+        return serverError();
     }
 }

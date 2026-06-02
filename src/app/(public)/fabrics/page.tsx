@@ -18,7 +18,7 @@ export default function FabricsPage() {
               Fabrics <br /> Gallery
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Explore our collection of premium fabrics for your custom designs.
+              Shop premium fabrics in fixed 4- or 6-yard bundles — material only, not customization.
             </p>
           </div>
         </div>

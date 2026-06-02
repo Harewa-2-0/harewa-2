@@ -38,7 +38,7 @@ const CustomDropdown = ({
     <div className="relative min-w-[140px]" ref={ref}>
       <button
         type="button"
-        className="flex items-center justify-between w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-base font-medium text-black focus:outline-none focus:ring-2 focus:ring-[#D4AF37] hover:border-[#D4AF37] transition-colors"
+        className="flex items-center justify-between w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-base font-medium text-black focus:outline-none focus:ring-2 focus:ring-[#D4AF37] hover:border-[#D4AF37] transition-colors cursor-pointer"
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -83,7 +83,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
   onMobileFilterToggle,
   isMobileFilterOpen,
 }) => {
-  const categories = ["All", "Men", "Women", "Kids"];
+  const categories = ["All", "Men", "Women", "Kids", "Fabrics"];
 
   const getSortDisplayValue = () => {
     switch (sortBy) {
@@ -139,7 +139,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
       <div className="lg:hidden space-y-4">
         <button
           onClick={onMobileFilterToggle}
-          className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg"
+          className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg cursor-pointer"
         >
           Filters
         </button>

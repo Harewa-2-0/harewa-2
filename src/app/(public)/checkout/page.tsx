@@ -93,14 +93,17 @@ export default function CheckoutPage() {
             <span className="text-gray-900 font-medium">Checkout</span>
           </nav> */}
           <h1 className="text-3xl font-bold text-gray-900 mt-2">Checkout</h1>
+          <p className="text-sm text-gray-600 mt-2">
+            Review your items — products and fabric bundles checkout together.
+          </p>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           {/* Left Side - Address Section */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <AddressSection
               selectedAddress={selectedAddress}
               onAddressSelect={handleAddressSelect}
@@ -109,7 +112,7 @@ export default function CheckoutPage() {
           </div>
           
           {/* Right Side - Order Summary */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-2">
             <CartSummary />
           </div>
         </div>

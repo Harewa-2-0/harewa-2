@@ -5,6 +5,7 @@ interface HeaderSectionProps {
 }
 
 const HeaderSection: React.FC<HeaderSectionProps> = ({ category }) => {
+  const isFabricMode = category === 'Fabrics';
   return (
     <div className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -22,13 +23,15 @@ const HeaderSection: React.FC<HeaderSectionProps> = ({ category }) => {
         {/* Page Title */}
         <div className="text-center py-8">
           <h1 className="text-4xl md:text-6xl font-bold text-black mb-2">
-            Ready To Wear
+            {isFabricMode ? 'Fabric Shop' : 'Ready To Wear'}
           </h1>
           <h2 className="text-4xl md:text-6xl font-bold text-black mb-4">
-            Fashion Clothes
+            {isFabricMode ? 'Bundle Deals' : 'Fashion Clothes'}
           </h2>
           <p className="text-[#5D5D5D] md:text-base max-w-2xl mx-auto">
-            Discover vibrant clothes from skilled craftsmen to suit every of your event.
+            {isFabricMode
+              ? 'Browse sellable 4- and 6-yard fabric bundles and add them straight to cart.'
+              : 'Discover vibrant clothes from skilled craftsmen to suit every of your event.'}
           </p>
         </div>
       </div>

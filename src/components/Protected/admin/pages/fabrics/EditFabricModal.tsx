@@ -1,12 +1,22 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useToast } from '@/contexts/toast-context';
 import { colorHexToName } from './utils';
 import { type Fabric } from './FabricsTable';
 import { useUpdateFabricMutation } from '@/hooks/useFabrics';
-import { type UpdateFabricInput } from '@/services/fabric';
+import { type UpdateFabricInput, type YardBundle } from '@/services/fabric';
 import { ButtonSpinner } from '../../components/Spinner';
+import {
+  FabricBundlePricingFields,
+  FabricCommerceReview,
+  FabricStepIndicator,
+  FabricStepPanel,
+  fabricModalMotion,
+  validateCommerceStep,
+  type FabricCommerceFormState,
+} from './FabricFormShared';
 
 // Helper function to convert File to base64 URL (same as AddFabricModal)
 const fileToBase64 = (file: File): Promise<string> => {
@@ -42,9 +52,15 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
     width: '',
     composition: '',
     supplier: '',
-    pricePerMeter: '',
-    inStock: true,
     widthUnit: 'cm',
+  });
+  const [commerce, setCommerce] = useState<FabricCommerceFormState>({
+    isSellable: false,
+    yardBundle: '',
+    bundlePrice: '',
+    stockBundles: '0',
+    supplier: '',
+    inStock: true,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -70,10 +86,15 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
         weight: fabric.weight?.toString() || '',
         width: fabric.width?.toString() || '',
         composition: fabric.composition || '',
-        supplier: fabric.supplier || '',
-        pricePerMeter: fabric.pricePerMeter?.toString() || '',
-        inStock: Boolean(fabric.inStock),
         widthUnit: 'cm',
+      });
+      setCommerce({
+        isSellable: Boolean(fabric.isSellable),
+        yardBundle: fabric.yardBundle === 4 || fabric.yardBundle === 6 ? fabric.yardBundle : '',
+        bundlePrice: fabric.bundlePrice?.toString() || '',
+        stockBundles: fabric.stockBundles?.toString() ?? '0',
+        supplier: fabric.supplier || '',
+        inStock: fabric.inStock !== false,
       });
       setSelectedFile(null);
       setImagePreview(null);
@@ -85,6 +106,13 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
   useEffect(() => {
     setFormData(prev => ({ ...prev, color: colorHexToName(colorHex) }));
   }, [colorHex]);
+
+  const handleCommerceChange = (
+    name: keyof FabricCommerceFormState,
+    value: string | boolean | YardBundle
+  ) => {
+    setCommerce((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type, checked } = e.target as any;
@@ -137,15 +165,15 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
     }
     if (s === 2) return true;
     if (s === 3) {
-      const price = formData.pricePerMeter ? Number(formData.pricePerMeter) : 0;
-      return !(Number.isNaN(price) || price < 0);
+      return validateCommerceStep(commerce) === null;
     }
     return true;
   };
 
   const nextStep = () => {
     if (!canProceedFromStep(step)) {
-      addToast('Please complete required fields on this step.', 'error');
+      const commerceErr = step === 3 ? validateCommerceStep(commerce) : null;
+      addToast(commerceErr || 'Please complete required fields on this step.', 'error');
       return;
     }
     setStep((s) => Math.min(4, s + 1));
@@ -185,9 +213,18 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
         weight: formData.weight ? Number(formData.weight) : undefined,
         width: formData.width ? Number(formData.width) : undefined,
         composition: formData.composition || undefined,
-        supplier: formData.supplier || undefined,
-        pricePerMeter: formData.pricePerMeter ? Number(formData.pricePerMeter) : undefined,
-        inStock: formData.inStock,
+        supplier: commerce.supplier || undefined,
+        inStock: commerce.inStock,
+        isSellable: commerce.isSellable,
+        yardBundle: commerce.isSellable ? (commerce.yardBundle as YardBundle) : undefined,
+        bundlePrice:
+          commerce.isSellable && commerce.bundlePrice
+            ? Number(commerce.bundlePrice)
+            : undefined,
+        stockBundles:
+          commerce.isSellable && commerce.stockBundles !== ''
+            ? Number(commerce.stockBundles)
+            : undefined,
       };
 
       // Use React Query mutation
@@ -205,9 +242,18 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
         weight: formData.weight ? Number(formData.weight) : undefined,
         width: formData.width ? Number(formData.width) : undefined,
         composition: formData.composition,
-        supplier: formData.supplier,
-        pricePerMeter: formData.pricePerMeter ? Number(formData.pricePerMeter) : undefined,
-        inStock: formData.inStock,
+        supplier: commerce.supplier,
+        inStock: commerce.inStock,
+        isSellable: commerce.isSellable,
+        yardBundle: commerce.isSellable ? (commerce.yardBundle as YardBundle) : undefined,
+        bundlePrice:
+          commerce.isSellable && commerce.bundlePrice
+            ? Number(commerce.bundlePrice)
+            : undefined,
+        stockBundles:
+          commerce.isSellable && commerce.stockBundles !== ''
+            ? Number(commerce.stockBundles)
+            : undefined,
         updatedAt: new Date().toISOString(),
       };
       onSuccess?.(updatedFabric);
@@ -234,15 +280,22 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
   if (!isOpen) return null;
 
   return (
-    <div
+    <motion.div
       ref={overlayRef}
       onClick={onOverlayClick}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       aria-modal="true"
       role="dialog"
       aria-labelledby="edit-fabric-modal-title"
+      initial={fabricModalMotion.overlay.initial}
+      animate={fabricModalMotion.overlay.animate}
     >
-      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-xl bg-white shadow-xl overflow-hidden">
+      <motion.div
+        className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl shadow-[#D4AF37]/10 overflow-hidden border border-[#D4AF37]/10"
+        initial={fabricModalMotion.panel.initial}
+        animate={fabricModalMotion.panel.animate}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex-shrink-0 border-b px-6 py-4">
           <div className="flex items-center justify-between">
             <h2 id="edit-fabric-modal-title" className="text-xl font-semibold text-gray-900">Edit Fabric</h2>
@@ -253,21 +306,10 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-6">
-          <div className="flex items-center justify-between mb-6">
-            {['Basic', 'Specifications', 'Pricing & Stock', 'Review'].map((label, idx) => {
-              const n = idx + 1;
-              const active = step === n;
-              const completed = step > n;
-              return (
-                <div key={label} className="flex-1 flex items-center">
-                  <div className={`flex items-center justify-center h-8 w-8 rounded-full text-sm font-medium mr-2 ${completed ? 'bg-[#D4AF37] text-white' : active ? 'border-2 border-[#D4AF37] text-[#D4AF37]' : 'bg-gray-100 text-gray-600'}`}>{n}</div>
-                  <span className={`text-sm ${active ? 'text-gray-900' : 'text-gray-500'}`}>{label}</span>
-                </div>
-              );
-            })}
-          </div>
+          <FabricStepIndicator step={step} />
 
           {step === 1 && (
+            <FabricStepPanel stepKey={1}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
@@ -350,9 +392,11 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
                 <input id="pattern" name="pattern" type="text" value={formData.pattern} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]" required />
               </div>
             </div>
+            </FabricStepPanel>
           )}
 
           {step === 2 && (
+            <FabricStepPanel stepKey={2}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="weight" className="block text-sm font-medium text-gray-700 mb-1">Weight (g/m²)</label>
@@ -374,26 +418,17 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
                 <input id="composition" name="composition" type="text" value={formData.composition} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]" required />
               </div>
             </div>
+            </FabricStepPanel>
           )}
 
           {step === 3 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="supplier" className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
-                <input id="supplier" name="supplier" type="text" value={formData.supplier} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]" required />
-              </div>
-              <div>
-                <label htmlFor="pricePerMeter" className="block text-sm font-medium text-gray-700 mb-1">Price per meter ($)</label>
-                <input id="pricePerMeter" name="pricePerMeter" type="number" step="0.01" min="0" value={formData.pricePerMeter} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37]" required />
-              </div>
-              <div className="flex items-center space-x-2 mt-2">
-                <input id="inStock" name="inStock" type="checkbox" checked={formData.inStock} onChange={handleInputChange} className="h-4 w-4 text-[#D4AF37] border-gray-300 rounded focus:ring-[#D4AF37]" />
-                <label htmlFor="inStock" className="text-sm font-medium text-gray-700">In stock</label>
-              </div>
-            </div>
+            <FabricStepPanel stepKey={3}>
+              <FabricBundlePricingFields values={commerce} onFieldChange={handleCommerceChange} />
+            </FabricStepPanel>
           )}
 
           {step === 4 && (
+            <FabricStepPanel stepKey={4}>
             <div className="space-y-3 text-sm text-gray-800">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
                 <div><span className="text-gray-500">Name:</span> {formData.name || '-'}</div>
@@ -422,11 +457,12 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
                 <div><span className="text-gray-500">Weight:</span> {formData.weight || '-'} {formData.weight ? 'g/m²' : ''}</div>
                 <div><span className="text-gray-500">Width:</span> {formData.width || '-'} {formData.width ? formData.widthUnit : ''}</div>
                 <div className="md:col-span-2"><span className="text-gray-500">Composition:</span> {formData.composition || '-'}</div>
-                <div><span className="text-gray-500">Supplier:</span> {formData.supplier || '-'}</div>
-                <div><span className="text-gray-500">Price/m:</span> {formData.pricePerMeter ? `$${formData.pricePerMeter}` : '-'}</div>
-                <div><span className="text-gray-500">In stock:</span> {formData.inStock ? 'Yes' : 'No'}</div>
+                <div className="md:col-span-2">
+                  <FabricCommerceReview commerce={commerce} />
+                </div>
               </div>
             </div>
+            </FabricStepPanel>
           )}
 
           <div className="flex-shrink-0 flex items-center justify-between mt-6 pt-4 border-t">
@@ -447,8 +483,8 @@ export default function EditFabricModal({ isOpen, onClose, fabric, onSuccess }: 
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

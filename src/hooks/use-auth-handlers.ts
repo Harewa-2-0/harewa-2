@@ -165,11 +165,21 @@ export default function useAuthHandlers() {
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.origin !== window.origin) return;
-      const { type, status } = event.data || {};
+      const { type, status, user: oauthUser } = event.data || {};
       if (type === "oauth" && status === "success") {
         // Popup has closed itself after setting cookies → fetch the user
         getMe()
-          .then(({ user }) => handleAuthSuccess(user, true))
+          .then(({ user }) => {
+            const mergedUser = {
+              ...user,
+              // Keep OAuth payload as fallback when backend profile is still syncing.
+              avatar: user?.avatar || oauthUser?.picture,
+              name: user?.name || oauthUser?.name,
+              fullName: user?.fullName || oauthUser?.name,
+              email: user?.email || oauthUser?.email,
+            };
+            return handleAuthSuccess(mergedUser, true);
+          })
           .catch(() =>
             handleAuthError({ message: "Google login failed or was cancelled." }, true)
           );

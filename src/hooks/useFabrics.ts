@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   getFabrics,
+  getFabricById,
   createFabric,
   updateFabric,
   deleteFabric,
@@ -33,6 +34,19 @@ export function useFabricsQuery(enabled: boolean = true) {
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
     refetchOnWindowFocus: false,
     refetchOnMount: false,
+    retry: 1,
+  });
+}
+
+export function useFabricByIdQuery(id: string | undefined) {
+  return useQuery<Fabric | null, Error>({
+    queryKey: fabricKeys.detail(id ?? ''),
+    queryFn: async () => {
+      if (!id) return null;
+      return await getFabricById(id);
+    },
+    enabled: Boolean(id),
+    staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 }

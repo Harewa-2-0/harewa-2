@@ -8,14 +8,16 @@ import { create } from 'zustand';
 export type SizeBreakdown = Record<string, number>;
 
 export type CartLine = {
-  id: string;          // product id
-  quantity: number;    // total quantity (sum of all sizes)
+  id: string;
+  quantity: number;
   price?: number;
   name?: string;
   image?: string;
-  sizeBreakdown?: SizeBreakdown;  // quantities per size
-  productNote?: string;           // formatted note for backend: "2 small, 3 medium"
-  availableSizes?: string[];      // all available sizes from the product
+  lineType?: 'product' | 'fabric';
+  yardBundle?: number;
+  sizeBreakdown?: SizeBreakdown;
+  productNote?: string;
+  availableSizes?: string[];
 } & Record<string, unknown>;
 
 /** ---------- Size Helpers ---------- */
@@ -100,9 +102,17 @@ type CartState = {
 
   // Actions for local state (used by React Query mutations for optimistic updates)
   addItem: (item: { id: string; quantity?: number; price?: number; size?: string; availableSizes?: string[] } & Record<string, unknown>) => void;
-  updateQuantity: (productId: string, qty: number) => void;
+  addFabricItem: (item: {
+    id: string;
+    quantity: number;
+    price?: number;
+    name?: string;
+    image?: string;
+    yardBundle?: number;
+  }) => void;
+  updateQuantity: (productId: string, qty: number, lineType?: 'product' | 'fabric') => void;
   updateSizeQuantity: (productId: string, size: string, qty: number) => void; // Update specific size quantity
-  removeItem: (productId: string) => void;
+  removeItem: (productId: string, lineType?: 'product' | 'fabric') => void;
   clearCart: () => void;
   setItems: (items: CartLine[]) => void;
   setCartId: (cartId: string | null) => void;
@@ -310,16 +320,65 @@ export const useCartStore = create<CartState>((set, get) => ({
     });
   },
 
-  updateQuantity: (productId, qty) => {
+  addFabricItem: (item) => {
+    set((state) => {
+      const quantity = Math.max(1, Math.floor(item.quantity));
+      const id = String(item.id);
+      const idx = state.items.findIndex(
+        (i) => i.id === id && i.lineType === 'fabric'
+      );
+
+      let updatedItems: CartLine[];
+      if (idx >= 0) {
+        updatedItems = [...state.items];
+        updatedItems[idx] = {
+          ...updatedItems[idx],
+          quantity: updatedItems[idx].quantity + quantity,
+          price: item.price ?? updatedItems[idx].price,
+          name: item.name ?? updatedItems[idx].name,
+          image: item.image ?? updatedItems[idx].image,
+          yardBundle: item.yardBundle ?? updatedItems[idx].yardBundle,
+          lineType: 'fabric',
+        };
+      } else {
+        updatedItems = [
+          ...state.items,
+          {
+            id,
+            lineType: 'fabric',
+            quantity,
+            price: item.price,
+            name: item.name,
+            image: item.image,
+            yardBundle: item.yardBundle,
+          },
+        ];
+      }
+
+      if (state.isGuestCart) {
+        saveGuestCartToStorage(updatedItems);
+      }
+
+      return { items: updatedItems };
+    });
+  },
+
+  updateQuantity: (productId, qty, lineType = 'product') => {
     set((state) => {
       const quantity = Math.max(0, Math.floor(qty));
       let updatedItems: CartLine[];
 
       if (quantity <= 0) {
-        updatedItems = state.items.filter((i) => i.id !== productId);
+        updatedItems = state.items.filter(
+          (i) => !(i.id === productId && (i.lineType ?? 'product') === lineType)
+        );
       } else {
         updatedItems = state.items.map((i) => {
-          if (i.id !== productId) return i;
+          if (!(i.id === productId && (i.lineType ?? 'product') === lineType)) return i;
+
+          if (i.lineType === 'fabric') {
+            return { ...i, quantity };
+          }
 
           // If there's a size breakdown, scale all sizes proportionally
           if (i.sizeBreakdown && Object.keys(i.sizeBreakdown).length > 0) {
@@ -405,9 +464,11 @@ export const useCartStore = create<CartState>((set, get) => ({
     });
   },
 
-  removeItem: (productId) => {
+  removeItem: (productId, lineType = 'product') => {
     set((state) => {
-      const updatedItems = state.items.filter((i) => i.id !== productId);
+      const updatedItems = state.items.filter(
+        (i) => !(i.id === productId && (i.lineType ?? 'product') === lineType)
+      );
 
       // Save to localStorage if guest
       if (state.isGuestCart) {

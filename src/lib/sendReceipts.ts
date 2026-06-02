@@ -21,39 +21,11 @@ export const sendReceiptMail = async ({
 }) => {
     const html = generateReceiptHtml(data);
     const pdfPath = path.join(process.cwd(), "tmp", `receipt-${uuid()}.pdf`);
-
-    // Create PDF using Puppeteer
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
-    try {
-        const firstName = data.customerName ? data.customerName.trim().split(/\s+/)[0] : 'Customer';
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle0' });
-
-        const pdfBuffer = await page.pdf({
-            format: 'A4',
-            printBackground: true,
-            margin: {
-                top: '20px',
-                right: '20px',
-                bottom: '20px',
-                left: '20px'
-            }
-        });
-
-        await writeFile(pdfPath, pdfBuffer);
-
-        const mailOptions = {
-            from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
-            to,
-            subject,
-            html: wrapEmailHtml(`
+    const firstName = data.customerName ? data.customerName.trim().split(/\s+/)[0] : 'Customer';
+    const baseHtml = wrapEmailHtml(`
                 <h1>Payment Receipt</h1>
                 <p>Hi ${firstName},</p>
-                <p>Thank you for your recent payment. We've attached your official receipt (PDF) to this email for your records.</p>
+                <p>Thank you for your recent payment. Your receipt details are included below.</p>
                 
                 <div class="success-box">
                     <p style="margin: 0;"><strong>Receipt ID:</strong> #${data.receiptId}</p>
@@ -69,20 +41,59 @@ export const sendReceiptMail = async ({
                     Best regards,<br>
                     <strong style="color: #1f2937;">The Harewa Team</strong>
                 </p>
-            `, subject),
-            attachments: [
-                {
-                    filename: "receipt.pdf",
-                    path: pdfPath,
-                    contentType: "application/pdf",
-                },
-            ],
-        };
+            `, subject);
 
-        await notificationTransporter.sendMail(mailOptions);
+    const mailOptions: {
+        from: string;
+        to: string;
+        subject: string;
+        html: string;
+        attachments?: { filename: string; path: string; contentType: string }[];
+    } = {
+        from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
+        to,
+        subject,
+        html: baseHtml,
+    };
+
+    let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
+    try {
+        // Try to attach a PDF receipt, but do not fail email delivery if Chromium is unavailable.
+        browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: 'networkidle0' });
+
+        const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: {
+                top: '20px',
+                right: '20px',
+                bottom: '20px',
+                left: '20px'
+            }
+        });
+
+        await writeFile(pdfPath, pdfBuffer);
+        mailOptions.attachments = [
+            {
+                filename: "receipt.pdf",
+                path: pdfPath,
+                contentType: "application/pdf",
+            },
+        ];
+    } catch (error) {
+        console.warn("Receipt PDF generation failed; sending email without attachment:", error);
     } finally {
-        await browser.close();
+        if (browser) {
+            await browser.close();
+        }
     }
+
+    await notificationTransporter.sendMail(mailOptions);
 };
 
 export const generateReceiptHtml = (data: {

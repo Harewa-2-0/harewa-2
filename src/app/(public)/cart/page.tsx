@@ -24,7 +24,7 @@ export default function CartPage() {
   if (!hasHydratedAuth) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-300 border-t-[#fdc713] rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-gray-300 border-t-[#D4AF37] rounded-full animate-spin" />
       </div>
     );
   }

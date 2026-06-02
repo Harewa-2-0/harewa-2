@@ -28,38 +28,32 @@ export function useProfileQuery(enabled: boolean = true) {
     queryKey: profileKeys.mine(),
     queryFn: async () => {
       console.log('[ProfileQuery] Fetching profile from /api/auth/me');
-      // Use /api/auth/me endpoint (correct endpoint that exists)
       const response = await api<any>('/api/auth/me');
       console.log('[ProfileQuery] Raw response:', response);
-      
-      if (response.profile) {
-        // Transform the data to match our expected Profile structure
-        const transformedData: Profile = {
-          _id: response.profile._id,
-          user: {
-            email: response.profile.user?.email || '',
-            username: response.profile.user?.username || '',
-            isVerified: response.profile.user?.isVerified || false,
-            role: response.profile.user?.role || 'user',
-            phoneNumber: response.profile.user?.phoneNumber || '',
-          },
-          firstName: response.profile.firstName || '',
-          lastName: response.profile.lastName || '',
-          bio: response.profile.bio || '',
-          profilePicture: response.profile.profilePicture || '',
-          addresses: response.profile.addresses || []
-        };
-        
-        console.log('[ProfileQuery] Transformed data:', transformedData);
-        
-        // NOTE: We do NOT auto-sync avatar here to prevent race conditions
-        // Avatar syncing happens only on user actions (upload, edit) in mutations
-        
-        return transformedData;
-      }
-      
-      console.error('[ProfileQuery] Invalid response structure:', response);
-      throw new Error('Invalid profile response');
+
+      const profile = response?.profile;
+      const userNode = profile?.user ?? {};
+
+      // Some accounts (especially fresh social logins) may not have a profile document yet.
+      // Return a safe empty profile shape instead of throwing noisy console errors.
+      const transformedData: Profile = {
+        _id: profile?._id || 'pending-profile',
+        user: {
+          email: userNode?.email || '',
+          username: userNode?.username || '',
+          isVerified: Boolean(userNode?.isVerified),
+          role: userNode?.role || 'user',
+          phoneNumber: userNode?.phoneNumber || '',
+        },
+        firstName: profile?.firstName || userNode?.firstName || '',
+        lastName: profile?.lastName || userNode?.lastName || '',
+        bio: profile?.bio || '',
+        profilePicture: profile?.profilePicture || '',
+        addresses: Array.isArray(profile?.addresses) ? profile.addresses : [],
+      };
+
+      console.log('[ProfileQuery] Transformed data:', transformedData);
+      return transformedData;
     },
     enabled: enabled && isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes

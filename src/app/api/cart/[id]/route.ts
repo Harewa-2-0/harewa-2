@@ -5,6 +5,7 @@ import { Cart } from "@/lib/models/Cart";
 import { NextRequest } from "next/server";
 import connectDB from "@/lib/db";
 import { ok, notFound, badRequest } from "@/lib/response";
+import { migrateCartToLines, syncLegacyProductsField } from "@/lib/cartLines";
 
 // GET /api/cart/[id]
 // Get cart by id
@@ -30,9 +31,22 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         const cart = await Cart.findById(id);
 
         if (cart) {
-            cart.products = [...body];
+            if (Array.isArray(body.lines)) {
+                cart.lines = body.lines;
+                migrateCartToLines(cart);
+                syncLegacyProductsField(cart);
+            } else if (Array.isArray(body)) {
+                cart.products = [...body];
+                migrateCartToLines(cart);
+                syncLegacyProductsField(cart);
+            } else if (Array.isArray(body.products)) {
+                cart.products = [...body.products];
+                migrateCartToLines(cart);
+                syncLegacyProductsField(cart);
+            } else {
+                return badRequest("Expected lines array or products array");
+            }
 
-            console.log(cart.products);
             await cart.save();
             return ok(cart);
         }
