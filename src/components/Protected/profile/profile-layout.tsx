@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import MobileNavigation from './mobile-navigation';
@@ -16,6 +16,10 @@ export default function ProfileLayout() {
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromUrl || 'info');
+
+  useEffect(() => {
+    setActiveTab(tabFromUrl || 'info');
+  }, [tabFromUrl]);
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
