@@ -18,19 +18,6 @@ export const OrderCard = ({ order, onOrderDeleted }: { order: Order; onOrderDele
   // React Query mutation for deleting orders
   const deleteOrderMutation = useDeleteOrderMutation();
 
-  const handleDelete = async () => {
-    if (deleteOrderMutation.isPending) return;
-
-    try {
-      await deleteOrderMutation.mutateAsync(order._id);
-      addToast('Order deleted successfully', 'success');
-      // No need to call onOrderDeleted - React Query auto-updates the cache
-    } catch (error) {
-      console.error('Failed to delete order', error);
-      addToast('Failed to delete order. Please try again.', 'error');
-    }
-  };
-
   const handleCancelPending = async () => {
     if (deleteOrderMutation.isPending) return;
 
@@ -67,22 +54,20 @@ export const OrderCard = ({ order, onOrderDeleted }: { order: Order; onOrderDele
       animate={{ opacity: 1, y: 0 }}
       className="bg-white border rounded-lg p-6 hover:shadow-md transition-shadow relative"
     >
-      <button
-        onClick={isPendingOrder ? handleCancelPending : handleDelete}
-        disabled={deleteOrderMutation.isPending}
-        className={`absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors ${isPendingOrder
-            ? 'bg-[#D4AF37] text-black hover:bg-[#B8941F]'
-            : 'bg-gray-200 text-gray-600 hover:bg-red-100 hover:text-red-600'
-          }`}
-        aria-label={isPendingOrder ? "Cancel pending order" : "Delete order"}
-      >
-        {deleteOrderMutation.isPending ? (
-          <div className={`w-4 h-4 border-2 border-gray-300 rounded-full animate-spin ${isPendingOrder ? 'border-t-black' : 'border-t-red-500'
-            }`}></div>
-        ) : (
-          <X size={16} />
-        )}
-      </button>
+      {isPendingOrder && (
+        <button
+          onClick={handleCancelPending}
+          disabled={deleteOrderMutation.isPending}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center bg-[#D4AF37] text-black hover:bg-[#B8941F] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+          aria-label="Cancel pending order"
+        >
+          {deleteOrderMutation.isPending ? (
+            <div className="w-4 h-4 border-2 border-gray-300 rounded-full animate-spin border-t-black"></div>
+          ) : (
+            <X size={16} />
+          )}
+        </button>
+      )}
 
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 pr-10 md:pr-0">
         <div className="min-w-0 flex-1">
@@ -90,12 +75,14 @@ export const OrderCard = ({ order, onOrderDeleted }: { order: Order; onOrderDele
             <h3 className="font-semibold text-base md:text-lg text-gray-900 break-all">
               Order #{order._id.slice(-8)}
             </h3>
-            {isPendingOrder && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium whitespace-nowrap">
+            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${statusInfo.color}`}>
+              {isPendingOrder && (
                 <AlertCircle size={12} />
+              )}
+              <span>
                 {statusInfo.label}
-              </div>
-            )}
+              </span>
+            </div>
           </div>
           <p className="text-xs md:text-sm text-gray-600 font-medium truncate">
             Order date: {formatDate(order.createdAt)}

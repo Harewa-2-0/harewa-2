@@ -18,6 +18,7 @@ import {
     loadCartForCheckout,
     validateCartForOrder,
 } from "@/lib/orderFulfillment";
+import { sendOrderStatusEmail } from "@/lib/mailer";
 
 export async function POST(request: NextRequest) {
     try {
@@ -35,6 +36,28 @@ export async function POST(request: NextRequest) {
             Order.findOne({ _id: body.orderId, user: user.sub }).populate(
                 getOrderCartPopulateConfig()
             );
+        const notifyStatus = async (status: string, orderId: string) => {
+            try {
+                await sendOrderStatusEmail({
+                    to: user.email,
+                    customerName:
+                        [userDetails.firstName, userDetails.lastName].filter(Boolean).join(" ").trim() ||
+                        userDetails.username ||
+                        undefined,
+                    orderId,
+                    status,
+                });
+            } catch (error) {
+                console.error("Failed to send order status email:", error);
+            }
+        };
+        const getCartIdFromOrder = (order: { carts?: unknown }) => {
+            const raw = order?.carts as { _id?: unknown } | string | undefined;
+            if (raw && typeof raw === "object" && "_id" in raw) {
+                return String(raw._id);
+            }
+            return String(raw ?? "");
+        };
 
         // Pay with wallet
         if (body.type == "wallet") {
@@ -51,7 +74,7 @@ export async function POST(request: NextRequest) {
                 return badRequest("Order already processed");
             }
 
-            const cart = await loadCartForCheckout(String(order.carts));
+            const cart = await loadCartForCheckout(getCartIdFromOrder(order));
             await validateCartForOrder(cart);
 
             if (order.amount > wallet.balance) {
@@ -60,6 +83,7 @@ export async function POST(request: NextRequest) {
 
             order.status = "initiated";
             await order.save();
+            await notifyStatus("initiated", String(order._id));
 
             const deduct = await deductFunds({
                 amount: order.amount,
@@ -73,6 +97,7 @@ export async function POST(request: NextRequest) {
 
             order.status = "paid";
             await order.save();
+            await notifyStatus("paid", String(order._id));
             await completeOrderFulfillment(String(order._id), user.sub);
 
             return ok({ success: true, message: "Funds deducted from wallet" });
@@ -88,12 +113,13 @@ export async function POST(request: NextRequest) {
                 return badRequest("Order already processed");
             }
 
-            const cart = await loadCartForCheckout(String(order.carts));
+            const cart = await loadCartForCheckout(getCartIdFromOrder(order));
             await validateCartForOrder(cart);
             const items = buildPaymentLineItems(cart);
 
             order.status = "initiated";
             await order.save();
+            await notifyStatus("initiated", String(order._id));
 
             const paymentInit = await initializePayment2(user.email, order.amount, {
                 items,
@@ -120,12 +146,13 @@ export async function POST(request: NextRequest) {
                 return badRequest("Order already processed");
             }
 
-            const cart = await loadCartForCheckout(String(order.carts));
+            const cart = await loadCartForCheckout(getCartIdFromOrder(order));
             await validateCartForOrder(cart);
             const items = buildPaymentLineItems(cart);
 
             order.status = "initiated";
             await order.save();
+            await notifyStatus("initiated", String(order._id));
 
             const paymentInit = await createCheckoutSession({
                 amount: order.amount,

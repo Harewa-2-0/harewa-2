@@ -10,6 +10,7 @@ import { addFunds, deductFunds } from "@/lib/wallet";
 import { getUserFromUuid } from "@/lib/utils";
 import { Iuser } from "@/lib/types/auth";
 import { completeOrderFulfillment } from "@/lib/orderFulfillment";
+import { sendOrderStatusEmail } from "@/lib/mailer";
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
@@ -80,6 +81,20 @@ export async function GET(req: Request) {
 
             order.status = "paid";
             await order.save();
+            try {
+                const fullName =
+                    [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+                    user.username ||
+                    undefined;
+                await sendOrderStatusEmail({
+                    to: user.email,
+                    customerName: fullName,
+                    orderId: String(order._id),
+                    status: "paid",
+                });
+            } catch (emailError) {
+                console.error("Failed to send order status email:", emailError);
+            }
 
             await completeOrderFulfillment(String(order._id), user._id);
 

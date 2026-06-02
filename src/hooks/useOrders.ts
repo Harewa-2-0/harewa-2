@@ -5,6 +5,7 @@ import {
   getOrders,
   createOrderFromCart, 
   deleteOrder, 
+  updateOrderStatus,
   type Order,
   type OrderPlacementResult 
 } from '@/services/order';
@@ -179,6 +180,28 @@ export function useAdminOrdersQuery(enabled: boolean = true) {
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     retry: 1,
+  });
+}
+
+/**
+ * Hook to update order status (admin flow)
+ */
+export function useUpdateOrderStatusMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Order, Error, { orderId: string; status: Order['status'] }>({
+    mutationFn: async ({ orderId, status }) => updateOrderStatus(orderId, status),
+    onSuccess: (updatedOrder) => {
+      queryClient.setQueryData<Order[]>(orderKeys.admin(), (old = []) =>
+        old.map((order) => (order._id === updatedOrder._id ? updatedOrder : order))
+      );
+      queryClient.setQueryData<Order[]>(orderKeys.mine(), (old = []) =>
+        old.map((order) => (order._id === updatedOrder._id ? updatedOrder : order))
+      );
+      queryClient.invalidateQueries({ queryKey: orderKeys.admin() });
+      queryClient.invalidateQueries({ queryKey: orderKeys.mine() });
+      queryClient.invalidateQueries({ queryKey: orderKeys.byId(updatedOrder._id) });
+    },
   });
 }
 

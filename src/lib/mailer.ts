@@ -440,3 +440,87 @@ export const sendCustomRequestMail = async ({
     html: wrapEmailHtml(html),
   });
 };
+
+export async function sendOrderStatusEmail({
+  to,
+  customerName,
+  orderId,
+  status,
+}: {
+  to: string;
+  customerName?: string;
+  orderId: string;
+  status: string;
+}) {
+  const firstName = customerName ? customerName.trim().split(/\s+/)[0] : "Customer";
+  const shortOrderId = orderId.slice(-8);
+
+  const statusCopy: Record<
+    string,
+    { title: string; body: string }
+  > = {
+    pending: {
+      title: "Your order is pending",
+      body: "We have received your order and it is currently pending confirmation.",
+    },
+    initiated: {
+      title: "Your order payment is being processed",
+      body: "Your payment flow has started and we will confirm once payment is completed.",
+    },
+    paid: {
+      title: "Your order is confirmed",
+      body: "Payment was received successfully and your order is now confirmed.",
+    },
+    shipping: {
+      title: "Your order is in transit",
+      body: "Your order is now on the way. We are preparing delivery and will notify you again once it is delivered.",
+    },
+    shipped: {
+      title: "Your order has been shipped",
+      body: "Great news! Your order has left our facility and is now with the courier.",
+    },
+    delivered: {
+      title: "Your order has been delivered",
+      body: "Your order was marked as delivered. We hope you love your purchase.",
+    },
+    cancelled: {
+      title: "Your order has been cancelled",
+      body: "Your order was cancelled. If this was unexpected, please contact support.",
+    },
+  };
+
+  const copy = statusCopy[status] ?? {
+    title: "Your order status was updated",
+    body: "There is a new update on your order. Please check your account for details.",
+  };
+
+  const content = `
+    <h1>${copy.title}</h1>
+    <p>Hi ${firstName},</p>
+    <p>${copy.body}</p>
+    <div class="success-box">
+      <p style="margin: 0;"><strong>Order ID:</strong> #${shortOrderId}</p>
+      <p style="margin: 0;"><strong>Current Status:</strong> ${status.charAt(0).toUpperCase() + status.slice(1)}</p>
+    </div>
+    <p>Thank you for shopping with Harewa.</p>
+  `;
+  const payload = {
+    to,
+    subject: `Order #${shortOrderId} update: ${status}`,
+    html: wrapEmailHtml(content, `Order ${status} - Harewa`),
+  };
+  try {
+    await notificationTransporter.sendMail({
+      from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
+      ...payload,
+    });
+    return;
+  } catch (notificationError) {
+    console.error("Notification transporter failed for order status email:", notificationError);
+  }
+  // Fallback transporter in case notification credentials are invalid.
+  await teamTransporter.sendMail({
+    from: `"Harewa" <${process.env.TEAM_EMAIL_USER}>`,
+    ...payload,
+  });
+}

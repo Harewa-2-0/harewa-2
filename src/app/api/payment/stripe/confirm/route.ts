@@ -6,6 +6,7 @@ import { getUserFromUuid } from "@/lib/utils";
 import { getCheckoutSession } from "@/lib/stripe";
 import { completeOrderFulfillment } from "@/lib/orderFulfillment";
 import connectDB from "@/lib/db";
+import { sendOrderStatusEmail } from "@/lib/mailer";
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
@@ -94,6 +95,20 @@ export async function GET(req: Request) {
 
             order.status = "paid";
             await order.save();
+            try {
+                const fullName =
+                    [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+                    user.username ||
+                    undefined;
+                await sendOrderStatusEmail({
+                    to: user.email,
+                    customerName: fullName,
+                    orderId,
+                    status: "paid",
+                });
+            } catch (emailError) {
+                console.error("Failed to send order status email:", emailError);
+            }
 
             await completeOrderFulfillment(orderId, user._id);
 
