@@ -94,7 +94,7 @@ export default function CartSummary({ order: _order }: CartSummaryProps) {
         </p>
       )}
 
-      <div className="space-y-3 mb-6 max-h-[420px] overflow-y-auto pr-1">
+      <div className="space-y-3 mb-6 overflow-visible">
         <AnimatePresence mode="popLayout">
           {orderSummary.items.length === 0 ? (
             <p className="text-sm text-gray-500 py-8 text-center">Your cart is empty</p>

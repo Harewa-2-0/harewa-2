@@ -170,10 +170,10 @@ export default function CheckoutSection() {
         </motion.button>
 
         <a
-          href="/fabrics"
+          href="/shop"
           className="mt-4 block text-center text-sm font-medium text-[#B8941F] hover:text-[#D4AF37] transition-colors"
         >
-          Continue shopping fabrics
+          Continue shopping
         </a>
       </motion.div>
     </div>
