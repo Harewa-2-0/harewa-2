@@ -53,7 +53,7 @@ export default function CartSummary({ order: _order }: CartSummaryProps) {
     const pendingKey = `${item.lineType ?? 'product'}:${item.id}`;
     try {
       setPendingOperations((prev) => new Set(prev).add(pendingKey));
-      removeItemLocal(item.id);
+      removeItemLocal(item.id, (item.lineType ?? 'product') as 'product' | 'fabric');
 
       addToast('Item removed from cart', 'success');
 

@@ -174,9 +174,12 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   // Handle quantity change - shows popover if multiple sizes exist or multiple available sizes
   const handleQuantityChange = (id: string, mode: 'increase' | 'decrease', showPopover: boolean = false) => {
-    if (pendingOperations.has(id)) return;
-
     const item = items.find(i => i.id === id);
+    if (!item) return;
+    const pendingKey = `${item.lineType ?? 'product'}:${id}`;
+    if (pendingOperations.has(pendingKey)) return;
+
+    const lineType = item.lineType ?? 'product';
     if (!item) return;
 
     // If should show popover, show it to let user choose size
@@ -187,20 +190,23 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
     // Single size or no breakdown - update directly
     const newQty = mode === 'increase' ? item.quantity + 1 : Math.max(0, item.quantity - 1);
-    onChangeQty(id, newQty);
+    onChangeQty(id, newQty, lineType);
   };
 
   // Handle size-specific quantity change (from popover)
   const onChangeSizeQty = async (id: string, size: string, qty: number) => {
-    console.log('[CartUI] onChangeSizeQty called', { id, size, qty, isPending: pendingOperations.has(id) });
+    const line = items.find((i) => i.id === id);
+    const lineType = (line?.lineType ?? 'product') as 'product' | 'fabric';
+    const pendingKey = `${lineType}:${id}`;
+    console.log('[CartUI] onChangeSizeQty called', { id, size, qty, isPending: pendingOperations.has(pendingKey) });
 
-    if (pendingOperations.has(id)) {
+    if (pendingOperations.has(pendingKey)) {
       console.warn('[CartUI] Operation blocked by pendingOperations', id);
       return;
     }
 
     try {
-      setPendingOperations(prev => new Set(prev).add(id));
+      setPendingOperations(prev => new Set(prev).add(pendingKey));
 
       // Update local state immediately (optimistic)
       console.log('[CartUI] calling updateSizeQuantityLocal');
@@ -230,20 +236,21 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     } finally {
       setPendingOperations(prev => {
         const newSet = new Set(prev);
-        newSet.delete(id);
+        newSet.delete(pendingKey);
         return newSet;
       });
     }
   };
 
-  const onChangeQty = async (id: string, qty: number) => {
-    if (pendingOperations.has(id)) return;
+  const onChangeQty = async (id: string, qty: number, lineType: 'product' | 'fabric' = 'product') => {
+    const pendingKey = `${lineType}:${id}`;
+    if (pendingOperations.has(pendingKey)) return;
 
     try {
-      setPendingOperations(prev => new Set(prev).add(id));
+      setPendingOperations(prev => new Set(prev).add(pendingKey));
 
       // Update local state immediately (optimistic)
-      updateQuantityLocal(id, qty);
+      updateQuantityLocal(id, qty, lineType);
 
       // Sync to server if authenticated
       if (isAuthenticated && cartId) {
@@ -269,7 +276,7 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
     } finally {
       setPendingOperations(prev => {
         const newSet = new Set(prev);
-        newSet.delete(id);
+        newSet.delete(pendingKey);
         return newSet;
       });
     }
@@ -277,14 +284,15 @@ const CartUI = ({ isOpen = true, setIsOpen }: CartUIProps) => {
 
   const onRemove = async (id: string) => {
     try {
+      const line = items.find((i) => i.id === id);
+      const lineType = (line?.lineType ?? 'product') as 'product' | 'fabric';
       // Update local state immediately (optimistic)
-      removeItemLocal(id);
+      removeItemLocal(id, lineType);
       addToast("Item removed from cart", "success");
 
       // Sync to server if authenticated
       if (isAuthenticated && cartId) {
         try {
-          const line = items.find((i) => i.id === id);
           await removeCartMutation.mutateAsync({
             cartId,
             productId: id,

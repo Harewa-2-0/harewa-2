@@ -29,7 +29,8 @@ export const CartItem: React.FC<CartItemProps> = ({
     const name = item.name || (isFabric ? 'Fabric' : 'Product Name');
     const image = item.image || '/placeholder.png';
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
-    const isPending = pendingOperations.has(item.id);
+    const pendingKey = `${item.lineType ?? 'product'}:${item.id}`;
+    const isPending = pendingOperations.has(pendingKey);
     const yardBundle = item.yardBundle as number | undefined;
     const sizeBreakdown = item.sizeBreakdown || {};
     const availableSizes = (item.availableSizes as string[]) || [];

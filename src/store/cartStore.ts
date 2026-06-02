@@ -110,9 +110,9 @@ type CartState = {
     image?: string;
     yardBundle?: number;
   }) => void;
-  updateQuantity: (productId: string, qty: number) => void;
+  updateQuantity: (productId: string, qty: number, lineType?: 'product' | 'fabric') => void;
   updateSizeQuantity: (productId: string, size: string, qty: number) => void; // Update specific size quantity
-  removeItem: (productId: string) => void;
+  removeItem: (productId: string, lineType?: 'product' | 'fabric') => void;
   clearCart: () => void;
   setItems: (items: CartLine[]) => void;
   setCartId: (cartId: string | null) => void;
@@ -363,16 +363,18 @@ export const useCartStore = create<CartState>((set, get) => ({
     });
   },
 
-  updateQuantity: (productId, qty) => {
+  updateQuantity: (productId, qty, lineType = 'product') => {
     set((state) => {
       const quantity = Math.max(0, Math.floor(qty));
       let updatedItems: CartLine[];
 
       if (quantity <= 0) {
-        updatedItems = state.items.filter((i) => i.id !== productId);
+        updatedItems = state.items.filter(
+          (i) => !(i.id === productId && (i.lineType ?? 'product') === lineType)
+        );
       } else {
         updatedItems = state.items.map((i) => {
-          if (i.id !== productId) return i;
+          if (!(i.id === productId && (i.lineType ?? 'product') === lineType)) return i;
 
           if (i.lineType === 'fabric') {
             return { ...i, quantity };
@@ -462,9 +464,11 @@ export const useCartStore = create<CartState>((set, get) => ({
     });
   },
 
-  removeItem: (productId) => {
+  removeItem: (productId, lineType = 'product') => {
     set((state) => {
-      const updatedItems = state.items.filter((i) => i.id !== productId);
+      const updatedItems = state.items.filter(
+        (i) => !(i.id === productId && (i.lineType ?? 'product') === lineType)
+      );
 
       // Save to localStorage if guest
       if (state.isGuestCart) {

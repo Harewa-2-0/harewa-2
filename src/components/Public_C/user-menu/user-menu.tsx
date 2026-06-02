@@ -24,6 +24,7 @@ export default function UserMenu({
   const { user, logout, isAuthenticated } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const router = useRouter();
   const queryClient = useQueryClient();
   
@@ -43,6 +44,8 @@ export default function UserMenu({
   const firstName = profile?.firstName || user?.fullName?.split(' ')[0] || user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'User';
 
   const initial = (profile?.firstName || user?.name || user?.fullName || user?.email || 'U').trim().charAt(0).toUpperCase() || 'U';
+  const avatarSrc = profile?.profilePicture || user?.avatar || '';
+  const showAvatarImage = Boolean(avatarSrc) && !avatarFailed;
 
   const handleToggle = () => setOpen((v) => !v);
 
@@ -82,11 +85,12 @@ export default function UserMenu({
             }`}
             style={{ width: avatarPx, height: avatarPx }}
           >
-            {(profile?.profilePicture || user?.avatar) ? (
+            {showAvatarImage ? (
               <img
-                src={profile?.profilePicture || user?.avatar}
+                src={avatarSrc}
                 alt={`${firstName}'s avatar`}
                 className="w-full h-full object-cover rounded-full"
+                onError={() => setAvatarFailed(true)}
               />
             ) : (
               <span className="font-semibold" style={{ fontSize: 13 }}>
@@ -132,11 +136,12 @@ export default function UserMenu({
               className="relative inline-flex items-center justify-center rounded-full overflow-hidden bg-black text-white select-none border-2 border-[#FDC713] group-hover:border-[#D4AF37] transition-colors"
               style={{ width: avatarPx, height: avatarPx }}
             >
-              {(profile?.profilePicture || user?.avatar) ? (
+              {showAvatarImage ? (
                 <img
-                  src={profile?.profilePicture || user?.avatar}
+                  src={avatarSrc}
                   alt={`${firstName}'s avatar`}
                   className="w-full h-full object-cover rounded-full"
+                  onError={() => setAvatarFailed(true)}
                 />
               ) : (
                 <span className="font-semibold" style={{ fontSize: 14 }}>

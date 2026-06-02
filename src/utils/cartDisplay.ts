@@ -11,9 +11,29 @@ export function dedupeCartLines(items: CartLine[]): CartLine[] {
   for (const item of items) {
     if (!item?.id) continue;
     const key = getCartLineKey(item);
-    if (!map.has(key)) {
+    const existing = map.get(key);
+    if (!existing) {
       map.set(key, { ...item });
+      continue;
     }
+
+    const mergedQty =
+      Math.max(0, Math.floor(existing.quantity || 0)) +
+      Math.max(0, Math.floor(item.quantity || 0));
+
+    map.set(key, {
+      ...existing,
+      ...item,
+      quantity: mergedQty,
+      // Prefer defined metadata while preserving any earlier value.
+      price: item.price ?? existing.price,
+      name: item.name ?? existing.name,
+      image: item.image ?? existing.image,
+      yardBundle: item.yardBundle ?? existing.yardBundle,
+      productNote: item.productNote ?? existing.productNote,
+      sizeBreakdown: item.sizeBreakdown ?? existing.sizeBreakdown,
+      availableSizes: item.availableSizes ?? existing.availableSizes,
+    });
   }
   return Array.from(map.values());
 }

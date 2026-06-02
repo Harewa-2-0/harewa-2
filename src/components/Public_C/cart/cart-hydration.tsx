@@ -137,17 +137,25 @@ export function CartHydration() {
               (serverCartItems[i]?.lineType ?? 'product') === (item.lineType ?? 'product')
           )
         ) {
-          const serverKeys = new Set(
-            serverCartItems.map((item) => `${item.lineType ?? 'product'}:${item.id}`)
+          const byKey = (line: { id: string; lineType?: string }) =>
+            `${line.lineType ?? 'product'}:${line.id}`;
+          const serverMap = new Map(
+            serverCartItems.map((line) => [byKey(line), Math.max(0, Math.floor(line.quantity || 0))])
           );
-          const guestOnlyItems = guestCart.filter(
-            (item) => !serverKeys.has(`${item.lineType ?? 'product'}:${item.id}`)
-          );
+          const deltaItems = merged
+            .map((line) => {
+              const mergedQty = Math.max(0, Math.floor(line.quantity || 0));
+              const serverQty = serverMap.get(byKey(line)) ?? 0;
+              const delta = mergedQty - serverQty;
+              if (delta <= 0) return null;
+              return { ...line, quantity: delta };
+            })
+            .filter(Boolean) as typeof merged;
 
-          const productLines = guestOnlyItems.filter(
+          const productLines = deltaItems.filter(
             (i) => (i.lineType ?? 'product') !== 'fabric'
           );
-          const fabricLines = guestOnlyItems.filter((i) => i.lineType === 'fabric');
+          const fabricLines = deltaItems.filter((i) => i.lineType === 'fabric');
 
           const mergeRequests: Array<Promise<unknown>> = [];
 
@@ -158,6 +166,7 @@ export function CartHydration() {
                   productId: i.id,
                   quantity: i.quantity,
                   price: i.price,
+                  productNote: i.productNote as string | undefined,
                 }))
               )
             );

@@ -324,7 +324,7 @@ export async function addToMyCart(item: AddToMyCartInput) {
 
 /** Add multiple products to cart using POST /api/cart/me endpoint */
 export async function addLinesToMyCart(
-  items: Array<{ productId: string; quantity?: number; price?: number }>
+  items: Array<{ productId: string; quantity?: number; price?: number; productNote?: string | string[] }>
 ) {
   const body = items.map(toBackendLine); // array per backend contract
   const raw = await api<MaybeWrapped<Cart>>(paths.add, {

@@ -100,9 +100,13 @@ export const useAuthAwareCartActions = () => {
    * - Guest: Updates localStorage
    * - Logged-in: Syncs to server
    */
-  const updateCartQuantity = async (productId: string, quantity: number) => {
+  const updateCartQuantity = async (
+    productId: string,
+    quantity: number,
+    lineType: 'product' | 'fabric' = 'product'
+  ) => {
     // Update local state immediately
-    updateQuantityLocal(productId, quantity);
+    updateQuantityLocal(productId, quantity, lineType);
 
     // For logged-in users, mutation is handled by the cart drawer component
     // using useUpdateCartQuantityMutation for better optimistic updates
@@ -113,9 +117,12 @@ export const useAuthAwareCartActions = () => {
    * - Guest: Updates localStorage
    * - Logged-in: Syncs to server
    */
-  const removeFromCart = async (productId: string) => {
+  const removeFromCart = async (
+    productId: string,
+    lineType: 'product' | 'fabric' = 'product'
+  ) => {
     // Update local state immediately
-    removeItemLocal(productId);
+    removeItemLocal(productId, lineType);
 
     // For logged-in users, mutation is handled by the cart drawer component
     // using useRemoveFromCartMutation for better optimistic updates

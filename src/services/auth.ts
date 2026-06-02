@@ -48,11 +48,15 @@ function toUserProfile(payload: any): UserProfile {
   return {
     id,
     email,
-    name: cleanStr(userNode?.username) ?? cleanStr(userNode?.name),
+    // Prefer real display names over technical usernames for social logins.
+    name:
+      cleanStr(userNode?.name) ??
+      compositeFull ??
+      cleanStr(userNode?.username),
     fullName:
       cleanStr(userNode?.name) ??
-      cleanStr(userNode?.username) ??
-      compositeFull,
+      compositeFull ??
+      cleanStr(userNode?.username),
     role,
     avatar: cleanStr(userNode?.avatar) ?? cleanStr(userNode?.picture) ?? cleanStr(profile?.profilePicture),
     isVerified:

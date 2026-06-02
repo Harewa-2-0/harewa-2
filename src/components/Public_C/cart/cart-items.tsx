@@ -34,7 +34,11 @@ export default function CartItems() {
   const uniqueItems = useMemo(() => dedupeCartLines(items), [items]);
 
   const handleQuantityChange = async (id: string, mode: 'increase' | 'decrease', showPopover?: boolean) => {
-    if (pendingOperations.has(id)) return;
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const lineType = (item.lineType ?? 'product') as 'product' | 'fabric';
+    const pendingKey = `${lineType}:${id}`;
+    if (pendingOperations.has(pendingKey)) return;
 
     // If showPopover is true, open the size selector
     if (showPopover) {
@@ -42,12 +46,8 @@ export default function CartItems() {
       return;
     }
 
-    // Otherwise, directly change quantity
-    const item = items.find(i => i.id === id);
-    if (!item) return;
-
     const newQty = mode === 'increase' ? item.quantity + 1 : Math.max(0, item.quantity - 1);
-    await onChangeQty(id, newQty);
+    await onChangeQty(id, newQty, lineType);
   };
 
   const onChangeSizeQty = async (id: string, size: string, newQty: number) => {
@@ -55,14 +55,15 @@ export default function CartItems() {
     setSizePopover(null);
   };
 
-  const onChangeQty = async (id: string, qty: number) => {
-    if (pendingOperations.has(id)) return;
+  const onChangeQty = async (id: string, qty: number, lineType: 'product' | 'fabric' = 'product') => {
+    const pendingKey = `${lineType}:${id}`;
+    if (pendingOperations.has(pendingKey)) return;
 
     try {
-      setPendingOperations(prev => new Set(prev).add(id));
+      setPendingOperations(prev => new Set(prev).add(pendingKey));
 
       // Update local state immediately for optimistic UI
-      updateQuantityLocal(id, qty);
+      updateQuantityLocal(id, qty, lineType);
 
       if (isAuthenticated && cartId) {
         try {
@@ -84,7 +85,7 @@ export default function CartItems() {
     } finally {
       setPendingOperations(prev => {
         const newSet = new Set(prev);
-        newSet.delete(id);
+        newSet.delete(pendingKey);
         return newSet;
       });
     }
@@ -92,7 +93,9 @@ export default function CartItems() {
 
   const onRemove = async (id: string) => {
     try {
-      removeItemLocal(id);
+      const line = items.find((i) => i.id === id);
+      const lineType = (line?.lineType ?? 'product') as 'product' | 'fabric';
+      removeItemLocal(id, lineType);
       addToast('Item removed from cart', 'success');
 
       if (isAuthenticated && cartId) {
