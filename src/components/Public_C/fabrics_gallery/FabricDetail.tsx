@@ -151,7 +151,7 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
                 {formatFabricBundlePrice(fabric)}
               </p>
               <p className="text-sm text-gray-600 mt-1">
-                Sold in whole bundles — not customizable
+                Sold in whole bundles
               </p>
               {typeof fabric.stockBundles === 'number' && fabric.stockBundles > 0 && (
                 <p className="text-xs text-[#B8941F] mt-2 font-medium">

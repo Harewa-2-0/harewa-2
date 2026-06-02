@@ -172,13 +172,9 @@ export default function Header() {
                 onClick={closeMobileNav}
               />
 
-              {/* Mobile menu - starts from top of screen */}
+              {/* Mobile menu - full visible viewport; middle scrolls, footer pinned */}
               <motion.div
-                className="md:hidden fixed top-0 left-0 right-0 w-full bg-black px-5 pb-6 text-white text-base font-medium flex flex-col z-[101]"
-                style={{
-                  height: '100vh',
-                  maxHeight: '100vh',
-                }}
+                className="md:hidden fixed inset-0 w-full bg-black px-5 text-white text-base font-medium flex flex-col z-[101] overflow-hidden h-svh max-h-svh supports-[height:100dvh]:h-dvh supports-[height:100dvh]:max-h-dvh"
                 initial={{ x: '-100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
@@ -189,7 +185,7 @@ export default function Header() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.1 }}
-                  className="flex items-center justify-between py-3 border-b border-gray-700 mb-4 flex-shrink-0"
+                  className="flex items-center justify-between py-3 border-b border-gray-700 mb-2 flex-shrink-0"
                 >
                   <Link href="/home" onClick={closeMobileNav}>
                     <Image src="/logo.webp" alt="Harewa Logo" width={120} height={40} priority />
@@ -203,9 +199,9 @@ export default function Header() {
                   </button>
                 </motion.div>
 
-                {/* Navigation Links - Scrollable when expandables open */}
-                <div className="flex-1 overflow-y-auto min-h-0">
-                  <div className="flex flex-col space-y-4 pt-4">
+                {/* Navigation Links - scrolls only when expandables need extra space */}
+                <div className="flex-1 overflow-y-auto min-h-0 overscroll-y-contain">
+                  <div className="flex flex-col space-y-3 pt-2 pb-2">
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -239,12 +235,12 @@ export default function Header() {
                   </div>
                 </div>
 
-                {/* Auth Buttons & CTA - Always at bottom */}
+                {/* Auth Buttons & CTA - pinned to bottom, always visible */}
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.4 }}
-                  className="flex flex-col space-y-3 pt-6 flex-shrink-0 border-t border-gray-700 mt-4"
+                  className="flex flex-col space-y-3 pt-4 pb-4 flex-shrink-0 border-t border-gray-700 mt-auto"
                 >
                   {isReady && !isLoggedIn && (
                     <div className="flex gap-3">

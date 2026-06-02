@@ -15,10 +15,10 @@ export default function FabricsPage() {
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4">
-              Fabrics <br /> Gallery
+            Shop Premium Fabrics <br/> Loved by Designers Globally
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Shop premium fabrics in fixed 4- or 6-yard bundles — material only, not customization.
+            Discover fabrics that turn every outfit into a statement
             </p>
           </div>
         </div>
