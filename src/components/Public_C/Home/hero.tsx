@@ -62,7 +62,7 @@ const HeroSection = () => {
             >
               Where Innovation
               <br />
-              Meets Fashion
+              Meets Fashion (Dev Test)
             </motion.h1>
 
             <motion.p
