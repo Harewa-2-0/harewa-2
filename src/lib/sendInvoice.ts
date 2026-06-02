@@ -26,14 +26,27 @@ export const sendInvoiceMail = async ({
 }) => {
   const html = generateInvoiceHtml(data);
   const pdfPath = path.join(process.cwd(), "tmp", `invoice-${uuid()}.pdf`);
+  const mailOptions: {
+    from: string;
+    to: string;
+    subject: string;
+    html: string;
+    attachments?: { filename: string; path: string; contentType: string }[];
+  } = {
+    from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
+    to,
+    subject,
+    html: `<p>Hi ${data.customerName},<br/>Please find your invoice details below.</p>`,
+  };
 
-  // Create PDF using Puppeteer
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
-
+  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
   try {
+    // Try PDF attachment; fallback to plain email if Chromium is unavailable.
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
@@ -49,25 +62,22 @@ export const sendInvoiceMail = async ({
     });
 
     await writeFile(pdfPath, pdfBuffer);
-
-    const mailOptions = {
-      from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
-      to,
-      subject,
-      html: `<p>Hi ${data.customerName},<br/>Please find your invoice attached.</p>`,
-      attachments: [
-        {
-          filename: "invoice.pdf",
-          path: pdfPath,
-          contentType: "application/pdf",
-        },
-      ],
-    };
-
-    await notificationTransporter.sendMail(mailOptions);
+    mailOptions.attachments = [
+      {
+        filename: "invoice.pdf",
+        path: pdfPath,
+        contentType: "application/pdf",
+      },
+    ];
+  } catch (error) {
+    console.warn("Invoice PDF generation failed; sending email without attachment:", error);
   } finally {
-    await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
+
+  await notificationTransporter.sendMail(mailOptions);
 };
 
 export const generateInvoiceHtml = (data: {

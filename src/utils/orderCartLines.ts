@@ -9,6 +9,7 @@ export type OrderDisplayLine = {
   key: string;
   kind: "product" | "fabric";
   name: string;
+  imageUrl?: string;
   quantity: number;
   unitLabel: string;
   unitPrice: number;
@@ -49,6 +50,7 @@ export function getOrderDisplayLines(cart: CartShape): OrderDisplayLine[] {
         key: line._id ?? `fabric-${index}`,
         kind: "fabric" as const,
         name: fabric?.name ?? "Fabric",
+        imageUrl: typeof fabric?.image === "string" ? fabric.image : undefined,
         quantity: qty,
         unitLabel: `${yardBundle} yd bundle`,
         unitPrice: bundlePrice,
@@ -63,6 +65,10 @@ export function getOrderDisplayLines(cart: CartShape): OrderDisplayLine[] {
       key: line._id ?? `product-${index}`,
       kind: "product" as const,
       name: product?.name ?? "Product",
+      imageUrl:
+        Array.isArray(product?.images) && product.images.length > 0
+          ? product.images[0]
+          : undefined,
       quantity: qty,
       unitLabel: "unit",
       unitPrice: price,

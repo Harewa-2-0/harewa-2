@@ -8,6 +8,8 @@ import { getOrderById, getOrderStatusInfo, type Order } from '@/services/order';
 import { formatPrice } from '@/utils/currency';
 import { useToast } from '@/contexts/toast-context';
 import { OrderPrint } from '@/components/Protected/admin/pages/orders/print';
+import { getOrderDisplayLines } from '@/utils/orderCartLines';
+import { useUpdateOrderStatusMutation } from '@/hooks/useOrders';
 
 interface PageProps {
     params: Promise<{
@@ -22,6 +24,7 @@ export default function OrderDetailsPage({ params }: PageProps) {
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(true);
     const [showPrint, setShowPrint] = useState(false);
+    const updateStatusMutation = useUpdateOrderStatusMutation();
 
     useEffect(() => {
         const fetchOrder = async () => {
@@ -64,20 +67,30 @@ export default function OrderDetailsPage({ params }: PageProps) {
         return (order.user as any).email || null;
     };
 
-    const getProducts = () => {
-        if (order?.carts) return order.carts.products || [];
-        return [];
+    const canMarkShipped = order && (order.status === 'paid' || order.status === 'shipping');
+    const canMarkDelivered = order && (order.status === 'shipped' || order.status === 'shipping');
+
+    const handleStatusUpdate = async (status: Order['status']) => {
+        if (!order || updateStatusMutation.isPending) return;
+        try {
+            const updated = await updateStatusMutation.mutateAsync({
+                orderId: order._id,
+                status,
+            });
+            setOrder(updated);
+            addToast(`Order marked as ${status}`, 'success');
+        } catch (error) {
+            console.error('Failed to update order status:', error);
+            addToast('Failed to update order status. Please try again.', 'error');
+        }
     };
 
-    // Calculate actual subtotal from product prices
-    const calculatedSubtotal = getProducts().reduce((total, cartProduct: any) => {
-        const product = cartProduct.product;
+    const getDisplayLines = () => getOrderDisplayLines(order?.carts);
 
-        if (product?.price) {
-            return total + (product.price * (cartProduct?.quantity || 1));
-        }
-        return total;
-    }, 0);
+    const calculatedSubtotal = getDisplayLines().reduce(
+        (total, line) => total + line.lineTotal,
+        0
+    );
 
     if (loading) {
         return (
@@ -105,7 +118,7 @@ export default function OrderDetailsPage({ params }: PageProps) {
         );
     }
 
-    const products = getProducts();
+    const displayLines = getDisplayLines();
     const statusInfo = getOrderStatusInfo(order.status);
 
     return (
@@ -148,6 +161,24 @@ export default function OrderDetailsPage({ params }: PageProps) {
                                 {statusInfo.label}
                             </span>
                         </div>
+                        <div className="mb-4 flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => void handleStatusUpdate('shipped')}
+                                disabled={!canMarkShipped || updateStatusMutation.isPending}
+                                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                            >
+                                Mark as Shipped
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void handleStatusUpdate('delivered')}
+                                disabled={!canMarkDelivered || updateStatusMutation.isPending}
+                                className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                            >
+                                Mark as Delivered
+                            </button>
+                        </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                                 <div className="flex items-center gap-2 text-gray-600 mb-1">
@@ -175,55 +206,58 @@ export default function OrderDetailsPage({ params }: PageProps) {
                     >
                         <h2 className="text-xl font-semibold text-gray-900 mb-4">Order Items</h2>
                         <div className="space-y-4">
-                            {products.length > 0 ? (
-                                products.map((cartProduct: any, index: number) => {
-                                    const product = cartProduct.product;
-
-                                    return (
-                                        <div key={cartProduct._id || index} className="flex gap-4 p-4 border border-gray-200 rounded-lg">
-                                            <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                                                {product?.images?.[0] ? (
-                                                    <img
-                                                        src={product.images[0]}
-                                                        alt={product.name || 'Product'}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center">
-                                                        <Package className="w-8 h-8 text-gray-400" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex-1">
-                                                <h3 className="font-semibold text-gray-900 mb-1">
-                                                    {product?.name || `Product ${index + 1}`}
-                                                </h3>
-                                                <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                                                    <span>Qty: {cartProduct.quantity}</span>
-                                                    {product?.price && (
-                                                        <span className="font-semibold text-gray-900">
-                                                            {formatPrice(product.price * cartProduct.quantity)}
-                                                        </span>
-                                                    )}
+                            {displayLines.length > 0 ? (
+                                displayLines.map((line) => (
+                                    <div key={line.key} className="flex gap-4 p-4 border border-gray-200 rounded-lg">
+                                        <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                                            {line.imageUrl ? (
+                                                <img
+                                                    src={line.imageUrl}
+                                                    alt={line.name}
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <Package className="w-8 h-8 text-gray-400" />
                                                 </div>
-
-                                                {/* Size Breakdown */}
-                                                {cartProduct.productNote && Array.isArray(cartProduct.productNote) && cartProduct.productNote.length > 0 && (
-                                                    <div className="flex flex-wrap gap-2 mt-2">
-                                                        {cartProduct.productNote.map((note: string, noteIndex: number) => (
-                                                            <span
-                                                                key={noteIndex}
-                                                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#D4AF37]/10 text-[#B8941F] border border-[#D4AF37]/30"
-                                                            >
-                                                                {note}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
+                                            )}
                                         </div>
-                                    );
-                                })
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h3 className="font-semibold text-gray-900">
+                                                    {line.name}
+                                                </h3>
+                                                <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600">
+                                                    {line.kind}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                                                <span>Qty: {line.quantity}</span>
+                                                <span className="font-semibold text-gray-900">
+                                                    {formatPrice(line.lineTotal)}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-gray-500">
+                                                {formatPrice(line.unitPrice)} per {line.unitLabel}
+                                            </p>
+                                            {line.productNote && line.productNote.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    {line.productNote.map((note: string, noteIndex: number) => (
+                                                        <span
+                                                            key={noteIndex}
+                                                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#D4AF37]/10 text-[#B8941F] border border-[#D4AF37]/30"
+                                                        >
+                                                            {note}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
                             ) : (
                                 <div className="text-center py-8 text-gray-500">
                                     <Package className="w-12 h-12 mx-auto mb-3 text-gray-400" />

@@ -50,6 +50,7 @@ export default function OrdersTable({ filters, activeTab, loading = false, order
       pending: 'bg-[#D4AF37]/20 text-[#D4AF37]',
       initiated: 'bg-blue-100 text-blue-800',
       paid: 'bg-green-100 text-green-800',
+      shipping: 'bg-indigo-100 text-indigo-800',
       shipped: 'bg-blue-100 text-blue-800',
       delivered: 'bg-green-100 text-green-800'
     };

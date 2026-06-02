@@ -53,9 +53,14 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const user = requireAuth(request);
 
-        const wallet = await Wallet.findOne({ user: user.sub });
+        let wallet = await Wallet.findOne({ user: user.sub });
+        // Social/legacy users may not have a wallet yet; create one lazily.
         if (!wallet) {
-            return badRequest("Wallet not found for user");
+            wallet = await Wallet.create({
+                user: user.sub,
+                balance: 0,
+                transactions: [],
+            });
         }
 
         const cart = await loadCartForCheckout(body.carts);

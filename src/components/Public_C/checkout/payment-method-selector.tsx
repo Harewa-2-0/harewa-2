@@ -28,17 +28,21 @@ export default function PaymentMethodSelector({
   const deleteOrderMutation = useDeleteOrderMutation();
   const { setCurrentOrder } = useOrderStore();
 
-  const handleMethodSelect = (method: 'paystack' | 'stripe') => {
+  const handleMethodSelect = async (method: 'paystack' | 'stripe') => {
     if (!isEnabled) return;
     // if (method === 'stripe') return; // Stripe enabled now
     if (method === 'paystack') return; // Paystack disabled for now
+    if (isProcessing) return;
     setSelectedMethod(method);
     onPaymentMethodSelect?.(method);
+    if (method === 'stripe') {
+      await handlePay(method);
+    }
   };
 
-  const handlePay = async () => {
+  const handlePay = async (method: 'paystack' | 'stripe' = selectedMethod ?? 'stripe') => {
     if (!isEnabled) return;
-    if (selectedMethod !== 'stripe') {
+    if (method !== 'stripe') {
       addToast('Please select Stripe to continue.', 'error');
       return;
     }
@@ -146,7 +150,7 @@ export default function PaymentMethodSelector({
             alt="Stripe" 
             width={200} 
             height={120}
-            onClick={() => handleMethodSelect('stripe')}
+            onClick={() => void handleMethodSelect('stripe')}
             className={`
               cursor-pointer transition-all duration-200 rounded-lg border-2 p-4
               ${selectedMethod === 'stripe' 
@@ -165,27 +169,16 @@ export default function PaymentMethodSelector({
               </svg>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* Payment Button */}
-      {selectedMethod === 'stripe' && (
-        <div className="mt-8 text-center">
-          <button
-            onClick={handlePay}
-            disabled={!isEnabled || isProcessing}
-            className={`px-8 py-3 bg-[#D4AF37] text-black font-semibold rounded-lg hover:bg-[#B8941F] transition-colors ${(!isEnabled || isProcessing) ? 'opacity-60 cursor-not-allowed' : ''}`}
-          >
-            {isProcessing ? 'Processing…' : 'PAY WITH STRIPE'}
-          </button>
-          
-          {isProcessing && (
-            <p className="text-sm text-gray-500 mt-2">
-              Please wait, this may take up to 30 seconds...
-            </p>
+          {isProcessing && selectedMethod === 'stripe' && (
+            <div className="absolute inset-0 rounded-lg bg-black/35 flex items-center justify-center">
+              <div className="text-white">
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </div>
+            </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
