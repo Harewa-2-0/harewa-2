@@ -48,7 +48,7 @@ const AboutMenu: React.FC<AboutMenuProps> = ({ isMobile = false }) => {
               className="overflow-hidden"
             >
               <div className="pt-4">
-                <div className="bg-white rounded-lg p-4 text-gray-800 max-h-[70vh] overflow-y-auto">
+                <div className="bg-white rounded-lg p-4 text-gray-800 max-h-[45svh] overflow-y-auto">
                   <h3 className="text-lg font-semibold mb-2">About HAREWA</h3>
                   <div className="h-px bg-gray-200/80 mb-4" />
 

@@ -2,7 +2,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useCartStore, generateProductNote } from "@/store/cartStore";
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useAuthStore } from "@/store/authStore";
-import { useAddToCartMutation, useAddFabricToCartMutation } from "@/hooks/useCart";
+import { useAddToCartMutation, useAddFabricToCartMutation, useUpdateCartQuantityMutation } from "@/hooks/useCart";
 
 // Cart drawer state
 export const useCartOpen = () => useCartDrawerStore((s) => s.isOpen);
@@ -34,6 +34,9 @@ export const useAuthAwareCartActions = () => {
 
   const addToCartMutation = useAddToCartMutation();
   const addFabricToCartMutation = useAddFabricToCartMutation();
+  const updateCartMutation = useUpdateCartQuantityMutation();
+  const cartId = useCartStore((s) => s.cartId);
+  const updateSizeQuantityLocal = useCartStore((s) => s.updateSizeQuantity);
 
   /**
    * Add item to cart
@@ -92,6 +95,24 @@ export const useAuthAwareCartActions = () => {
         // Optimistic update already applied, so cart still shows the item
         // Don't throw - let the user keep their local cart state
       }
+    }
+  };
+
+  /**
+   * Set quantity for a specific size on a product already in cart.
+   */
+  const updateProductSizeQty = async (productId: string, size: string, qty: number) => {
+    updateSizeQuantityLocal(productId, size, qty);
+
+    if (isAuthenticated && cartId) {
+      const freshItems = useCartStore.getState().items;
+      const updatedItem = freshItems.find((i) => i.id === productId);
+      await updateCartMutation.mutateAsync({
+        cartId,
+        productId,
+        quantity: updatedItem?.quantity ?? 0,
+        currentItems: freshItems,
+      });
     }
   };
 
@@ -176,6 +197,7 @@ export const useAuthAwareCartActions = () => {
   return {
     addToCart,
     addFabricToCart,
+    updateProductSizeQty,
     updateCartQuantity,
     removeFromCart,
     clearUserCart,
