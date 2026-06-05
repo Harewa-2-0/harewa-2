@@ -2,7 +2,7 @@
 import React from "react";
 import { motion, Variants } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type HeroCtaVariant = "dark" | "gold";
 
@@ -17,8 +17,6 @@ function HeroCtaButton({
   variant: HeroCtaVariant;
   className?: string;
 }) {
-  const router = useRouter();
-
   const buttonVariants: Variants = {
     hidden: { y: 20, opacity: 0 },
     visible: {
@@ -44,59 +42,58 @@ function HeroCtaButton({
   const isDark = variant === "dark";
 
   return (
-    <motion.button
-      type="button"
-      onClick={() => router.push(href)}
-      className={`group relative inline-flex cursor-pointer items-center gap-2 overflow-hidden px-6 py-3 rounded-full font-medium ${className} ${
-        isDark
-          ? "bg-white text-black border-2 border-black"
-          : "text-black border-2 border-[#FDC713]"
-      }`}
-      style={
-        isDark
-          ? undefined
-          : {
-              backgroundColor: "#FFE181",
-            }
-      }
+    <motion.div
       variants={buttonVariants}
       initial="hidden"
       animate="visible"
       whileHover="hover"
       whileTap="tap"
+      className="inline-flex"
     >
-      {/* Container hover fill */}
-      <span
-        aria-hidden
-        className={`pointer-events-none absolute inset-0 rounded-full scale-0 transition-transform duration-300 ease-out group-hover:scale-100 ${
-          isDark ? "bg-black" : "bg-[#FDC713]/35"
+      <Link
+        href={href}
+        className={`group relative inline-flex cursor-pointer items-center gap-2 overflow-hidden px-6 py-3 rounded-full font-medium ${className} ${
+          isDark
+            ? "bg-white text-black border-2 border-black"
+            : "text-black border-2 border-[#FDC713]"
         }`}
-      />
-
-      {/* Subtle upper-right corner highlight on hover */}
-      <span
-        aria-hidden
-        className={`pointer-events-none absolute -top-6 -right-6 h-12 w-12 rounded-full opacity-0 blur-md transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-1 group-hover:-translate-y-1 ${
-          isDark ? "bg-white/20" : "bg-[#FDC713]/50"
-        }`}
-      />
-
-      <span
-        className={`relative z-10 transition-colors duration-300 ${
-          isDark ? "group-hover:text-white" : ""
-        }`}
+        style={
+          isDark
+            ? undefined
+            : {
+                backgroundColor: "#FFE181",
+              }
+        }
       >
-        {label}
-      </span>
-      <motion.span
-        className={`relative z-10 flex shrink-0 transition-colors duration-300 ${
-          isDark ? "group-hover:text-white" : ""
-        }`}
-        variants={arrowVariants}
-      >
-        <ArrowUpRight size={20} strokeWidth={2.25} />
-      </motion.span>
-    </motion.button>
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute inset-0 rounded-full scale-0 transition-transform duration-300 ease-out group-hover:scale-100 ${
+            isDark ? "bg-black" : "bg-[#FDC713]/35"
+          }`}
+        />
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute -top-6 -right-6 h-12 w-12 rounded-full opacity-0 blur-md transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-1 group-hover:-translate-y-1 ${
+            isDark ? "bg-white/20" : "bg-[#FDC713]/50"
+          }`}
+        />
+        <span
+          className={`relative z-10 transition-colors duration-300 ${
+            isDark ? "group-hover:text-white" : ""
+          }`}
+        >
+          {label}
+        </span>
+        <motion.span
+          className={`relative z-10 flex shrink-0 transition-colors duration-300 ${
+            isDark ? "group-hover:text-white" : ""
+          }`}
+          variants={arrowVariants}
+        >
+          <ArrowUpRight size={20} strokeWidth={2.25} />
+        </motion.span>
+      </Link>
+    </motion.div>
   );
 }
 
@@ -138,8 +135,8 @@ const HeroSection = () => {
       >
         {/* Desktop Layout */}
         <div className="hidden lg:flex flex-col items-center justify-center min-h-[80vh] relative">
-          {/* Text Section */}
-          <div className="text-center mb-0">
+          {/* Text Section — above hero images so CTAs stay clickable */}
+          <div className="relative z-30 text-center mb-0">
             <motion.h1
               className="text-5xl xl:text-6xl font-bold text-gray-900 mb-4 leading-[1]"
               variants={textVariants}
@@ -168,8 +165,8 @@ const HeroSection = () => {
             </motion.div>
           </div>
 
-          {/* Images Layout */}
-          <div className="relative w-full flex justify-center items-center -mt-8 h-[420px] max-h-[68vh]">
+          {/* Images Layout — decorative layer below CTAs */}
+          <div className="relative z-10 w-full flex justify-center items-center -mt-8 h-[420px] max-h-[68vh] pointer-events-none">
             {/* Left Image — tucked up toward CTAs */}
             <motion.div
               className="absolute left-[5%] xl:left-[6%] -top-2 xl:top-0 z-10"
