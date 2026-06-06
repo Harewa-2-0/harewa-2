@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Menu, X, ArrowUpRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 import AnnouncementBar from '../../Home/announcementBar';
 import { useUIStore } from '@/store/uiStore';
@@ -25,11 +26,28 @@ export default function Header() {
   const { isMobileNavOpen, toggleMobileNav, closeMobileNav } = useUIStore();
   const { user, hasHydratedAuth, hasClientHydrated } = useAuthStore();
   const [hideAnnouncement, setHideAnnouncement] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const pathname = usePathname();
   const headerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
     setHideAnnouncement(isMobileNavOpen);
+  }, [isMobileNavOpen]);
+
+  // Lock page scroll while mobile nav is open
+  useEffect(() => {
+    if (!isMobileNavOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
   }, [isMobileNavOpen]);
 
   // Measure and set header height as CSS variable
@@ -157,122 +175,122 @@ export default function Header() {
             </button>
           </div>
         </div>
+      </header>
 
-        {/* Mobile Nav Dropdown - SEPARATE INSTANCE */}
-        <AnimatePresence>
-          {isMobileNavOpen && (
-            <>
-              {/* Full screen backdrop */}
-              <motion.div
-                className="md:hidden fixed inset-0 bg-black/60 z-[100]"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                onClick={closeMobileNav}
-              />
-
-              {/* Mobile menu - full visible viewport; middle scrolls, footer pinned */}
-              <motion.div
-                className="md:hidden fixed inset-0 w-full bg-black px-5 text-white text-base font-medium flex flex-col z-[101] overflow-hidden h-svh max-h-svh supports-[height:100dvh]:h-dvh supports-[height:100dvh]:max-h-dvh"
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-              >
-                {/* Mobile Header inside menu */}
+      {/* Mobile nav rendered on document.body so it isn't clipped by sticky header */}
+      {isMounted &&
+        createPortal(
+          <AnimatePresence>
+            {isMobileNavOpen && (
+              <>
                 <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: 0.1 }}
-                  className="flex items-center justify-between py-3 border-b border-gray-700 mb-2 flex-shrink-0"
-                >
-                  <Link href="/home" onClick={closeMobileNav}>
-                    <Image src="/logo.webp" alt="Harewa Logo" width={120} height={40} priority />
-                  </Link>
-                  <button
-                    onClick={closeMobileNav}
-                    className="text-white p-1"
-                    aria-label="Close navigation"
-                  >
-                    <X size={30} />
-                  </button>
-                </motion.div>
+                  className="md:hidden fixed inset-0 bg-black/60 z-[200]"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  onClick={closeMobileNav}
+                />
 
-                {/* Navigation Links - scrolls only when expandables need extra space */}
-                <div className="flex-1 overflow-y-auto min-h-0 overscroll-y-contain">
-                  <div className="flex flex-col space-y-3 pt-2 pb-2">
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: 0.15 }}
+                <motion.div
+                  className="md:hidden fixed inset-x-0 top-0 w-full bg-black px-5 text-white text-base font-medium flex flex-col z-[201] overflow-hidden h-svh max-h-svh supports-[height:100dvh]:h-dvh supports-[height:100dvh]:max-h-dvh pt-[env(safe-area-inset-top,0px)]"
+                  style={{ height: '100dvh', maxHeight: '100dvh' }}
+                  initial={{ x: '-100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '-100%' }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
+                    className="flex items-center justify-between py-3 border-b border-gray-700 mb-2 flex-shrink-0"
+                  >
+                    <Link href="/home" onClick={closeMobileNav}>
+                      <Image src="/logo.webp" alt="Harewa Logo" width={120} height={40} priority />
+                    </Link>
+                    <button
+                      onClick={closeMobileNav}
+                      className="text-white p-1"
+                      aria-label="Close navigation"
                     >
-                      <FabricMenu isMobile={true} />
-                    </motion.div>
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: 0.2 }}
-                    >
-                      <AboutMenu isMobile={true} />
-                    </motion.div>
-                    {navItems.map(({ label, href }, index) => (
+                      <X size={30} />
+                    </button>
+                  </motion.div>
+
+                  <div className="flex-1 overflow-y-auto min-h-0 overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+                    <div className="flex flex-col space-y-3 pt-2 pb-2">
                       <motion.div
-                        key={label}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: 0.25 + index * 0.05 }}
+                        transition={{ duration: 0.3, delay: 0.15 }}
                       >
-                        <Link
-                          href={href}
-                          onClick={closeMobileNav}
-                          className="block py-2.5 px-2 hover:text-[#FFE181] text-base transition-colors"
-                        >
-                          {label}
-                        </Link>
+                        <FabricMenu isMobile={true} />
                       </motion.div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Auth Buttons & CTA - pinned to bottom, always visible */}
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: 0.4 }}
-                  className="flex flex-col space-y-3 pt-4 pb-4 flex-shrink-0 border-t border-gray-700 mt-auto"
-                >
-                  {isReady && !isLoggedIn && (
-                    <div className="flex gap-3">
-                      <Link
-                        href="/signup"
-                        onClick={closeMobileNav}
-                        className="flex-1 border border-white text-[#D4AF37] text-center px-4 py-3 rounded-full hover:bg-white hover:text-black transition-colors text-sm font-medium"
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.2 }}
                       >
-                        Sign Up
-                      </Link>
-                      <Link
-                        href="/signin"
-                        onClick={closeMobileNav}
-                        className="flex-1 bg-[#FFE181] text-black text-center px-4 py-3 rounded-full hover:bg-yellow-200 transition-colors text-sm font-medium"
-                      >
-                        Login <ArrowUpRight size={14} className="inline ml-1" />
-                      </Link>
+                        <AboutMenu isMobile={true} />
+                      </motion.div>
+                      {navItems.map(({ label, href }, index) => (
+                        <motion.div
+                          key={label}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: 0.25 + index * 0.05 }}
+                        >
+                          <Link
+                            href={href}
+                            onClick={closeMobileNav}
+                            className="block py-2.5 px-2 hover:text-[#FFE181] text-base transition-colors"
+                          >
+                            {label}
+                          </Link>
+                        </motion.div>
+                      ))}
                     </div>
-                  )}
-                  <Link
-                    href="/customize"
-                    onClick={closeMobileNav}
-                    className="bg-[#F4D35E] text-black text-center text-sm py-3 rounded-full hover:bg-[#F4D35E]/90 transition-colors font-medium"
+                  </div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.4 }}
+                    className="flex flex-col space-y-3 pt-4 flex-shrink-0 border-t border-gray-700 mt-auto pb-[max(1rem,env(safe-area-inset-bottom,0px))]"
                   >
-                    Customise Your Fabric
-                  </Link>
+                    {isReady && !isLoggedIn && (
+                      <div className="flex gap-3">
+                        <Link
+                          href="/signup"
+                          onClick={closeMobileNav}
+                          className="flex-1 border border-white text-[#D4AF37] text-center px-4 py-3 rounded-full hover:bg-white hover:text-black transition-colors text-sm font-medium"
+                        >
+                          Sign Up
+                        </Link>
+                        <Link
+                          href="/signin"
+                          onClick={closeMobileNav}
+                          className="flex-1 bg-[#FFE181] text-black text-center px-4 py-3 rounded-full hover:bg-yellow-200 transition-colors text-sm font-medium"
+                        >
+                          Login <ArrowUpRight size={14} className="inline ml-1" />
+                        </Link>
+                      </div>
+                    )}
+                    <Link
+                      href="/customize"
+                      onClick={closeMobileNav}
+                      className="bg-[#F4D35E] text-black text-center text-sm py-3 rounded-full hover:bg-[#F4D35E]/90 transition-colors font-medium"
+                    >
+                      Customise Your Fabric
+                    </Link>
+                  </motion.div>
                 </motion.div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      </header>
+              </>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
     </>
   );
 }

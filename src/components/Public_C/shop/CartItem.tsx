@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { Minus, Plus, Trash2, ChevronUp } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Minus, Plus, Trash2 } from "lucide-react";
+import { motion } from "framer-motion";
 import { getSizeInitial, type CartLine } from "@/store/cartStore";
 import { formatPrice } from "@/utils/currency";
+import { SizeInlineEditor } from "./SizeInlineEditor";
 
 export interface CartItemProps {
     item: CartLine;
@@ -187,83 +188,26 @@ export const CartItem: React.FC<CartItemProps> = ({
                         </button>
                     </div>
 
-                    <AnimatePresence>
-                        {editorIsOpen && (
-                            <motion.div
-                                initial={{ opacity: 0, height: 0, y: -4 }}
-                                animate={{ opacity: 1, height: "auto", y: 0 }}
-                                exit={{ opacity: 0, height: 0, y: -4 }}
-                                transition={{ duration: 0.2 }}
-                                className="mt-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
-                            >
-                                <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-600">
-                                        {editorMode === 'increase' ? 'Add by size' : 'Reduce by size'}
-                                    </p>
-                                    <button
-                                        type="button"
-                                        onClick={() => setSizePopover(null)}
-                                        className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 cursor-pointer"
-                                    >
-                                        Done
-                                        <ChevronUp size={12} />
-                                    </button>
-                                </div>
-                                <div className="p-2.5 space-y-2">
-                                    {editorSizes.length > 0 ? (
-                                        editorSizes.map((size) => {
-                                            const currentQty = sizeBreakdown[size] || 0;
-                                            return (
-                                                <div
-                                                    key={size}
-                                                    className="flex items-center justify-between gap-2 bg-white rounded-md border border-gray-200 px-2.5 py-2"
-                                                >
-                                                    <span className="text-xs font-semibold text-gray-700 min-w-8">
-                                                        {getSizeInitial(size)}
-                                                    </span>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-gray-500 min-w-6 text-center">
-                                                            {currentQty}
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                onChangeSizeQty(
-                                                                    item.id,
-                                                                    size,
-                                                                    Math.max(0, currentQty - 1)
-                                                                )
-                                                            }
-                                                            disabled={isPending || currentQty <= 0}
-                                                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                                                            aria-label={`Decrease ${size}`}
-                                                        >
-                                                            <Minus size={12} className="text-gray-600" />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                onChangeSizeQty(item.id, size, currentQty + 1)
-                                                            }
-                                                            disabled={isPending}
-                                                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                                                            aria-label={`Increase ${size}`}
-                                                        >
-                                                            <Plus size={12} className="text-gray-600" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    ) : (
-                                        <p className="text-xs text-gray-500 text-center py-2">
-                                            No sizes available
-                                        </p>
-                                    )}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                    <div className="mt-3">
+                        <SizeInlineEditor
+                        isOpen={editorIsOpen}
+                        sizes={editorSizes}
+                        sizeBreakdown={sizeBreakdown}
+                        title={editorMode === 'increase' ? 'Add by size' : 'Reduce by size'}
+                        isPending={isPending}
+                        onClose={() => setSizePopover(null)}
+                        onIncrease={(size) =>
+                            onChangeSizeQty(item.id, size, (sizeBreakdown[size] || 0) + 1)
+                        }
+                        onDecrease={(size) =>
+                            onChangeSizeQty(
+                                item.id,
+                                size,
+                                Math.max(0, (sizeBreakdown[size] || 0) - 1)
+                            )
+                        }
+                        />
+                    </div>
                 </div>
             </div>
         </motion.div>
