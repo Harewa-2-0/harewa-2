@@ -30,7 +30,7 @@ const mulish = Mulish({
 });
 
 export const metadata: Metadata = {
-  title: "Harewa – Fashion-Tech Platfo",
+  title: "Harewa – Everything Fashion",
   description:
     "Discover fashion trends, shop ready-to-wear apparel, explore fabrics and accessories, and interact with an AI stylist — built for event planners and designers.",
   keywords: [
