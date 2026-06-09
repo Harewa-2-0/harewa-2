@@ -6,7 +6,11 @@ import { signAccessToken, signRefreshToken } from "@/lib/jwt";
 import bcrypt from "bcryptjs";
 import { User } from "@/lib/models/User";
 import dbConnect from "@/lib/db";
-import { sendAdminVerificationEmail, sendVerificationEmail } from "@/lib/mailer";
+import {
+  getAdminEmail,
+  sendAdminVerificationEmail,
+  sendVerificationEmail,
+} from "@/lib/mailer";
 import { generateVerificationCode } from "@/lib/utils";
 import { Profile } from "@/lib/models/Profile";
 
@@ -51,8 +55,8 @@ export async function POST(req: NextRequest) {
     const verificationCode = generateVerificationCode();
     user.verificationCode = verificationCode;
     await user.save();
-    if (user.role == "admin" && `${process.env.ADMIN_EMAIL}`) {
-      await sendAdminVerificationEmail(`${process.env.ADMIN_EMAIL}`, user.email, verificationCode);
+    if (user.role == "admin" && getAdminEmail()) {
+      await sendAdminVerificationEmail(user.email, verificationCode);
     } else {
       await sendVerificationEmail(email, verificationCode);
     }

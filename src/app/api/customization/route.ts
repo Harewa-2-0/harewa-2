@@ -7,7 +7,7 @@ import { Customization } from "@/lib/models/Customization";
 import { badRequest, created, ok } from "@/lib/response";
 import { User } from "@/lib/models/User";
 import { requireAuth } from "@/lib/middleware/requireAuth";
-import { sendCustomRequestMail } from "@/lib/mailer";
+import { getAdminEmail, sendCustomRequestMail } from "@/lib/mailer";
 
 /**
  * POST — Create a customization request
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
             data: customization,
         });
         await sendCustomRequestMail({
-            to: process.env.ADMIN_EMAIL || "",
+            to: getAdminEmail() || "",
             subject: "Harewa - Customization Request",
             type: "admin",
             data: customization,

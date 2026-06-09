@@ -10,7 +10,7 @@ import { addFunds, deductFunds } from "@/lib/wallet";
 import { getUserFromUuid } from "@/lib/utils";
 import { Iuser } from "@/lib/types/auth";
 import { completeOrderFulfillment, loadCartForCheckout } from "@/lib/orderFulfillment";
-import { sendOrderStatusEmail } from "@/lib/mailer";
+import { notifyOrderPaid } from "@/lib/mailer";
 import { getOrderDisplayLines } from "@/utils/orderCartLines";
 
 export async function GET(req: Request) {
@@ -94,15 +94,15 @@ export async function GET(req: Request) {
                     [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
                     user.username ||
                     undefined;
-                await sendOrderStatusEmail({
-                    to: user.email,
+                await notifyOrderPaid({
+                    customerEmail: user.email,
                     customerName: fullName,
                     orderId: String(order._id),
-                    status: "paid",
+                    amount: order.amount,
                     items,
                 });
             } catch (emailError) {
-                console.error("Failed to send order status email:", emailError);
+                console.error("Failed to send order paid emails:", emailError);
             }
 
             await completeOrderFulfillment(String(order._id), user._id);
