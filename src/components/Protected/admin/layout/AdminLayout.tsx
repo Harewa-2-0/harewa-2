@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
@@ -14,6 +14,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
   const { user, hasHydratedAuth } = useAuthStore();
 
   const handleMenuToggle = () => {
@@ -41,11 +42,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     
     // Only wait for hydration if no user data is available yet
     if (hasHydratedAuth && !user) {
-      // Not authenticated - redirect to signin
-      router.push('/signin');
+      const signinUrl = new URL('/signin', window.location.origin);
+      if (pathname) {
+        signinUrl.searchParams.set('returnTo', pathname);
+      }
+      router.push(`${signinUrl.pathname}${signinUrl.search}`);
       return;
     }
-  }, [user, hasHydratedAuth, router]);
+  }, [user, hasHydratedAuth, router, pathname]);
 
   // Close sidebar on desktop when window is resized
   useEffect(() => {

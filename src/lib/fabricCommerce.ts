@@ -39,6 +39,9 @@ export function assertSellableFabric(fabric: FabricLike | null | undefined): voi
   if (fabric.inStock === false) {
     throw new Error(`"${fabric.name}" is out of stock`);
   }
+  if (typeof fabric.stockBundles === "number" && fabric.stockBundles <= 0) {
+    throw new Error(`"${fabric.name}" is out of stock`);
+  }
   if (!isYardBundle(fabric.yardBundle)) {
     throw new Error(`"${fabric.name}" has no valid yard bundle (4 or 6 yards)`);
   }

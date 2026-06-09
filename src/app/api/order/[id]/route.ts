@@ -57,7 +57,9 @@ export async function PUT(
 
         const updatedOrder = await Order.findByIdAndUpdate(id, body, {
             new: true,
-        }).lean();
+        })
+            .populate(getOrderCartPopulateConfig())
+            .lean();
         if (!updatedOrder) {
             return notFound("Order not found");
         }
@@ -67,9 +69,7 @@ export async function PUT(
             typeof nextStatus === "string"
         ) {
             try {
-                const orderWithCart = await Order.findById(updatedOrder._id)
-                    .populate(getOrderCartPopulateConfig())
-                    .lean();
+                const orderWithCart = updatedOrder;
                 const user = await User.findById(updatedOrder.user).lean();
                 if (user?.email) {
                     const fullName =

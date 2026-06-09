@@ -8,6 +8,8 @@ export type PurchaseType = 'stripe-gateway' | 'paystack-gateway' | 'wallet';
 export interface PurchaseRequest {
   type: PurchaseType;
   orderId: string;
+  /** Set when order was just created in the same checkout flow */
+  skipValidation?: boolean;
 }
 
 /** Common shapes we may receive from backend gateways */
@@ -26,7 +28,7 @@ export interface PurchaseResponse {
 }
 
 const BASE = '/api/payment/purchase';
-const TIMEOUT_MS = 30000; // 30 seconds timeout
+const TIMEOUT_MS = 120_000;
 
 /**
  * Create a promise that rejects after a specified timeout
@@ -53,10 +55,15 @@ export async function purchase(payload: PurchaseRequest): Promise<PurchaseRespon
   }
 
   try {
-    const apiCall = api<MaybeWrapped<PurchaseResponse>>(BASE, json({
-      type: payload.type,
-      orderId: payload.orderId.trim(),
-    }));
+    const apiCall = api<MaybeWrapped<PurchaseResponse>>(
+      BASE,
+      json({
+        type: payload.type,
+        orderId: payload.orderId.trim(),
+        skipValidation: payload.skipValidation === true,
+      }),
+      { timeout: TIMEOUT_MS }
+    );
 
     const raw = await timeoutPromise(apiCall, TIMEOUT_MS);
     return unwrap<PurchaseResponse>(raw);

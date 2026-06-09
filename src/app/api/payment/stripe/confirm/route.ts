@@ -6,7 +6,7 @@ import { getUserFromUuid } from "@/lib/utils";
 import { getCheckoutSession } from "@/lib/stripe";
 import { completeOrderFulfillment, loadCartForCheckout } from "@/lib/orderFulfillment";
 import connectDB from "@/lib/db";
-import { sendOrderStatusEmail } from "@/lib/mailer";
+import { notifyOrderPaid } from "@/lib/mailer";
 import { getOrderDisplayLines } from "@/utils/orderCartLines";
 
 export async function GET(req: Request) {
@@ -78,7 +78,9 @@ export async function GET(req: Request) {
                 return notFound("Order not found");
             }
 
-            if (order.status === "paid") {
+            const alreadyPaid = order.status === "paid";
+
+            if (alreadyPaid) {
                 return ok(order, "Order already processed");
             }
 
@@ -96,27 +98,42 @@ export async function GET(req: Request) {
 
             order.status = "paid";
             await order.save();
+
+            let items: {
+                name: string;
+                quantity: number;
+                imageUrl?: string;
+                unitLabel?: string;
+            }[] = [];
             try {
                 const cart = await loadCartForCheckout(String(order.carts));
-                const items = getOrderDisplayLines(cart).map((line) => ({
+                items = getOrderDisplayLines(cart).map((line) => ({
                     name: line.name,
                     quantity: line.quantity,
                     imageUrl: line.imageUrl,
                     unitLabel: line.unitLabel,
                 }));
+            } catch (cartError) {
+                console.warn(
+                    "Could not load cart for order paid email items; sending without line items:",
+                    cartError
+                );
+            }
+
+            try {
                 const fullName =
                     [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
                     user.username ||
                     undefined;
-                await sendOrderStatusEmail({
-                    to: user.email,
+                await notifyOrderPaid({
+                    customerEmail: user.email,
                     customerName: fullName,
                     orderId,
-                    status: "paid",
+                    amount: order.amount,
                     items,
                 });
             } catch (emailError) {
-                console.error("Failed to send order status email:", emailError);
+                console.error("Failed to send order paid emails:", emailError);
             }
 
             await completeOrderFulfillment(orderId, user._id);

@@ -4,7 +4,12 @@ import { ShoppingCart, Loader2 } from 'lucide-react';
 import { type Fabric } from '@/services/fabric';
 import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
-import { formatFabricBundlePrice, isFabricPurchasable } from '@/utils/fabricDisplay';
+import {
+  formatFabricBundlePrice,
+  isFabricOutOfStock,
+  isFabricPurchasable,
+  isFabricSellable,
+} from '@/utils/fabricDisplay';
 
 interface FabricShopCardProps {
   fabric: Fabric;
@@ -14,6 +19,8 @@ const FabricShopCard: React.FC<FabricShopCardProps> = ({ fabric }) => {
   const [isAdding, setIsAdding] = React.useState(false);
   const { addFabricToCart } = useAuthAwareCartActions();
   const { addToast } = useToast();
+  const sellable = isFabricSellable(fabric);
+  const outOfStock = isFabricOutOfStock(fabric);
   const purchasable = isFabricPurchasable(fabric);
 
   const handleAdd = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -55,39 +62,55 @@ const FabricShopCard: React.FC<FabricShopCardProps> = ({ fabric }) => {
               }
             }}
           />
-          {purchasable && (
+          {purchasable ? (
             <span className="absolute top-3 right-3 rounded-full bg-[#D4AF37] text-white text-xs font-semibold px-2.5 py-1 shadow-md">
               {fabric.yardBundle} yd
             </span>
-          )}
+          ) : outOfStock ? (
+            <span className="absolute top-3 right-3 rounded-full bg-gray-900/85 text-white text-xs font-semibold px-2.5 py-1 shadow-md">
+              Out of stock
+            </span>
+          ) : null}
         </div>
 
         <div className="p-2.5">
           <h4 className="text-sm text-gray-800 mb-1 line-clamp-2">{fabric.name}</h4>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-900">
-              {purchasable ? formatFabricBundlePrice(fabric) : 'Gallery item'}
+            <span className={`text-sm font-semibold ${outOfStock ? 'text-gray-500' : 'text-gray-900'}`}>
+              {sellable ? formatFabricBundlePrice(fabric) : 'Gallery item'}
             </span>
-            <button
-              onClick={handleAdd}
-              disabled={isAdding || !purchasable}
-              type="button"
-              className={`p-2 transition-all duration-200 rounded-full ${
-                isAdding || !purchasable
-                  ? 'bg-gray-100 cursor-not-allowed opacity-60'
-                  : 'text-gray-600 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 cursor-pointer'
-              }`}
-              aria-label={isAdding ? 'Adding to cart...' : 'Add fabric bundle to cart'}
-            >
-              {isAdding ? (
-                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-              ) : (
-                <ShoppingCart className="w-5 h-5" />
-              )}
-            </button>
+            {sellable && (
+              <button
+                onClick={handleAdd}
+                disabled={isAdding || outOfStock}
+                type="button"
+                className={`p-2 transition-all duration-200 rounded-full ${
+                  isAdding || outOfStock
+                    ? 'bg-gray-100 cursor-not-allowed opacity-60 text-gray-400'
+                    : 'text-gray-600 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 cursor-pointer'
+                }`}
+                aria-label={
+                  outOfStock
+                    ? 'Out of stock'
+                    : isAdding
+                      ? 'Adding to cart...'
+                      : 'Add fabric bundle to cart'
+                }
+              >
+                {isAdding ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                ) : (
+                  <ShoppingCart className="w-5 h-5" />
+                )}
+              </button>
+            )}
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            {purchasable ? 'Material only, not customization' : 'Not currently sellable'}
+            {outOfStock
+              ? 'Out of stock'
+              : purchasable
+                ? 'Material only, not customization'
+                : 'Not currently sellable'}
           </p>
         </div>
       </div>

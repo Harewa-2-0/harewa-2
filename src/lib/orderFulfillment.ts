@@ -80,6 +80,13 @@ export async function validateCartForOrder(cart: CartLike): Promise<void> {
   assertCartNotEmpty(cart);
   const lines = getCartLines(cart);
 
+  const fabricIds = new Set<string>();
+  const productIds = new Set<string>();
+  const checks: Array<
+    | { kind: "fabric"; id: string; qty: number }
+    | { kind: "product"; id: string; qty: number }
+  > = [];
+
   for (const line of lines) {
     const qty = Math.max(1, Math.floor(Number(line.quantity) || 1));
 
@@ -88,8 +95,9 @@ export async function validateCartForOrder(cart: CartLike): Promise<void> {
       if (!fabricId) {
         throw new Error("Invalid fabric line in cart");
       }
-      const fabric = await Fabric.findById(fabricId).lean();
-      assertFabricStock(fabric, qty);
+      const id = String(fabricId);
+      fabricIds.add(id);
+      checks.push({ kind: "fabric", id, qty });
       continue;
     }
 
@@ -97,12 +105,35 @@ export async function validateCartForOrder(cart: CartLike): Promise<void> {
     if (!productId) {
       throw new Error("Invalid product line in cart");
     }
-    const product = await Product.findById(productId).lean();
+    const id = String(productId);
+    productIds.add(id);
+    checks.push({ kind: "product", id, qty });
+  }
+
+  const [fabrics, products] = await Promise.all([
+    fabricIds.size > 0
+      ? Fabric.find({ _id: { $in: [...fabricIds] } }).lean()
+      : Promise.resolve([]),
+    productIds.size > 0
+      ? Product.find({ _id: { $in: [...productIds] } }).lean()
+      : Promise.resolve([]),
+  ]);
+
+  const fabricMap = new Map(fabrics.map((f) => [String(f._id), f]));
+  const productMap = new Map(products.map((p) => [String(p._id), p]));
+
+  for (const check of checks) {
+    if (check.kind === "fabric") {
+      assertFabricStock(fabricMap.get(check.id), check.qty);
+      continue;
+    }
+
+    const product = productMap.get(check.id);
     if (!product) {
       throw new Error("Product not found");
     }
     const stock = product.remainingInStock;
-    if (typeof stock === "number" && stock >= 0 && qty > stock) {
+    if (typeof stock === "number" && stock >= 0 && check.qty > stock) {
       throw new Error(
         `Only ${stock} unit(s) available for "${product.name}"`
       );
@@ -230,14 +261,26 @@ export async function completeOrderFulfillment(
 /** Re-validate sellable fabric lines before payment (e.g. gateway init). */
 export async function refreshFabricLineSnapshots(cart: CartLike): Promise<void> {
   migrateCartToLines(cart);
-  for (const line of getCartLines(cart)) {
-    if (line.lineType !== "fabric") continue;
-    const fabricId = line.fabric?._id ?? line.fabric;
-    const fabric = await Fabric.findById(fabricId).lean();
+  const fabricLines = getCartLines(cart).filter((line) => line.lineType === "fabric");
+  if (fabricLines.length === 0) return;
+
+  const fabricIds = [
+    ...new Set(
+      fabricLines.map((line) => String(line.fabric?._id ?? line.fabric ?? ""))
+    ),
+  ].filter(Boolean);
+
+  const fabrics = await Fabric.find({ _id: { $in: fabricIds } }).lean();
+  const fabricMap = new Map(fabrics.map((f) => [String(f._id), f]));
+
+  for (const line of fabricLines) {
+    const fabricId = String(line.fabric?._id ?? line.fabric ?? "");
+    const fabric = fabricMap.get(fabricId);
     assertSellableFabric(fabric);
     line.bundlePrice = fabric!.bundlePrice;
     line.yardBundle = fabric!.yardBundle;
   }
+
   if (typeof cart.markModified === "function") {
     cart.markModified("lines");
     await cart.save();

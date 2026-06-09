@@ -1,12 +1,42 @@
 // lib/mailer.ts
+import dns from "node:dns";
 import nodemailer from "nodemailer";
 import { ICustomization } from "./models/Customization";
+import { buildAdminOrderPath } from "@/utils/authRedirect";
+
+try {
+  dns.setDefaultResultOrder("ipv4first");
+} catch {
+  // Node < 17
+}
+
+/** Normalized admin inbox from ADMIN_EMAIL (strips quotes/whitespace). */
+export function getAdminEmail(): string | undefined {
+  const raw = process.env.ADMIN_EMAIL;
+  if (!raw) return undefined;
+  const cleaned = raw.trim().replace(/^["']|["']$/g, "").trim();
+  return cleaned || undefined;
+}
+
+function smtpIpv4Lookup(
+  hostname: string,
+  _options: dns.LookupOptions,
+  callback: (
+    err: NodeJS.ErrnoException | null,
+    address: string,
+    family: number
+  ) => void
+) {
+  dns.lookup(hostname, { family: 4, hints: dns.ADDRCONFIG }, callback);
+}
 
 // Shared SMTP config (cPanel / Hostinger)
 const smtpConfig = {
-  host: process.env.SMTP_HOST, // e.g. mail.srv673978.hstgr.cloud
+  host: process.env.SMTP_HOST, // e.g. harewa.com (cPanel mail on domain A record)
   port: Number(process.env.SMTP_PORT || 465),
   secure: true, // SSL for port 465
+  family: 4 as const,
+  lookup: smtpIpv4Lookup,
 };
 
 // Team emails (welcome, general comms)
@@ -31,8 +61,8 @@ export const notificationTransporter = nodemailer.createTransport({
 /*                           EMAIL WRAPPER TEMPLATE                           */
 /* -------------------------------------------------------------------------- */
 
-export const wrapEmailHtml = (content: string, title?: string) => {
-  // Use a public base URL for remote email clients. Localhost assets will be broken.
+/** Remote-safe base URL for images/assets in email HTML. */
+function getEmailAssetBaseUrl(): string {
   const configuredBaseUrl =
     process.env.EMAIL_ASSET_BASE_URL ||
     process.env.NEXT_PUBLIC_BASE_URL ||
@@ -40,6 +70,33 @@ export const wrapEmailHtml = (content: string, title?: string) => {
   const siteUrl = configuredBaseUrl.includes("localhost")
     ? "https://harewa.com"
     : configuredBaseUrl;
+  return siteUrl.replace(/\/$/, "");
+}
+
+/** Base URL for clickable email links (CTAs). Uses localhost in development. */
+function getEmailActionBaseUrl(): string {
+  const configuredBaseUrl =
+    process.env.EMAIL_ACTION_BASE_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    "https://harewa.com";
+  const normalized = configuredBaseUrl.replace(/\/$/, "");
+
+  if (
+    process.env.NODE_ENV === "development" &&
+    normalized.includes("localhost")
+  ) {
+    return normalized;
+  }
+
+  return normalized.includes("localhost") ? "https://harewa.com" : normalized;
+}
+
+export function buildAdminOrderActionUrl(orderId: string): string {
+  return `${getEmailActionBaseUrl()}${buildAdminOrderPath(orderId)}`;
+}
+
+export const wrapEmailHtml = (content: string, title?: string) => {
+  const siteUrl = getEmailAssetBaseUrl();
   const logoUrl = `${siteUrl}/logoNobg.webp`;
 
   return `
@@ -241,10 +298,13 @@ export async function sendVerificationEmail(to: string, code: string) {
 }
 
 export async function sendAdminVerificationEmail(
-  to: string,
   userMail: string,
   code: string
 ) {
+  const adminEmail = getAdminEmail();
+  if (!adminEmail) {
+    throw new Error("ADMIN_EMAIL is not configured");
+  }
   const content = `
     <h1>🔐 New Admin Registration</h1>
     <p>A new administrator account has been created and requires verification.</p>
@@ -280,7 +340,7 @@ export async function sendAdminVerificationEmail(
 
   await notificationTransporter.sendMail({
     from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
-    to,
+    to: adminEmail,
     subject: "🔐 New Admin Registration - Verification Required",
     html: wrapEmailHtml(content, "Admin Verification - Harewa"),
   });
@@ -445,6 +505,178 @@ export const sendCustomRequestMail = async ({
   });
 };
 
+type OrderEmailItem = {
+  name: string;
+  quantity: number;
+  imageUrl?: string;
+  unitLabel?: string;
+};
+
+function buildOrderItemsHtml(
+  items?: OrderEmailItem[],
+  heading = "Items in your order"
+) {
+  if (!items || items.length === 0) return "";
+
+  return `
+    <h2 style="font-size: 18px; margin: 24px 0 12px 0;">${heading}</h2>
+    <table style="width:100%; border-collapse: collapse;">
+      <tbody>
+        ${items
+          .map(
+            (item) => `
+          <tr>
+            <td style="padding: 8px 0; vertical-align: top; width: 56px;">
+              ${
+                item.imageUrl
+                  ? `<img src="${item.imageUrl}" alt="${item.name}" width="48" height="48" style="display:block; width:48px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb;" />`
+                  : `<div style="width:48px; height:48px; border-radius:8px; border:1px solid #e5e7eb; background:#f9fafb;"></div>`
+              }
+            </td>
+            <td style="padding: 8px 0 8px 10px; vertical-align: top;">
+              <p style="margin:0; font-weight:600; color:#111827;">${item.name}</p>
+              <p style="margin:2px 0 0 0; font-size:12px; color:#6b7280;">Qty: ${item.quantity}${
+                item.unitLabel ? ` (${item.unitLabel})` : ""
+              }</p>
+            </td>
+          </tr>
+        `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+async function sendMailWithFallback(payload: {
+  to: string;
+  subject: string;
+  html: string;
+}) {
+  try {
+    await notificationTransporter.sendMail({
+      from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
+      ...payload,
+    });
+    return;
+  } catch (notificationError) {
+    console.error("Notification transporter failed:", notificationError);
+  }
+
+  try {
+    await teamTransporter.sendMail({
+      from: `"Harewa" <${process.env.TEAM_EMAIL_USER}>`,
+      ...payload,
+    });
+  } catch (teamError) {
+    console.error("Team transporter failed:", teamError);
+    throw teamError;
+  }
+}
+
+export async function sendAdminOrderPaidEmail({
+  customerEmail,
+  customerName,
+  orderId,
+  amount,
+  items,
+}: {
+  customerEmail: string;
+  customerName?: string;
+  orderId: string;
+  amount?: number;
+  items?: OrderEmailItem[];
+}) {
+  const adminEmail = getAdminEmail();
+  if (!adminEmail) {
+    console.warn("ADMIN_EMAIL not set; skipping admin order payment notification");
+    return;
+  }
+
+  const shortOrderId = orderId.slice(-8);
+  const customerLabel =
+    customerName?.trim() || customerEmail || "Customer";
+  const amountLine =
+    typeof amount === "number"
+      ? `<p style="margin: 0;"><strong>Amount Paid:</strong> $${amount.toLocaleString()}</p>`
+      : "";
+
+  const processOrderUrl = buildAdminOrderActionUrl(orderId);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[dev] Admin Process Order link: ${processOrderUrl}`);
+  }
+
+  const content = `
+    <h1>New order payment received</h1>
+    <p>A customer has completed payment for an order. Review the items below and process the order when ready.</p>
+    <div class="success-box">
+      <p style="margin: 0;"><strong>Order ID:</strong> #${shortOrderId}</p>
+      <p style="margin: 0;"><strong>Customer:</strong> ${customerLabel}</p>
+      <p style="margin: 0;"><strong>Customer Email:</strong> ${customerEmail}</p>
+      ${amountLine}
+      <p style="margin: 0;"><strong>Status:</strong> Paid</p>
+    </div>
+    ${buildOrderItemsHtml(items, "Items ordered")}
+    <div style="text-align: center; margin: 28px 0 8px 0;">
+      <a href="${processOrderUrl}" class="button" style="background: linear-gradient(135deg, #111827 0%, #1f2937 100%); color: #ffffff !important; font-size: 15px; letter-spacing: 0.02em;">
+        Process Order #${shortOrderId}
+      </a>
+    </div>
+    <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px; text-align: center;">
+      Opens this order in the admin dashboard. Sign in if prompted.
+    </p>
+    <p style="margin-top: 16px; color: #6b7280; font-size: 14px;">
+      This alert is sent only after payment is confirmed.
+    </p>
+  `;
+
+  await notificationTransporter.sendMail({
+    from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
+    to: adminEmail,
+    subject: `New paid order #${shortOrderId} from ${customerLabel}`,
+    html: wrapEmailHtml(content, "New Paid Order - Harewa"),
+  });
+}
+
+/** Notify customer and admin after payment is confirmed (not on order placement). */
+export async function notifyOrderPaid({
+  customerEmail,
+  customerName,
+  orderId,
+  amount,
+  items,
+}: {
+  customerEmail: string;
+  customerName?: string;
+  orderId: string;
+  amount?: number;
+  items?: OrderEmailItem[];
+}) {
+  const [customerResult, adminResult] = await Promise.allSettled([
+    sendOrderStatusEmail({
+      to: customerEmail,
+      customerName,
+      orderId,
+      status: "paid",
+      items,
+    }),
+    sendAdminOrderPaidEmail({
+      customerEmail,
+      customerName,
+      orderId,
+      amount,
+      items,
+    }),
+  ]);
+
+  if (customerResult.status === "rejected") {
+    console.error("Customer order paid email failed:", customerResult.reason);
+  }
+  if (adminResult.status === "rejected") {
+    console.error("Admin order paid email failed:", adminResult.reason);
+  }
+}
+
 export async function sendOrderStatusEmail({
   to,
   customerName,
@@ -456,12 +688,7 @@ export async function sendOrderStatusEmail({
   customerName?: string;
   orderId: string;
   status: string;
-  items?: Array<{
-    name: string;
-    quantity: number;
-    imageUrl?: string;
-    unitLabel?: string;
-  }>;
+  items?: OrderEmailItem[];
 }) {
   const firstName = customerName ? customerName.trim().split(/\s+/)[0] : "Customer";
   const shortOrderId = orderId.slice(-8);
@@ -505,37 +732,7 @@ export async function sendOrderStatusEmail({
     body: "There is a new update on your order. Please check your account for details.",
   };
 
-  const itemRows =
-    items && items.length > 0
-      ? `
-    <h2 style="font-size: 18px; margin: 24px 0 12px 0;">Items in your order</h2>
-    <table style="width:100%; border-collapse: collapse;">
-      <tbody>
-        ${items
-          .map(
-            (item) => `
-          <tr>
-            <td style="padding: 8px 0; vertical-align: top; width: 56px;">
-              ${
-                item.imageUrl
-                  ? `<img src="${item.imageUrl}" alt="${item.name}" width="48" height="48" style="display:block; width:48px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb;" />`
-                  : `<div style="width:48px; height:48px; border-radius:8px; border:1px solid #e5e7eb; background:#f9fafb;"></div>`
-              }
-            </td>
-            <td style="padding: 8px 0 8px 10px; vertical-align: top;">
-              <p style="margin:0; font-weight:600; color:#111827;">${item.name}</p>
-              <p style="margin:2px 0 0 0; font-size:12px; color:#6b7280;">Qty: ${item.quantity}${
-                item.unitLabel ? ` (${item.unitLabel})` : ""
-              }</p>
-            </td>
-          </tr>
-        `
-          )
-          .join("")}
-      </tbody>
-    </table>
-  `
-      : "";
+  const itemRows = buildOrderItemsHtml(items);
 
   const content = `
     <h1>${copy.title}</h1>
@@ -548,23 +745,9 @@ export async function sendOrderStatusEmail({
     ${itemRows}
     <p>Thank you for shopping with Harewa.</p>
   `;
-  const payload = {
+  await sendMailWithFallback({
     to,
     subject: `Order #${shortOrderId} update: ${status}`,
     html: wrapEmailHtml(content, `Order ${status} - Harewa`),
-  };
-  try {
-    await notificationTransporter.sendMail({
-      from: `"Harewa" <${process.env.NOTIFICATION_EMAIL_USER}>`,
-      ...payload,
-    });
-    return;
-  } catch (notificationError) {
-    console.error("Notification transporter failed for order status email:", notificationError);
-  }
-  // Fallback transporter in case notification credentials are invalid.
-  await teamTransporter.sendMail({
-    from: `"Harewa" <${process.env.TEAM_EMAIL_USER}>`,
-    ...payload,
   });
 }

@@ -1,11 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import Image from "next/image";
 import AuthForm from "@/components/Public_C/auth/auth_form";
 import GoogleLoginButton from "@/components/Public_C/auth/google_login_button";
 import useAuthHandlers from "@/hooks/use-auth-handlers";
 
-export default function SigninScreen() {
+function SigninContent() {
   const {
     formData,
     authState,
@@ -116,5 +117,13 @@ export default function SigninScreen() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SigninScreen() {
+  return (
+    <Suspense fallback={null}>
+      <SigninContent />
+    </Suspense>
   );
 }

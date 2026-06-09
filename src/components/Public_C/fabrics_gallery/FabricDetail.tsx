@@ -12,7 +12,9 @@ import {
   formatFabricBundlePrice,
   getFabricBundleLabel,
   getMaxFabricBundles,
+  isFabricOutOfStock,
   isFabricPurchasable,
+  isFabricSellable,
 } from '@/utils/fabricDisplay';
 
 interface FabricDetailProps {
@@ -26,6 +28,8 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
   const { addFabricToCart } = useAuthAwareCartActions();
   const { addToast } = useToast();
 
+  const sellable = fabric ? isFabricSellable(fabric) : false;
+  const outOfStock = fabric ? isFabricOutOfStock(fabric) : false;
   const purchasable = fabric ? isFabricPurchasable(fabric) : false;
   const maxBundles = fabric ? getMaxFabricBundles(fabric) : 0;
 
@@ -129,6 +133,11 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
               {getFabricBundleLabel(fabric)} bundle
             </div>
           )}
+          {outOfStock && (
+            <div className="absolute top-4 left-4 rounded-full bg-gray-900/90 text-white text-xs font-semibold px-3 py-1.5 shadow-lg">
+              Out of stock
+            </div>
+          )}
         </motion.div>
 
         <motion.div
@@ -145,18 +154,31 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
           </h1>
           <p className="text-gray-600 mb-4">{fabric.color}</p>
 
-          {purchasable ? (
-            <div className="rounded-2xl border border-[#D4AF37]/25 bg-gradient-to-br from-[#D4AF37]/10 to-white p-5 mb-5">
-              <p className="text-xl font-bold text-gray-900">
+          {sellable ? (
+            <div
+              className={`rounded-2xl border p-5 mb-5 ${
+                outOfStock
+                  ? 'border-gray-200 bg-gray-50'
+                  : 'border-[#D4AF37]/25 bg-gradient-to-br from-[#D4AF37]/10 to-white'
+              }`}
+            >
+              <p className={`text-xl font-bold ${outOfStock ? 'text-gray-500' : 'text-gray-900'}`}>
                 {formatFabricBundlePrice(fabric)}
               </p>
               <p className="text-sm text-gray-600 mt-1">
                 Sold in whole bundles
               </p>
-              {typeof fabric.stockBundles === 'number' && fabric.stockBundles > 0 && (
-                <p className="text-xs text-[#B8941F] mt-2 font-medium">
-                  {fabric.stockBundles} bundle{fabric.stockBundles === 1 ? '' : 's'} left
+              {outOfStock ? (
+                <p className="text-sm text-gray-500 mt-2 font-medium">
+                  This fabric is currently out of stock.
                 </p>
+              ) : (
+                typeof fabric.stockBundles === 'number' &&
+                fabric.stockBundles > 0 && (
+                  <p className="text-xs text-[#B8941F] mt-2 font-medium">
+                    {fabric.stockBundles} bundle{fabric.stockBundles === 1 ? '' : 's'} left
+                  </p>
+                )
               )}
             </div>
           ) : (
@@ -182,17 +204,22 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
             )}
           </div>
 
-          {purchasable && (
+          {sellable && (
             <div className="mt-auto space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Number of bundles
                 </label>
-                <div className="inline-flex items-center rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <div
+                  className={`inline-flex items-center rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden ${
+                    outOfStock ? 'opacity-50 pointer-events-none' : ''
+                  }`}
+                >
                   <button
                     type="button"
                     onClick={() => setBundleQty((q) => Math.max(1, q - 1))}
-                    className="p-3 text-gray-600 hover:bg-[#D4AF37]/10 hover:text-[#B8941F] transition-colors cursor-pointer"
+                    disabled={outOfStock}
+                    className="p-3 text-gray-600 hover:bg-[#D4AF37]/10 hover:text-[#B8941F] transition-colors cursor-pointer disabled:cursor-not-allowed"
                     aria-label="Decrease bundles"
                   >
                     <Minus className="w-4 h-4" />
@@ -207,7 +234,7 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
                         maxBundles > 0 ? Math.min(maxBundles, q + 1) : q + 1
                       )
                     }
-                    disabled={maxBundles > 0 && bundleQty >= maxBundles}
+                    disabled={outOfStock || (maxBundles > 0 && bundleQty >= maxBundles)}
                     className="p-3 text-gray-600 hover:bg-[#D4AF37]/10 hover:text-[#B8941F] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     aria-label="Increase bundles"
                   >
@@ -224,7 +251,7 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAddToCart}
-                disabled={isAdding || (maxBundles === 0)}
+                disabled={isAdding || outOfStock || maxBundles === 0}
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white font-semibold py-4 shadow-lg shadow-[#D4AF37]/25 hover:bg-[#B8941F] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isAdding ? (
@@ -232,7 +259,7 @@ export default function FabricDetail({ fabricId }: FabricDetailProps) {
                 ) : (
                   <ShoppingBag className="w-5 h-5" />
                 )}
-                {maxBundles === 0
+                {outOfStock || maxBundles === 0
                   ? 'Out of stock'
                   : `Add to cart — ${formatPrice(lineTotal)}`}
               </motion.button>

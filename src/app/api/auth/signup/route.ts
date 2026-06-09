@@ -5,7 +5,11 @@ export const runtime = 'nodejs';
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcrypt";
-import { sendAdminVerificationEmail, sendVerificationEmail } from "@/lib/mailer";
+import {
+  getAdminEmail,
+  sendAdminVerificationEmail,
+  sendVerificationEmail,
+} from "@/lib/mailer";
 import { generateUsername, generateVerificationCode, splitFullName } from "@/lib/utils";
 import connectDB from "@/lib/db";
 import { User } from "@/lib/models/User";
@@ -61,16 +65,32 @@ export async function POST(req: Request) {
     });
 
     await newUser.save();
-    console.log("✅ New user created:", newUser.email, "as", newUser.role, process.env.ADMIN_EMAIL);
+    console.log("✅ New user created:", newUser.email, "as", newUser.role);
 
-    if (newUser.role == "admin" && `${process.env.ADMIN_EMAIL}`) {
-      await sendAdminVerificationEmail(`${process.env.ADMIN_EMAIL}`, newUser.email, verificationCode);
-    } else {
-      await sendVerificationEmail(email, verificationCode);
+    try {
+      if (newUser.role == "admin" && getAdminEmail()) {
+        await sendAdminVerificationEmail(newUser.email, verificationCode);
+      } else {
+        await sendVerificationEmail(email, verificationCode);
+      }
+    } catch (emailError) {
+      console.error("Sign-up verification email failed:", emailError);
+      return NextResponse.json(
+        {
+          message:
+            "Account created, but we could not send the verification email. Please try resend or contact support.",
+        },
+        { status: 200 }
+      );
     }
 
     return NextResponse.json(
-      { message: "Verification code sent to your email" },
+      {
+        message:
+          newUser.role === "admin"
+            ? `Verification code sent to ${getAdminEmail()}`
+            : "Verification code sent to your email",
+      },
       { status: 200 }
     );
   } catch (error) {

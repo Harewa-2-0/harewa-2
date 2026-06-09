@@ -5,7 +5,11 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import { User } from "@/lib/models/User";
 import { generateOtp } from "@/lib/otp";
-import { resendOtpEmail } from "@/lib/mailer";
+import {
+  getAdminEmail,
+  resendOtpEmail,
+  sendAdminVerificationEmail,
+} from "@/lib/mailer";
 
 export async function POST(req: Request) {
   const { email } = await req.json();
@@ -16,18 +20,22 @@ export async function POST(req: Request) {
 
   await dbConnect();
 
-  const admin = await User.findOne({ email });
+  const user = await User.findOne({ email });
 
-  if (!admin) {
-    return NextResponse.json({ message: "Admin not found" }, { status: 404 });
+  if (!user) {
+    return NextResponse.json({ message: "User not found" }, { status: 404 });
   }
 
   const otp = generateOtp();
 
-  admin.verificationCode = otp;
-  await admin.save();
+  user.verificationCode = otp;
+  await user.save();
 
-  await resendOtpEmail(email, otp);
+  if (user.role === "admin" && getAdminEmail()) {
+    await sendAdminVerificationEmail(user.email, otp);
+  } else {
+    await resendOtpEmail(email, otp);
+  }
 
   return NextResponse.json(
     { message: "OTP sent successfully" },

@@ -7,7 +7,9 @@ import { ShoppingCart, Loader2 } from 'lucide-react';
 import { type Fabric } from '@/services/fabric';
 import {
   formatFabricBundlePrice,
+  isFabricOutOfStock,
   isFabricPurchasable,
+  isFabricSellable,
 } from '@/utils/fabricDisplay';
 import { useAuthAwareCartActions } from '@/hooks/use-cart';
 import { useToast } from '@/contexts/toast-context';
@@ -21,6 +23,8 @@ interface FabricCardProps {
 }
 
 const FabricCard: React.FC<FabricCardProps> = ({ fabric, variants }) => {
+  const sellable = isFabricSellable(fabric);
+  const outOfStock = isFabricOutOfStock(fabric);
   const purchasable = isFabricPurchasable(fabric);
   const [isAdding, setIsAdding] = React.useState(false);
   const { addFabricToCart } = useAuthAwareCartActions();
@@ -73,18 +77,32 @@ const FabricCard: React.FC<FabricCardProps> = ({ fabric, variants }) => {
             <span className="absolute top-3 right-3 rounded-full bg-[#D4AF37] text-white text-xs font-semibold px-2.5 py-1 shadow-md">
               {fabric.yardBundle} yd
             </span>
+          ) : outOfStock ? (
+            <span className="absolute top-3 right-3 rounded-full bg-gray-900/85 text-white text-xs font-semibold px-2.5 py-1 shadow-md">
+              Out of stock
+            </span>
           ) : (
             <span className="absolute top-3 right-3 rounded-full bg-white/90 text-gray-600 text-xs font-medium px-2.5 py-1">
               Gallery
             </span>
           )}
-          {purchasable && (
+          {sellable && (
             <button
               type="button"
               onClick={handleQuickAdd}
-              disabled={isAdding}
-              className="absolute bottom-3 right-3 p-2.5 rounded-full bg-white/95 text-[#B8941F] shadow-md hover:bg-[#D4AF37] hover:text-white transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-              aria-label={isAdding ? 'Adding to cart' : 'Add bundle to cart'}
+              disabled={isAdding || outOfStock}
+              className={`absolute bottom-3 right-3 p-2.5 rounded-full shadow-md transition-colors ${
+                outOfStock
+                  ? 'bg-gray-200/95 text-gray-400 cursor-not-allowed'
+                  : 'bg-white/95 text-[#B8941F] hover:bg-[#D4AF37] hover:text-white cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed'
+              }`}
+              aria-label={
+                outOfStock
+                  ? 'Out of stock'
+                  : isAdding
+                    ? 'Adding to cart'
+                    : 'Add bundle to cart'
+              }
             >
               {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
             </button>
@@ -98,9 +116,14 @@ const FabricCard: React.FC<FabricCardProps> = ({ fabric, variants }) => {
           <p className="text-sm text-gray-500 truncate mt-0.5">
             {fabric.type} · {fabric.color}
           </p>
-          {purchasable ? (
-            <p className="mt-2 text-sm font-semibold text-gray-900">
+          {sellable ? (
+            <p className={`mt-2 text-sm font-semibold ${outOfStock ? 'text-gray-500' : 'text-gray-900'}`}>
               {formatFabricBundlePrice(fabric)}
+              {outOfStock && (
+                <span className="block text-xs font-medium text-gray-400 mt-0.5">
+                  Currently unavailable
+                </span>
+              )}
             </p>
           ) : (
             <p className="mt-2 text-xs text-gray-400">View details</p>

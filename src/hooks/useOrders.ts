@@ -192,11 +192,34 @@ export function useUpdateOrderStatusMutation() {
   return useMutation<Order, Error, { orderId: string; status: Order['status'] }>({
     mutationFn: async ({ orderId, status }) => updateOrderStatus(orderId, status),
     onSuccess: (updatedOrder) => {
+      const mergeCachedOrder = (existing: Order, incoming: Order): Order => {
+        const cart = incoming.carts;
+        const hasPopulatedCart =
+          cart &&
+          typeof cart === 'object' &&
+          (Array.isArray((cart as { lines?: unknown[] }).lines) ||
+            Array.isArray((cart as { products?: unknown[] }).products));
+
+        return {
+          ...existing,
+          ...incoming,
+          carts: hasPopulatedCart ? incoming.carts : existing.carts,
+        };
+      };
+
       queryClient.setQueryData<Order[]>(orderKeys.admin(), (old = []) =>
-        old.map((order) => (order._id === updatedOrder._id ? updatedOrder : order))
+        old.map((order) =>
+          order._id === updatedOrder._id
+            ? mergeCachedOrder(order, updatedOrder)
+            : order
+        )
       );
       queryClient.setQueryData<Order[]>(orderKeys.mine(), (old = []) =>
-        old.map((order) => (order._id === updatedOrder._id ? updatedOrder : order))
+        old.map((order) =>
+          order._id === updatedOrder._id
+            ? mergeCachedOrder(order, updatedOrder)
+            : order
+        )
       );
       queryClient.invalidateQueries({ queryKey: orderKeys.admin() });
       queryClient.invalidateQueries({ queryKey: orderKeys.mine() });

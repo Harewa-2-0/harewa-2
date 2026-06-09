@@ -71,6 +71,25 @@ export default function OrderDetailsPage({ params }: PageProps) {
     const canMarkShipped = order && (order.status === 'paid' || order.status === 'shipping');
     const canMarkDelivered = order && (order.status === 'shipped' || order.status === 'shipping');
 
+    const mergeOrderUpdate = (previous: Order, updated: Order): Order => {
+        const cart = updated.carts;
+        const hasPopulatedCart =
+            cart &&
+            typeof cart === 'object' &&
+            (Array.isArray((cart as { lines?: unknown[] }).lines) ||
+                Array.isArray((cart as { products?: unknown[] }).products));
+
+        return {
+            ...previous,
+            ...updated,
+            carts: hasPopulatedCart ? updated.carts : previous.carts,
+            user:
+                updated.user && typeof updated.user === 'object'
+                    ? updated.user
+                    : previous.user,
+        };
+    };
+
     const handleStatusUpdate = async (status: Order['status']) => {
         if (!order || updateStatusMutation.isPending) return;
         setPendingStatus(status);
@@ -79,7 +98,7 @@ export default function OrderDetailsPage({ params }: PageProps) {
                 orderId: order._id,
                 status,
             });
-            setOrder(updated);
+            setOrder((prev) => (prev ? mergeOrderUpdate(prev, updated) : updated));
             addToast(`Order marked as ${status}`, 'success');
         } catch (error) {
             console.error('Failed to update order status:', error);
