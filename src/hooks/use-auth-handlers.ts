@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { sanitizeAuthReturnTo } from "@/utils/authRedirect";
 import { useAuthStore } from "@/store/authStore";
 import { loginWithEmail, getMe, GOOGLE_OAUTH_URL } from "@/services/auth";
 import { useToast } from "@/contexts/toast-context";
@@ -15,8 +16,16 @@ interface FormData {
 
 export default function useAuthHandlers() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setEmailForVerification, setUser } = useAuthStore();
   const { addToast } = useToast();
+
+  useEffect(() => {
+    const returnTo = searchParams.get("returnTo");
+    if (returnTo) {
+      sessionStorage.setItem("authReturnTo", returnTo);
+    }
+  }, [searchParams]);
 
   const [formData, setFormData] = useState<FormData>({
     email: "",
@@ -91,12 +100,16 @@ export default function useAuthHandlers() {
       // Redirect after short delay based on user role
       setTimeout(() => {
         setAuthState((prev) => ({ ...prev, isRedirecting: true }));
-        // Route based on user role - complete app separation
-        if (user.role === "admin") {
-          router.push("/admin");
-        } else {
-          router.push("/home");
+
+        const storedReturnTo = sessionStorage.getItem("authReturnTo");
+        const safeReturnTo = sanitizeAuthReturnTo(storedReturnTo, user.role);
+        if (safeReturnTo) {
+          sessionStorage.removeItem("authReturnTo");
         }
+
+        const destination =
+          safeReturnTo ?? (user.role === "admin" ? "/admin" : "/home");
+        router.push(destination);
         // Clear loading state after navigation starts (component will unmount anyway)
         // Small delay ensures navigation has initiated
         setTimeout(() => {
