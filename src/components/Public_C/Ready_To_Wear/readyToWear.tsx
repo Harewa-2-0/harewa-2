@@ -11,7 +11,7 @@ import { useShopProducts } from "@/hooks/useProducts";
 import { useFabricsQuery } from "@/hooks/useFabrics";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/contexts/toast-context";
-import { isFabricPurchasable } from "@/utils/fabricDisplay";
+import { isFabricSellable } from "@/utils/fabricDisplay";
 import FabricShopCard from "./FabricShopCard";
 //import Image from "next/image";
 
@@ -149,7 +149,7 @@ const ReadyToWearPage: React.FC = () => {
   // No client-side sorting needed, backend handles it
   const sortedProducts = filteredProducts;
   const sellableFabrics = useMemo(
-    () => allFabrics.filter((fabric) => isFabricPurchasable(fabric)),
+    () => allFabrics.filter((fabric) => isFabricSellable(fabric)),
     [allFabrics]
   );
 
