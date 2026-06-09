@@ -74,8 +74,12 @@ export function useAddFabricToCartMutation() {
     mutationFn: async ({ fabricId, quantity }) => {
       return await addFabricToMyCart({ fabricId, quantity });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: cartKeys.mine() });
+    onSuccess: (cart) => {
+      queryClient.setQueryData(cartKeys.mine(), () => {
+        const items = mapServerCartToStoreItems(cart);
+        return items;
+      });
+      queryClient.setQueryData([...cartKeys.mine(), "raw"], cart);
     },
   });
 }
@@ -87,9 +91,12 @@ export function useAddToCartMutation() {
     mutationFn: async ({ productId, quantity, price, productNote }) => {
       return await addToMyCart({ productId, quantity, price, productNote });
     },
-    onSuccess: () => {
-      // Invalidate and refetch cart
-      queryClient.invalidateQueries({ queryKey: cartKeys.mine() });
+    onSuccess: (cart) => {
+      queryClient.setQueryData(cartKeys.mine(), () => {
+        const items = mapServerCartToStoreItems(cart);
+        return items;
+      });
+      queryClient.setQueryData([...cartKeys.mine(), "raw"], cart);
     },
     onError: (error) => {
       console.error('Failed to add to cart:', error);

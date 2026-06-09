@@ -52,23 +52,25 @@ export const initializePayment2 = async (
     console.error("Paystack init error:", data);
     throw new Error(data.message || "Failed to initialize Paystack payment");
   }
-  console.log("Paystack init response:", metadata);
-  await sendInvoiceMail({
+  // Send invoice in background — don't block payment redirect (especially for large carts).
+  void sendInvoiceMail({
     to: email,
     subject: "Payment Invoice",
     data: {
       customerName: email || "Customer",
       invoiceId: data.data.reference,
-      items: metadata.items, // Add empty array or actual items if available
+      items: metadata.items,
       totalAmount: amount,
-      dueDate: new Date().toISOString().split('T')[0], // Today's date as due date
-      date: new Date().toISOString().split('T')[0], // Today's date
+      dueDate: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString().split("T")[0],
       paymentMethod: "Paystack",
       payUrl: data.data.authorization_url,
-
     },
+  }).catch((err) => {
+    console.error("Paystack invoice email failed (non-blocking):", err);
   });
-  return data.data; // return the parsed response
+
+  return data.data;
 };
 
 export const initiatePaystackTransfer = async (

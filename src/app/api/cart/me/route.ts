@@ -7,12 +7,15 @@ import connectDB from "@/lib/db";
 import { ok, created, serverError, badRequest, unauthorized } from "@/lib/response";
 import { requireAuth } from "@/lib/middleware/requireAuth";
 import {
-    applyCartLineInputs,
     getCartPopulateOptions,
     migrateCartToLines,
-    syncLegacyProductsField,
     type CartLineInput,
 } from "@/lib/cartLines";
+import {
+    addLinesToUserCart,
+    isTransientMongoError,
+    persistLegacyCartSync,
+} from "@/lib/cartPersistence";
 
 // GET /api/cart/me
 export async function GET(request: NextRequest) {
@@ -29,10 +32,7 @@ export async function GET(request: NextRequest) {
         }
 
         migrateCartToLines(cart);
-        syncLegacyProductsField(cart);
-        if (cart.isModified()) {
-            await cart.save();
-        }
+        await persistLegacyCartSync(cart);
 
         return ok({ cart });
     } catch (error) {
@@ -44,6 +44,11 @@ export async function GET(request: NextRequest) {
             message.includes("No access token")
         ) {
             return unauthorized(message);
+        }
+        if (isTransientMongoError(error)) {
+            return serverError(
+                "Database temporarily unavailable. Please refresh and try again."
+            );
         }
         return serverError("Failed to fetch cart: " + error);
     }
@@ -61,29 +66,15 @@ export async function POST(request: NextRequest) {
             return badRequest("Request body must be a non-empty array of cart lines");
         }
 
-        let cart = await Cart.findOne({ user: decoded.sub }).sort({ createdAt: -1 });
-
-        if (cart) {
-            await applyCartLineInputs(cart, body);
-            await cart.save();
-            const populated = await Cart.findById(cart._id).populate(
-                getCartPopulateOptions()
-            );
-            return ok(populated);
-        }
-
-        const newCart = new Cart({
-            user: decoded.sub,
-            lines: [],
-            products: [],
-        });
-        await applyCartLineInputs(newCart, body);
-        await newCart.save();
-
-        const populated = await Cart.findById(newCart._id).populate(
+        const { cart, created: isNewCart } = await addLinesToUserCart(
+            decoded.sub,
+            body
+        );
+        const populated = await Cart.findById(cart!._id).populate(
             getCartPopulateOptions()
         );
-        return created(populated);
+
+        return isNewCart ? created(populated) : ok(populated);
     } catch (error) {
         console.error("Cart add error:", error);
         const message = error instanceof Error ? error.message : String(error);
@@ -93,6 +84,11 @@ export async function POST(request: NextRequest) {
             message.includes("No access token")
         ) {
             return unauthorized(message);
+        }
+        if (isTransientMongoError(error)) {
+            return serverError(
+                "Database temporarily unavailable. Please wait a moment and try again."
+            );
         }
         return badRequest(message);
     }

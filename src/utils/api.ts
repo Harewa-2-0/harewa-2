@@ -268,13 +268,16 @@ export async function api<T = any>(
 
     // Final error handling
     if (!res.ok) {
+      const errorBody =
+        body && typeof body === "object"
+          ? (body as { error?: unknown; message?: unknown })
+          : null;
       const msg =
-        (body &&
-          typeof body === "object" &&
-          "message" in body &&
-          (body as any).message) ||
+        (typeof errorBody?.error === "string" && errorBody.error) ||
+        (typeof errorBody?.message === "string" && errorBody.message) ||
         res.statusText ||
         `HTTP ${res.status}`;
+
       console.error(`[API] Error response: ${res.status} ${msg}`);
       throw new ApiError(String(msg), res.status, body);
     }

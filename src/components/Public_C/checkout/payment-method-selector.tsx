@@ -58,7 +58,7 @@ export default function PaymentMethodSelector({
       
       // Step 2: Create new order from current cart
       console.log('[Payment] Creating order from cart...');
-      addToast('Creating order...', 'info');
+      addToast('Creating order... Large carts may take up to a minute.', 'info');
       const orderResult = await createOrderMutation.mutateAsync();
       
       if (!orderResult.success || !orderResult.order) {
@@ -80,9 +80,13 @@ export default function PaymentMethodSelector({
       
       // Step 3: Initiate payment with the new order
       console.log('[Payment] Initiating payment for order:', orderResult.order._id);
-      addToast('Initializing payment...', 'info');
+      addToast('Initializing payment... Please wait.', 'info');
       
-      const resp = await purchase({ type: 'stripe-gateway', orderId: orderResult.order._id });
+      const resp = await purchase({
+        type: 'stripe-gateway',
+        orderId: orderResult.order._id,
+        skipValidation: true,
+      });
       console.log('[Payment] Payment response:', resp);
       
       const redirect = getRedirectUrl(resp);
@@ -97,7 +101,13 @@ export default function PaymentMethodSelector({
     } catch (err: any) {
       console.error('Payment error:', err);
       const msg = err?.message || 'Payment initialization failed.';
-      addToast(msg, 'error');
+      const friendly =
+        msg.includes('Database temporarily unavailable') ||
+        msg.includes('ETIMEDOUT') ||
+        msg.includes('Internal Server Error')
+          ? 'Could not reach the database. Check your internet connection, wait a few seconds, and try again.'
+          : msg;
+      addToast(friendly, 'error');
     } finally {
       setIsProcessing(false);
     }

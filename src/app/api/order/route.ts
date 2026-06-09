@@ -6,7 +6,8 @@ import { User } from "@/lib/models/User";
 import { Profile } from "@/lib/models/Profile";
 import { Wallet } from "@/lib/models/Wallet";
 import { NextRequest } from "next/server";
-import connectDB from "@/lib/db";
+import connectDB, { withMongoRetry } from "@/lib/db";
+import { isTransientMongoError } from "@/lib/cartPersistence";
 import { ok, created, badRequest, serverError } from "@/lib/response";
 import { requireAuth } from "@/lib/middleware/requireAuth";
 import { ActivityLog } from "@/lib/models/ActivityLog";
@@ -48,53 +49,55 @@ export async function GET() {
 
 // POST /api/order
 export async function POST(request: NextRequest) {
+    const body = await request.json();
+    const user = requireAuth(request);
+
     try {
-        await connectDB();
-        const body = await request.json();
-        const user = requireAuth(request);
+        return await withMongoRetry(async () => {
+            await connectDB();
 
-        let wallet = await Wallet.findOne({ user: user.sub });
-        // Social/legacy users may not have a wallet yet; create one lazily.
-        if (!wallet) {
-            wallet = await Wallet.create({
+            let wallet = await Wallet.findOne({ user: user.sub });
+            if (!wallet) {
+                wallet = await Wallet.create({
+                    user: user.sub,
+                    balance: 0,
+                    transactions: [],
+                });
+            }
+
+            const cart = await loadCartForCheckout(body.carts);
+            await refreshFabricLineSnapshots(cart);
+            await validateCartForOrder(cart);
+
+            const amount = calculateCartTotal(cart);
+            if (amount <= 0) {
+                return badRequest("Order total must be greater than zero");
+            }
+
+            const newOrder = new Order({
                 user: user.sub,
-                balance: 0,
-                transactions: [],
+                walletId: wallet._id,
+                carts: body.carts,
+                amount,
+                address: body.address,
             });
-        }
 
-        const cart = await loadCartForCheckout(body.carts);
-        await refreshFabricLineSnapshots(cart);
-        await validateCartForOrder(cart);
+            await newOrder.save();
 
-        const amount = calculateCartTotal(cart);
-        if (amount <= 0) {
-            return badRequest("Order total must be greater than zero");
-        }
+            await ActivityLog.create({
+                user: user.sub,
+                action: "Placed Order",
+                entityType: "Order",
+                entityId: newOrder._id,
+                description: `User placed order #${newOrder._id} worth $${amount}`,
+                metadata: {
+                    totalAmount: amount,
+                    itemCount: getCartItemCount(cart),
+                },
+            });
 
-        const newOrder = new Order({
-            user: user.sub,
-            walletId: wallet._id,
-            carts: body.carts,
-            amount,
-            address: body.address,
+            return created(newOrder);
         });
-
-        await newOrder.save();
-
-        await ActivityLog.create({
-            user: user.sub,
-            action: "Placed Order",
-            entityType: "Order",
-            entityId: newOrder._id,
-            description: `User placed order #${newOrder._id} worth $${amount}`,
-            metadata: {
-                totalAmount: amount,
-                itemCount: getCartItemCount(cart),
-            },
-        });
-
-        return created(newOrder);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (
@@ -104,6 +107,11 @@ export async function POST(request: NextRequest) {
             message.includes("empty")
         ) {
             return badRequest(message);
+        }
+        if (isTransientMongoError(error)) {
+            return serverError(
+                "Database temporarily unavailable while creating your order. Please wait a moment and try again."
+            );
         }
         return serverError("Failed to create order: " + message);
     }
