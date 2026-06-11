@@ -7,7 +7,8 @@ import {
   deleteOrder, 
   updateOrderStatus,
   type Order,
-  type OrderPlacementResult 
+  type OrderPlacementResult,
+  sortOrdersNewestFirst,
 } from '@/services/order';
 import { useAuthStore } from '@/store/authStore';
 import { cartKeys } from './useCart';
@@ -32,7 +33,7 @@ export function useOrdersQuery(enabled: boolean = true) {
     queryKey: orderKeys.mine(),
     queryFn: async () => {
       const orders = await getMyOrders();
-      return orders ?? [];
+      return sortOrdersNewestFirst(orders ?? []);
     },
     enabled: enabled && isAuthenticated,
     staleTime: 2 * 60 * 1000, // 2 minutes

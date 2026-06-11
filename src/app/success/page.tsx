@@ -1,188 +1,215 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useCartStore } from "@/store/cartStore";
+import { useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCartStore } from "@/store/cartStore";
 import { cartKeys } from "@/hooks/useCart";
+import PaymentResultShell from "@/components/Public_C/payment/PaymentResultShell";
+import PaymentVerifyingAnimation from "@/components/Public_C/payment/PaymentVerifyingAnimation";
+import PaymentConfetti from "@/components/Public_C/payment/PaymentConfetti";
 
-function PaystackSuccessContent() {
+type PaymentPhase = "verifying" | "success" | "failed";
+
+function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const clearCart = useCartStore((s) => s.clearCart);
-  const [message, setMessage] = useState("Verifying payment...");
-  const [success, setSuccess] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [session, setSession] = useState<any>(null);
+  const [phase, setPhase] = useState<PaymentPhase>("verifying");
+  const [message, setMessage] = useState("");
 
   const reference = searchParams.get("reference");
+  const sessionId = searchParams.get("session_id");
 
   useEffect(() => {
-    const query = new URLSearchParams(window.location.search);
-    const sessionId = query.get("session_id");
-
     const verifyPayment = async () => {
       try {
-        // Handle Stripe payment
         if (sessionId) {
-          const res = await fetch(`/api/payment/stripe/confirm?session_id=${sessionId}`);
+          const res = await fetch(
+            `/api/payment/stripe/confirm?session_id=${sessionId}`
+          );
           const data = await res.json();
-          setSession(data);
 
-          if (res.ok && data) {
-            setMessage("Payment successful! Redirecting...");
-            setSuccess(true);
-
-            // Clear local cart and invalidate queries
+          if (res.ok && data.success) {
+            setPhase("success");
+            setMessage(
+              "Thank you for your purchase. A confirmation email with your order details is on its way."
+            );
             clearCart();
             queryClient.invalidateQueries({ queryKey: cartKeys.all });
-
-            // Invalidate other specific queries if needed
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new Event('cart-updated'));
-            }
-
-            // Redirect after 2 seconds
-            setTimeout(() => {
-              window.location.href = "/";
-            }, 2000);
-          } else {
-            setMessage(data.message || "Payment verification failed.");
-            setSuccess(false);
+            window.dispatchEvent(new Event("cart-updated"));
+            return;
           }
+
+          setPhase("failed");
+          setMessage(data.error || data.message || "We couldn't verify your payment.");
+          return;
         }
-        // Handle Paystack payment
-        else if (reference) {
+
+        if (reference) {
           const res = await fetch(
             `/api/payment/paystack/callback?reference=${reference}`
           );
           const data = await res.json();
 
-          if (res.ok && data.status === "success") {
-            setMessage("Payment successful! Redirecting...");
-            setSuccess(true);
-
-            // Clear local cart and invalidate queries
+          if (res.ok && data.success) {
+            setPhase("success");
+            setMessage(
+              "Thank you for your purchase. A confirmation email with your order details is on its way."
+            );
             clearCart();
             queryClient.invalidateQueries({ queryKey: cartKeys.all });
-
-            // Invalidate other specific queries if needed
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new Event('cart-updated'));
-            }
-
-            // Redirect after 2 seconds
-            setTimeout(() => {
-              window.location.href = "/";
-            }, 2000);
-          } else {
-            setMessage(data.message || "Payment verification failed.");
-            setSuccess(false);
+            window.dispatchEvent(new Event("cart-updated"));
+            return;
           }
-        } else {
-          setMessage("No payment reference provided.");
-          setSuccess(false);
+
+          setPhase("failed");
+          setMessage(data.error || data.message || "We couldn't verify your payment.");
+          return;
         }
+
+        setPhase("failed");
+        setMessage("No payment reference was found. Please try checkout again.");
       } catch (err) {
         console.error(err);
-        setMessage("An error occurred while verifying payment.");
-        setSuccess(false);
-      } finally {
-        setIsLoading(false);
+        setPhase("failed");
+        setMessage("Something went wrong while verifying your payment.");
       }
     };
 
     verifyPayment();
-  }, [reference]);
+  }, [sessionId, reference, clearCart, queryClient]);
 
-  // Show loading state
-  if (isLoading) {
+  if (phase === "verifying") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white relative overflow-hidden">
-        {/* Large Gray Logo Watermark in Lower Left Corner - Responsive */}
-        <div className="absolute bottom-0 left-0 w-64 h-64 sm:w-96 sm:h-96 lg:w-[32rem] lg:h-[32rem] opacity-10 pointer-events-none z-0">
-          <img
-            src="/logoNobg.webp"
-            alt="Harewa Logo"
-            className="w-full h-full object-contain"
-          />
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center relative z-10">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#D4AF37] mx-auto mb-6"></div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Verifying Payment</h2>
-          <p className="text-gray-600">Please wait while we confirm your payment...</p>
-        </div>
-      </div>
+      <PaymentResultShell>
+        <PaymentVerifyingAnimation />
+      </PaymentResultShell>
     );
   }
 
-  // Show success or error
+  if (phase === "success") {
+    return (
+      <>
+        <PaymentConfetti active />
+        <PaymentResultShell>
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+          >
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/30">
+              <svg
+                className="h-10 w-10 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={3}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              Payment successful
+            </h1>
+            <p className="mt-3 text-gray-600">{message}</p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/shop" className="flex-1">
+                <button
+                  type="button"
+                  className="w-full cursor-pointer rounded-xl bg-[#D4AF37] px-6 py-3.5 font-semibold text-black shadow-md shadow-[#D4AF37]/25 transition-colors hover:bg-[#B8941F]"
+                >
+                  Continue shopping
+                </button>
+              </Link>
+              <Link href="/home" className="flex-1">
+                <button
+                  type="button"
+                  className="w-full cursor-pointer rounded-xl border border-gray-200 bg-white px-6 py-3.5 font-semibold text-gray-800 transition-colors hover:bg-gray-50"
+                >
+                  Home page
+                </button>
+              </Link>
+            </div>
+          </motion.div>
+        </PaymentResultShell>
+      </>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white p-4">
-      <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
-        {success ? (
-          <>
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
-            <p className="text-green-600 mb-6">{message}</p>
-          </>
-        ) : (
-          <>
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Failed</h1>
-            <p className="text-red-600 mb-6">{message}</p>
-          </>
-        )}
+    <PaymentResultShell>
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 280, damping: 22 }}
+      >
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-50 ring-4 ring-red-100">
+          <svg
+            className="h-10 w-10 text-red-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.5}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </div>
 
+        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+          Payment failed
+        </h1>
+        <p className="mt-3 text-red-600/90">{message}</p>
+        <p className="mt-2 text-sm text-gray-500">
+          No charge was completed, or we could not confirm it. You can try again
+          from checkout.
+        </p>
 
-
-
-        {/* Buttons - Responsive layout */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          {!success && (
-            <Link href="/checkout" className="flex-1">
-              <button className="w-full px-6 py-3 bg-[#D4AF37] text-black font-semibold rounded-lg hover:bg-[#C4A037] transition-colors">
-                Try Again
-              </button>
-            </Link>
-          )}
-          <Link href="/" className="flex-1">
-            <button className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors ${success
-              ? 'bg-[#D4AF37] text-black hover:bg-[#C4A037]'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}>
-              {success ? "Continue Shopping" : "Return Home"}
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <Link href="/checkout" className="flex-1">
+            <button
+              type="button"
+              className="w-full cursor-pointer rounded-xl bg-[#D4AF37] px-6 py-3.5 font-semibold text-black shadow-md shadow-[#D4AF37]/25 transition-colors hover:bg-[#B8941F]"
+            >
+              Try again
+            </button>
+          </Link>
+          <Link href="/home" className="flex-1">
+            <button
+              type="button"
+              className="w-full cursor-pointer rounded-xl border border-gray-200 bg-white px-6 py-3.5 font-semibold text-gray-800 transition-colors hover:bg-gray-50"
+            >
+              Home page
             </button>
           </Link>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </PaymentResultShell>
   );
 }
 
-const PaystackSuccess = () => {
+export default function PaymentSuccessPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    }>
-      <PaystackSuccessContent />
+    <Suspense
+      fallback={
+        <PaymentResultShell>
+          <PaymentVerifyingAnimation />
+        </PaymentResultShell>
+      }
+    >
+      <PaymentSuccessContent />
     </Suspense>
   );
-};
-
-export default PaystackSuccess;
+}

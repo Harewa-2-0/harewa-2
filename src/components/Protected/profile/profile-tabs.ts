@@ -10,7 +10,10 @@ export const menuItems = [
 ];
 
 export const orderTabs = [
-  { id: 'active', label: 'Active', count: 40 },
-  { id: 'completed', label: 'Completed', count: 0 },
-  { id: 'cancelled', label: 'Cancelled', count: 0 }
-];
+  { id: 'all', label: 'All' },
+  { id: 'pending', label: 'Pending payment' },
+  { id: 'paid', label: 'Paid' },
+  { id: 'shipped', label: 'Shipped' },
+  { id: 'delivered', label: 'Delivered' },
+  { id: 'cancelled', label: 'Cancelled' },
+] as const;

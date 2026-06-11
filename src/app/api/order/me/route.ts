@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     try {
         const user = requireAuth(request);
         const orders = await Order.find({ user: user.sub })
+            .sort({ createdAt: -1 })
             .populate(getOrderCartPopulateConfig())
             .populate({
                 path: "user",
