@@ -1,22 +1,25 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
+import { motion } from 'framer-motion';
 import { useOrderStore } from '@/store/orderStore';
 import { useCartStore } from '@/store/cartStore';
 import { useToast } from '@/contexts/toast-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { orderKeys } from '@/hooks/useOrders';
 import { cartKeys, useCreateEmptyCartMutation } from '@/hooks/useCart';
+import PaymentResultShell from '@/components/Public_C/payment/PaymentResultShell';
+import PaymentVerifyingAnimation from '@/components/Public_C/payment/PaymentVerifyingAnimation';
+import PaymentConfetti from '@/components/Public_C/payment/PaymentConfetti';
 
 function PaymentSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const [orderReference, setOrderReference] = useState<string>('');
-  const [isVerifying, setIsVerifying] = useState(true);
-  const [verificationStatus, setVerificationStatus] = useState<'verifying' | 'success' | 'failed'>('verifying');
+  const [orderReference, setOrderReference] = useState('');
+  const [phase, setPhase] = useState<'verifying' | 'success' | 'failed'>('verifying');
   const { clearCurrentOrder } = useOrderStore();
   const { clearCart } = useCartStore();
   const { addToast } = useToast();
@@ -24,15 +27,12 @@ function PaymentSuccessContent() {
 
   useEffect(() => {
     const verifyPayment = async () => {
-      // Get session_id from URL params (Stripe sends this)
       const sessionId = searchParams.get('session_id');
       const reference = searchParams.get('reference');
-      
+
       if (!sessionId && !reference) {
-        setVerificationStatus('failed');
-        setIsVerifying(false);
+        setPhase('failed');
         addToast('No payment reference found', 'error');
-        setTimeout(() => router.push('/checkout'), 3000);
         return;
       }
 
@@ -40,186 +40,145 @@ function PaymentSuccessContent() {
       setOrderReference(paymentRef);
 
       try {
-        // Call backend to verify Stripe payment
-        console.log('Verifying Stripe payment with session_id:', sessionId);
-        const response = await fetch(`/api/payment/stripe/confirm?session_id=${sessionId}`, {
-          method: 'GET',
-          credentials: 'include',
-        });
-
+        const response = await fetch(
+          `/api/payment/stripe/confirm?session_id=${sessionId}`,
+          { method: 'GET', credentials: 'include' }
+        );
         const data = await response.json();
-        console.log('Verification response:', data);
 
         if (response.ok && data.success) {
-          setVerificationStatus('success');
-          
-          // Clear current order from frontend state
+          setPhase('success');
           clearCurrentOrder();
-          
-          // Create a new empty cart (old cart preserved for order)
-          console.log('[PaymentSuccess] Creating new empty cart for future purchases...');
+
           try {
-            const newCart = await createEmptyCartMutation.mutateAsync();
-            console.log('[PaymentSuccess] New cart created:', newCart?._id || newCart?.id);
+            await createEmptyCartMutation.mutateAsync();
           } catch (error) {
             console.error('[PaymentSuccess] Failed to create new cart:', error);
-            // Continue anyway - not critical, user can still add items later
           }
-          
-          // Clear Zustand state to reset UI
+
           clearCart();
-          
-          // Refresh orders using React Query
           await queryClient.invalidateQueries({ queryKey: orderKeys.mine() });
-          
           addToast('Payment verified successfully!', 'success');
         } else {
-          setVerificationStatus('failed');
+          setPhase('failed');
           addToast(data.message || 'Payment verification failed', 'error');
-          
-          // Redirect to failure page after 3 seconds
-          setTimeout(() => router.push(`/payment/failure?reference=${paymentRef}`), 3000);
         }
       } catch (error) {
         console.error('Payment verification error:', error);
-        setVerificationStatus('failed');
+        setPhase('failed');
         addToast('Failed to verify payment', 'error');
-        
-        // Redirect to failure page after 3 seconds
-        setTimeout(() => router.push(`/payment/failure?reference=${paymentRef}`), 3000);
-      } finally {
-        setIsVerifying(false);
       }
     };
 
     verifyPayment();
-  }, [searchParams, clearCurrentOrder, clearCart, queryClient, addToast, router]);
+  }, [
+    searchParams,
+    clearCurrentOrder,
+    clearCart,
+    queryClient,
+    addToast,
+    createEmptyCartMutation,
+  ]);
+
+  if (phase === 'verifying') {
+    return (
+      <PaymentResultShell>
+        <PaymentVerifyingAnimation />
+      </PaymentResultShell>
+    );
+  }
+
+  if (phase === 'success') {
+    return (
+      <>
+        <PaymentConfetti active />
+        <PaymentResultShell>
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+          >
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/30">
+              <svg className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Payment successful</h1>
+            {orderReference && (
+              <p className="mt-2 text-sm text-gray-500">
+                Reference #{orderReference.slice(0, 20)}
+                {orderReference.length > 20 ? '…' : ''}
+              </p>
+            )}
+            <p className="mt-4 text-gray-600">
+              Thank you for your purchase. Your order is confirmed and a receipt email is on its way.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => router.push('/shop')}
+                className="flex-1 cursor-pointer rounded-xl bg-[#D4AF37] px-6 py-3.5 font-semibold text-black shadow-md shadow-[#D4AF37]/25 transition-colors hover:bg-[#B8941F]"
+              >
+                Continue shopping
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/home')}
+                className="flex-1 cursor-pointer rounded-xl border border-gray-200 bg-white px-6 py-3.5 font-semibold text-gray-800 transition-colors hover:bg-gray-50"
+              >
+                Home page
+              </button>
+            </div>
+          </motion.div>
+        </PaymentResultShell>
+      </>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#FFF9E5] flex flex-col">
-      {/* Header */}
-      <header className="bg-black py-4 px-6">
-        <div className="max-w-7xl mx-auto flex justify-center">
-          <Image 
-            src="/logo.png" 
-            alt="HAREWA" 
-            width={150} 
-            height={50}
-            className="object-contain"
-          />
+    <PaymentResultShell>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-50 ring-4 ring-red-100">
+          <svg className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-8 md:p-12 text-center">
-          {/* Verifying State */}
-          {isVerifying && (
-            <>
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#D4AF37] mx-auto mb-6"></div>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                Verifying Payment
-              </h2>
-              <p className="text-gray-600">
-                Please wait while we confirm your payment with Stripe...
-              </p>
-            </>
-          )}
-
-          {/* Success State */}
-          {!isVerifying && verificationStatus === 'success' && (
-            <>
-              {/* Success Icon */}
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg 
-                  className="w-10 h-10 text-green-600" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={3} 
-                    d="M5 13l4 4L19 7" 
-                  />
-                </svg>
-              </div>
-
-              {/* Success Message */}
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-                Payment Successful
-              </h1>
-
-              {/* Order Reference */}
-              {orderReference && (
-                <p className="text-gray-600 text-lg mb-8">
-                  Transaction <span className="font-semibold">#{orderReference.substring(0, 20)}...</span> verified
-                </p>
-              )}
-
-              {/* Thank You Message */}
-              <p className="text-gray-700 mb-8 max-w-md mx-auto">
-                Thank you for your purchase! Your order has been confirmed and will be processed shortly.
-                A confirmation email with your order details has been sent to you.
-              </p>
-
-              {/* Action Button */}
-              <button
-                onClick={() => router.push('/shop')}
-                className="w-full md:w-auto px-8 py-4 bg-[#D4AF37] text-black font-semibold rounded-lg hover:bg-[#B8941F] transition-colors shadow-md hover:shadow-lg"
-              >
-                CONTINUE SHOPPING
-              </button>
-
-              {/* Additional Actions */}
-              <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-center">
-                <button
-                  onClick={() => router.push('/')}
-                  className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
-                >
-                  Go to Homepage
-                </button>
-                <span className="hidden sm:inline text-gray-400">•</span>
-                <button
-                  onClick={() => router.push('/profile')}
-                  className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
-                >
-                  View Profile
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* Failed State */}
-          {!isVerifying && verificationStatus === 'failed' && (
-            <>
-              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-3">
-                Verification Failed
-              </h1>
-              <p className="text-gray-700 mb-8">
-                We couldn't verify your payment. Redirecting to failure page...
-              </p>
-            </>
-          )}
+        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Verification failed</h1>
+        <p className="mt-3 text-gray-600">
+          We couldn&apos;t verify your payment. You can try checkout again or return home.
+        </p>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <Link href="/checkout" className="flex-1">
+            <button
+              type="button"
+              className="w-full cursor-pointer rounded-xl bg-[#D4AF37] px-6 py-3.5 font-semibold text-black shadow-md shadow-[#D4AF37]/25 transition-colors hover:bg-[#B8941F]"
+            >
+              Try again
+            </button>
+          </Link>
+          <Link href="/home" className="flex-1">
+            <button
+              type="button"
+              className="w-full cursor-pointer rounded-xl border border-gray-200 bg-white px-6 py-3.5 font-semibold text-gray-800 transition-colors hover:bg-gray-50"
+            >
+              Home page
+            </button>
+          </Link>
         </div>
-      </main>
-    </div>
+      </motion.div>
+    </PaymentResultShell>
   );
 }
 
 export default function PaymentSuccess() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#FFF9E5] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#D4AF37]"></div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <PaymentResultShell>
+          <PaymentVerifyingAnimation />
+        </PaymentResultShell>
+      }
+    >
       <PaymentSuccessContent />
     </Suspense>
   );
