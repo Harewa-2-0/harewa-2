@@ -1,30 +1,33 @@
 'use client';
+
 import { orderTabs } from '../profile-tabs';
+import type { ProfileOrderTabId } from '@/services/order';
 
 type OrderTabsProps = {
   activeOrderTab: string | number;
   onOrderTabChange: (tabId: string | number) => void;
-  orderCounts?: {
-    active: number;
-    completed: number;
-    cancelled: number;
-  };
+  orderCounts?: Partial<Record<ProfileOrderTabId, number>>;
 };
 
-export const OrderTabs = ({ activeOrderTab, onOrderTabChange, orderCounts }: OrderTabsProps) => {
-  const tabsWithCounts = orderTabs.map(tab => ({
+export const OrderTabs = ({
+  activeOrderTab,
+  onOrderTabChange,
+  orderCounts,
+}: OrderTabsProps) => {
+  const tabsWithCounts = orderTabs.map((tab) => ({
     ...tab,
-    count: orderCounts?.[tab.id as keyof typeof orderCounts] || 0
+    count: orderCounts?.[tab.id] ?? 0,
   }));
 
   return (
     <div className="border-b overflow-x-auto">
-      <div className="flex justify-start md:justify-start min-w-max md:min-w-0">
+      <div className="flex justify-start min-w-max md:min-w-0">
         {tabsWithCounts.map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => onOrderTabChange(tab.id)}
-            className={`px-4 md:px-6 py-3 font-medium text-xs md:text-sm relative whitespace-nowrap ${
+            className={`cursor-pointer px-4 md:px-6 py-3 font-medium text-xs md:text-sm relative whitespace-nowrap transition-colors ${
               activeOrderTab === tab.id
                 ? 'text-black border-b-2 border-black bg-gray-100'
                 : 'text-gray-500 hover:text-gray-700'

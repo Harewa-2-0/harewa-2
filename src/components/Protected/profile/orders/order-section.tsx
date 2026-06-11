@@ -4,27 +4,48 @@ import { useState, useMemo } from 'react';
 import { OrderCard } from '@/components/Protected/profile/orders/order-card';
 import { OrderTabs } from '@/components/Protected/profile/orders/order-tab';
 import EmptyState from '@/components/common/empty-state';
-import { mapOrderStatusToCategory, type Order } from '@/services/order';
+import {
+  getProfileOrderTabLabel,
+  orderMatchesProfileTab,
+  sortOrdersNewestFirst,
+  type ProfileOrderTabId,
+} from '@/services/order';
 import { useOrdersQuery } from '@/hooks/useOrders';
+import { orderTabs } from '@/components/Protected/profile/profile-tabs';
 
 export default function OrdersSection() {
-  const [activeOrderTab, setActiveOrderTab] = useState('active');
-  
-  // React Query hook for orders (auto-fetches, caches, and manages state)
+  const [activeOrderTab, setActiveOrderTab] = useState<ProfileOrderTabId>('all');
+
   const { data: allOrders = [], isLoading, error } = useOrdersQuery();
 
-  // Filter orders by category
-  const filteredOrders = allOrders.filter((order) => {
-    const category = mapOrderStatusToCategory(order.status);
-    return category === activeOrderTab;
-  });
+  const sortedOrders = useMemo(
+    () => sortOrdersNewestFirst(allOrders),
+    [allOrders]
+  );
 
-  // Calculate order counts for tabs
-  const orderCounts = {
-    active: allOrders.filter(order => mapOrderStatusToCategory(order.status) === 'active').length,
-    completed: allOrders.filter(order => mapOrderStatusToCategory(order.status) === 'completed').length,
-    cancelled: allOrders.filter(order => mapOrderStatusToCategory(order.status) === 'cancelled').length,
-  };
+  const filteredOrders = useMemo(
+    () =>
+      sortedOrders.filter((order) =>
+        orderMatchesProfileTab(order, activeOrderTab)
+      ),
+    [sortedOrders, activeOrderTab]
+  );
+
+  const orderCounts = useMemo(() => {
+    const counts = Object.fromEntries(
+      orderTabs.map((tab) => [tab.id, 0])
+    ) as Record<ProfileOrderTabId, number>;
+
+    for (const order of sortedOrders) {
+      for (const tab of orderTabs) {
+        if (orderMatchesProfileTab(order, tab.id)) {
+          counts[tab.id] += 1;
+        }
+      }
+    }
+
+    return counts;
+  }, [sortedOrders]);
 
   if (isLoading) {
     return (
@@ -48,28 +69,33 @@ export default function OrdersSection() {
         <div className="p-4 md:p-6">
           <EmptyState
             title="Error loading orders"
-            description={error?.message || String(error) || 'Failed to load orders. Please try again.'}
+            description={
+              error?.message ||
+              String(error) ||
+              'Failed to load orders. Please try again.'
+            }
           />
         </div>
       </div>
     );
   }
 
+  const tabLabel = getProfileOrderTabLabel(activeOrderTab);
+
   return (
     <div className="bg-white md:m-6 md:rounded-lg md:border">
-      {/* Orders Header */}
       <div className="p-4 md:p-6 border-b">
         <h2 className="text-lg font-semibold text-black">My orders</h2>
       </div>
 
-      {/* Tabs */}
       <OrderTabs
         activeOrderTab={activeOrderTab}
-        onOrderTabChange={(tabId) => setActiveOrderTab(String(tabId))}
+        onOrderTabChange={(tabId) =>
+          setActiveOrderTab(tabId as ProfileOrderTabId)
+        }
         orderCounts={orderCounts}
       />
 
-      {/* Order List or Empty State */}
       <div className="p-4 md:p-6 space-y-4">
         {filteredOrders.length > 0 ? (
           filteredOrders.map((order) => (
@@ -77,8 +103,8 @@ export default function OrdersSection() {
           ))
         ) : (
           <EmptyState
-            title={`No ${activeOrderTab} orders`}
-            description={`You don't have any ${activeOrderTab} orders at the moment.`}
+            title={`No ${tabLabel} orders`}
+            description={`You don't have any ${tabLabel} orders at the moment.`}
           />
         )}
       </div>

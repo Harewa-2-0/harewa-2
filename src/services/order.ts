@@ -403,6 +403,54 @@ export function mapOrderStatusToCategory(status: Order['status']): 'active' | 'c
   }
 }
 
+export type ProfileOrderTabId =
+  | 'all'
+  | 'pending'
+  | 'paid'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled';
+
+export function orderMatchesProfileTab(
+  order: Order,
+  tab: ProfileOrderTabId
+): boolean {
+  if (tab === 'all') return true;
+  if (tab === 'pending') {
+    return order.status === 'pending' || order.status === 'initiated';
+  }
+  if (tab === 'shipped') {
+    return order.status === 'shipped' || order.status === 'shipping';
+  }
+  return order.status === tab;
+}
+
+export function sortOrdersNewestFirst(orders: Order[]): Order[] {
+  return [...orders].sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+export function getProfileOrderTabLabel(tab: ProfileOrderTabId): string {
+  switch (tab) {
+    case 'all':
+      return 'orders';
+    case 'pending':
+      return 'pending payment';
+    case 'paid':
+      return 'paid';
+    case 'shipped':
+      return 'shipped';
+    case 'delivered':
+      return 'delivered';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return tab;
+  }
+}
+
 /**
  * Gets order status display information
  */
@@ -415,8 +463,9 @@ export function getOrderStatusInfo(status: Order['status']) {
     case 'paid':
       return { label: 'Paid', color: 'bg-green-100 text-green-800' };
     case 'shipping':
+      return { label: 'In transit', color: 'bg-blue-100 text-blue-800' };
     case 'shipped':
-      return { label: 'Shipping', color: 'bg-blue-100 text-blue-800' };
+      return { label: 'Shipped', color: 'bg-indigo-100 text-indigo-800' };
     case 'delivered':
       return { label: 'Delivered', color: 'bg-green-100 text-green-800' };
     case 'cancelled':
