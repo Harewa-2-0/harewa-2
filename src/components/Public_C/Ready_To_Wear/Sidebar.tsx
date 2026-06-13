@@ -32,7 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <input
           type="range"
           min="0"
-          max="500000"
+          max="100"
           value={filters.priceRange[1]}
           onChange={e => handleFilterChange('priceRange', [0, parseInt(e.target.value)])}
           className="w-full h-2 bg-gray-200 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
