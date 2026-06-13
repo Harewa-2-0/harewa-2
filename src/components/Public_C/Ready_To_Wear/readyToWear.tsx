@@ -27,7 +27,7 @@ const ReadyToWearPage: React.FC = () => {
   const [filters, setFilters] = useState<FilterState>({
     category: "All",
     size: "",
-    priceRange: [0, 500000],
+    priceRange: [0, 100],
   });
   const [sortBy, setSortBy] = useState<"feature" | "price-low" | "price-high" | "newest">("feature");
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
