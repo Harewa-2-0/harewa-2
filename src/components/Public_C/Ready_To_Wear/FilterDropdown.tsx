@@ -23,7 +23,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({ label, value, options, 
   }, []);
 
   return (
-    <div className="mb-6 relative" ref={ref}>
+    <div className={`mb-6 relative ${open ? "z-40" : "z-0"}`} ref={ref}>
       <button
         type="button"
         className="flex items-center justify-between w-full text-base font-semibold text-black mb-2 focus:outline-none"
@@ -33,7 +33,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({ label, value, options, 
         <ChevronDown className={`w-5 h-5 ml-2 transition-transform ${open ? 'rotate-180' : ''} text-black`} />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 mt-1 bg-white shadow-lg rounded-lg z-20 overflow-hidden border border-gray-100">
+        <div className="absolute left-0 right-0 mt-1 bg-white shadow-lg rounded-lg z-50 overflow-hidden border border-gray-100">
           {options.length === 0 && (
             <div className="px-4 py-2 text-gray-400">No options</div>
           )}

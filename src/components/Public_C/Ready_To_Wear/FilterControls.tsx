@@ -8,7 +8,10 @@ interface FilterControlsProps {
   onSortChange: (sort: "feature" | "price-low" | "price-high" | "newest") => void;
   onMobileFilterToggle: () => void;
   isMobileFilterOpen: boolean;
+  categories?: string[];
 }
+
+const SHOP_CATEGORIES = ["All", "Men", "Women", "Kids", "Fabrics"];
 
 const CustomDropdown = ({
   label,
@@ -35,7 +38,7 @@ const CustomDropdown = ({
   }, []);
 
   return (
-    <div className="relative min-w-[140px]" ref={ref}>
+    <div className={`relative min-w-[140px] ${open ? "z-50" : "z-0"}`} ref={ref}>
       <button
         type="button"
         className="flex items-center justify-between w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-base font-medium text-black focus:outline-none focus:ring-2 focus:ring-[#D4AF37] hover:border-[#D4AF37] transition-colors cursor-pointer"
@@ -50,7 +53,7 @@ const CustomDropdown = ({
       </button>
       {open && (
         <div
-          className="absolute left-0 right-0 mt-1 bg-white shadow-lg rounded-lg z-20 overflow-hidden border border-gray-100"
+          className="absolute left-0 right-0 mt-1 bg-white shadow-lg rounded-lg z-50 overflow-hidden border border-gray-100"
           role="listbox"
         >
           {options.map((option) => (
@@ -82,8 +85,8 @@ const FilterControls: React.FC<FilterControlsProps> = ({
   onSortChange,
   onMobileFilterToggle,
   isMobileFilterOpen,
+  categories = SHOP_CATEGORIES,
 }) => {
-  const categories = ["All", "Men", "Women", "Kids", "Fabrics"];
 
   const getSortDisplayValue = () => {
     switch (sortBy) {
@@ -134,7 +137,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
   };
 
   return (
-    <div className="py-4">
+    <div className="py-4 relative z-30">
       {/* Mobile Layout */}
       <div className="lg:hidden space-y-4">
         <button

@@ -10,6 +10,8 @@ import { useShopProducts } from "@/hooks/useProducts";
 import { DEFAULT_PRICE_RANGE, mapShopSortToApi } from "../Ready_To_Wear/priceFilter";
 import ActiveFilterChips from "../Ready_To_Wear/ActiveFilterChips";
 
+const CUSTOMIZE_CATEGORIES = ["All", "Men", "Women", "Kids"];
+
 interface FilterState {
     category: string;
     size: string;
@@ -133,7 +135,7 @@ const CustomizeSelectionPage: React.FC = () => {
         <div className="min-h-screen bg-white pt-20 md:pt-24">
             <CustomizeHeaderSection category={filters.category} />
 
-            <div className="bg-white border-b border-gray-200">
+            <div className="bg-white border-b border-gray-200 relative z-30">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <FilterControls
                         category={filters.category}
@@ -142,6 +144,7 @@ const CustomizeSelectionPage: React.FC = () => {
                         onSortChange={handleSortChange}
                         onMobileFilterToggle={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
                         isMobileFilterOpen={isMobileFilterOpen}
+                        categories={CUSTOMIZE_CATEGORIES}
                     />
                 </div>
             </div>
@@ -166,7 +169,7 @@ const CustomizeSelectionPage: React.FC = () => {
                         />
                     </div>
 
-                    <div className="flex-1">
+                    <div className="flex-1 relative z-10">
                         <ActiveFilterChips
                             priceRange={filters.priceRange}
                             size={filters.size}
