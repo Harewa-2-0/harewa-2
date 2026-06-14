@@ -13,6 +13,12 @@ import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/contexts/toast-context";
 import { isFabricSellable } from "@/utils/fabricDisplay";
 import FabricShopCard from "./FabricShopCard";
+import {
+  DEFAULT_PRICE_RANGE,
+  isFabricInPriceRange,
+  mapShopSortToApi,
+} from "./priceFilter";
+import ActiveFilterChips from "./ActiveFilterChips";
 //import Image from "next/image";
 
 interface FilterState {
@@ -27,7 +33,7 @@ const ReadyToWearPage: React.FC = () => {
   const [filters, setFilters] = useState<FilterState>({
     category: "All",
     size: "",
-    priceRange: [0, 100],
+    priceRange: DEFAULT_PRICE_RANGE,
   });
   const [sortBy, setSortBy] = useState<"feature" | "price-low" | "price-high" | "newest">("feature");
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
@@ -50,7 +56,7 @@ const ReadyToWearPage: React.FC = () => {
   const { data: productsResponse, isLoading: loading, error: queryError } = useShopProducts({
     page: currentPage,
     limit: 20,
-    sort: sortBy === 'feature' ? undefined : sortBy, // 'feature' is default/no sort
+    sort: mapShopSortToApi(sortBy),
     gender: genderFilter,
     minPrice: filters.priceRange[0],
     maxPrice: filters.priceRange[1],
@@ -104,6 +110,18 @@ const ReadyToWearPage: React.FC = () => {
     }));
   };
 
+  const handleApplyFilters = (next: FilterState) => {
+    setFilters(next);
+  };
+
+  const handleClearPrice = () => {
+    handleFilterChange("priceRange", DEFAULT_PRICE_RANGE);
+  };
+
+  const handleClearSize = () => {
+    handleFilterChange("size", "");
+  };
+
   const handleCategoryChange = (category: string) => {
     handleFilterChange("category", category);
   };
@@ -152,6 +170,13 @@ const ReadyToWearPage: React.FC = () => {
     () => allFabrics.filter((fabric) => isFabricSellable(fabric)),
     [allFabrics]
   );
+  const filteredFabrics = useMemo(
+    () =>
+      sellableFabrics.filter((fabric) =>
+        isFabricInPriceRange(fabric.bundlePrice, filters.priceRange)
+      ),
+    [sellableFabrics, filters.priceRange[0], filters.priceRange[1]]
+  );
 
   // Handle page change - reset to page 1 when filters change
   const handlePageChange = (page: number) => {
@@ -192,9 +217,9 @@ const ReadyToWearPage: React.FC = () => {
             isOpen={isMobileFilterOpen}
             onClose={() => setIsMobileFilterOpen(false)}
             filters={filters}
-            onFilterChange={handleFilterChange}
+            onApply={handleApplyFilters}
             sizes={sizes}
-            totalItems={paginationData.total}
+            totalItems={isFabricCategory ? filteredFabrics.length : paginationData.total}
           />
 
           {/* Desktop Sidebar */}
@@ -203,12 +228,18 @@ const ReadyToWearPage: React.FC = () => {
               filters={filters}
               handleFilterChange={handleFilterChange}
               sizes={sizes}
-              totalItems={isFabricCategory ? sellableFabrics.length : paginationData.total}
+              totalItems={isFabricCategory ? filteredFabrics.length : paginationData.total}
             />
           </div>
 
           {/* Product Grid */}
           <div className="flex-1">
+            <ActiveFilterChips
+              priceRange={filters.priceRange}
+              size={filters.size}
+              onClearPrice={handleClearPrice}
+              onClearSize={handleClearSize}
+            />
             {isFabricCategory ? (
               <>
                 {loadingFabrics ? (
@@ -222,9 +253,16 @@ const ReadyToWearPage: React.FC = () => {
                       Ask admin to enable sellable fabrics with bundle price and stock.
                     </p>
                   </div>
+                ) : filteredFabrics.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No fabrics in this price range</h3>
+                    <p className="text-gray-500">
+                      Try widening your price range or reset the filter.
+                    </p>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {sellableFabrics.map((fabric) => (
+                    {filteredFabrics.map((fabric) => (
                       <FabricShopCard key={fabric._id} fabric={fabric} />
                     ))}
                   </div>
