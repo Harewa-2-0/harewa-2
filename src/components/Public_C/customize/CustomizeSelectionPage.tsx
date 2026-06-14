@@ -7,6 +7,8 @@ import FilterControls from "../Ready_To_Wear/FilterControls";
 import CustomizeProductGrid from "./CustomizeProductGrid";
 import MobileFilterOverlay from "../Ready_To_Wear/MobileFilterOverlay";
 import { useShopProducts } from "@/hooks/useProducts";
+import { DEFAULT_PRICE_RANGE, mapShopSortToApi } from "../Ready_To_Wear/priceFilter";
+import ActiveFilterChips from "../Ready_To_Wear/ActiveFilterChips";
 
 interface FilterState {
     category: string;
@@ -20,16 +22,29 @@ const CustomizeSelectionPage: React.FC = () => {
     const [filters, setFilters] = useState<FilterState>({
         category: "All",
         size: "",
-        priceRange: [0, 500000],
+        priceRange: DEFAULT_PRICE_RANGE,
     });
     const [sortBy, setSortBy] = useState<"feature" | "price-low" | "price-high" | "newest">("feature");
     const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
 
-    // Fetch products using React Query with server-side pagination
+    const genderFilter = useMemo(() => {
+        if (filters.category === "All") return undefined;
+        const map: Record<string, string> = {
+            Men: "male",
+            Women: "female",
+            Kids: "kids",
+        };
+        return map[filters.category];
+    }, [filters.category]);
+
     const { data: productsResponse, isLoading: loading, error: queryError } = useShopProducts({
         page: currentPage,
-        limit: 20
+        limit: 20,
+        sort: mapShopSortToApi(sortBy),
+        gender: genderFilter,
+        minPrice: filters.priceRange[0],
+        maxPrice: filters.priceRange[1],
     });
 
     // Extract products and pagination data from response
@@ -74,6 +89,18 @@ const CustomizeSelectionPage: React.FC = () => {
         }));
     };
 
+    const handleApplyFilters = (next: FilterState) => {
+        setFilters(next);
+    };
+
+    const handleClearPrice = () => {
+        handleFilterChange("priceRange", DEFAULT_PRICE_RANGE);
+    };
+
+    const handleClearSize = () => {
+        handleFilterChange("size", "");
+    };
+
     const handleCategoryChange = (category: string) => {
         handleFilterChange("category", category);
     };
@@ -84,40 +111,14 @@ const CustomizeSelectionPage: React.FC = () => {
 
     const filteredProducts = useMemo(() => {
         return products.filter((product) => {
-            if (filters.category !== "All") {
-                const categoryGenderMap: { [key: string]: string } = {
-                    Men: "male",
-                    Women: "female",
-                    Kids: "kids",
-                };
-                const expectedGender = categoryGenderMap[filters.category];
-                if (
-                    expectedGender &&
-                    product.gender?.toLowerCase() !== expectedGender.toLowerCase()
-                ) {
-                    return false;
-                }
-            }
-            if (product.price < filters.priceRange[0] || product.price > filters.priceRange[1]) {
-                return false;
-            }
             if (filters.size && product.sizes && !product.sizes.includes(filters.size)) {
                 return false;
             }
             return true;
         });
-    }, [products, filters]);
+    }, [products, filters.size]);
 
-    const sortedProducts = useMemo(() => {
-        const arr = [...filteredProducts];
-        if (sortBy === "price-low") return arr.sort((a, b) => a.price - b.price);
-        if (sortBy === "price-high") return arr.sort((a, b) => b.price - a.price);
-        if (sortBy === "newest") {
-            const dateOf = (p: any) => (p?.createdAt ? new Date(p.createdAt).getTime() : 0);
-            return arr.sort((a: any, b: any) => dateOf(b) - dateOf(a));
-        }
-        return arr; // "feature" (default)
-    }, [filteredProducts, sortBy]);
+    const sortedProducts = filteredProducts;
 
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
@@ -151,7 +152,7 @@ const CustomizeSelectionPage: React.FC = () => {
                         isOpen={isMobileFilterOpen}
                         onClose={() => setIsMobileFilterOpen(false)}
                         filters={filters}
-                        onFilterChange={handleFilterChange}
+                        onApply={handleApplyFilters}
                         sizes={sizes}
                         totalItems={paginationData.total}
                     />
@@ -166,6 +167,12 @@ const CustomizeSelectionPage: React.FC = () => {
                     </div>
 
                     <div className="flex-1">
+                        <ActiveFilterChips
+                            priceRange={filters.priceRange}
+                            size={filters.size}
+                            onClearPrice={handleClearPrice}
+                            onClearSize={handleClearSize}
+                        />
                         <CustomizeProductGrid
                             products={sortedProducts}
                             loading={loading}
