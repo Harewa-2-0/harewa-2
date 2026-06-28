@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useCartStore } from '@/store/cartStore';
 import { useRouter } from 'next/navigation';
@@ -13,9 +13,10 @@ import {
 import { formatPrice } from '@/utils/currency';
 
 export default function CheckoutSection() {
-  const [promoCode, setPromoCode] = useState('');
-  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
-  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  // Phase two: promo code feature
+  // const [promoCode, setPromoCode] = useState('');
+  // const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+  // const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
   const { addToast } = useToast();
   const router = useRouter();
 
@@ -32,30 +33,31 @@ export default function CheckoutSection() {
     return { itemCount, subtotal, shipping, total, hasFabric, lineCount: uniqueItems.length };
   }, [items]);
 
-  const handleApplyPromo = async () => {
-    if (!promoCode.trim()) {
-      addToast('Please enter a promo code', 'error');
-      return;
-    }
-
-    setIsApplyingPromo(true);
-
-    setTimeout(() => {
-      if (promoCode.toLowerCase() === 'welcome10') {
-        setAppliedPromo(promoCode);
-        addToast('Promo code applied successfully! 10% off', 'success');
-        setPromoCode('');
-      } else {
-        addToast('Invalid promo code. Please try again.', 'error');
-      }
-      setIsApplyingPromo(false);
-    }, 1000);
-  };
-
-  const handleRemovePromo = () => {
-    setAppliedPromo(null);
-    addToast('Promo code removed', 'info');
-  };
+  // Phase two: promo code feature
+  // const handleApplyPromo = async () => {
+  //   if (!promoCode.trim()) {
+  //     addToast('Please enter a promo code', 'error');
+  //     return;
+  //   }
+  //
+  //   setIsApplyingPromo(true);
+  //
+  //   setTimeout(() => {
+  //     if (promoCode.toLowerCase() === 'welcome10') {
+  //       setAppliedPromo(promoCode);
+  //       addToast('Promo code applied successfully! 10% off', 'success');
+  //       setPromoCode('');
+  //     } else {
+  //       addToast('Invalid promo code. Please try again.', 'error');
+  //     }
+  //     setIsApplyingPromo(false);
+  //   }, 1000);
+  // };
+  //
+  // const handleRemovePromo = () => {
+  //   setAppliedPromo(null);
+  //   addToast('Promo code removed', 'info');
+  // };
 
   const handleCheckout = () => {
     if (orderSummary.itemCount === 0) {
@@ -68,7 +70,8 @@ export default function CheckoutSection() {
 
   return (
     <div className="space-y-4">
-      <motion.div
+      {/* Phase two: promo code feature */}
+      {/* <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
@@ -118,7 +121,7 @@ export default function CheckoutSection() {
         <p className="text-xs text-gray-500 mt-2">
           Try <strong>WELCOME10</strong> for 10% off your first order
         </p>
-      </motion.div>
+      </motion.div> */}
 
       <motion.div
         initial={{ opacity: 0, y: 8 }}
