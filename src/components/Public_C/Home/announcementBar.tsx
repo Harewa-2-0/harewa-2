@@ -96,7 +96,10 @@ export default function AnnouncementBar() {
     };
   }, [shouldShowAnnouncement]);
 
-  return (
+  // Phase two: promo announcement bar
+  return null;
+
+  /* return (
     <AnimatePresence initial={false}>
       {shouldShowAnnouncement && (
         <motion.div
@@ -126,5 +129,5 @@ export default function AnnouncementBar() {
         </motion.div>
       )}
     </AnimatePresence>
-  );
+  ); */
 }

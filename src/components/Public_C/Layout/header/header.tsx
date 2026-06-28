@@ -8,7 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
-import AnnouncementBar from '../../Home/announcementBar';
+// Phase two: re-enable promo announcement bar
+// import AnnouncementBar from '../../Home/announcementBar';
 import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import CartButton from '../../cart/cart-button';
@@ -90,7 +91,8 @@ export default function Header() {
 
   return (
     <>
-      {!hideAnnouncement && <AnnouncementBar />}
+      {/* Phase two: promo announcement bar */}
+      {/* {!hideAnnouncement && <AnnouncementBar />} */}
 
       <header
         ref={headerRef}
